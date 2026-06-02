@@ -2,7 +2,7 @@
 slug: enforce-max-line-length
 branch: move-tasks
 owner: claude
-status: in_progress
+status: in-progress
 started: 2026-05-29
 related-memories: []
 ---
