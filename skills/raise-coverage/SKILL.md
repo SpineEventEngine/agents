@@ -2,15 +2,16 @@
 name: raise-coverage
 description: >
   Raise JVM test coverage for a Gradle module or source path. Before anything
-  else, ensures the repo is on Kover — if vanilla JaCoCo is detected, proposes
-  a one-shot repo-wide migration and **waits for approval**. Then localizes
+  else, ensures the repo is on Kover — auto-migrating from vanilla JaCoCo, or
+  installing Kover when absent, without asking. Then localizes
   uncovered lines and branches from Kover's JaCoCo-format XML report, and
   generates policy-compliant unit tests — stubs not mocks; tests are written
   in **Kotlin** with Kotest assertions, regardless of whether
   the code under test is Kotlin or Java; class names use the **`Spec`**
   suffix. Proposes a test-case list and waits for approval before writing any
-  test, then re-runs the report to confirm the gap is closed. Use when asked
-  to add missing tests, close coverage gaps, or raise a module's coverage.
+  test (pass `--yes` to skip that wait), then re-runs the report to confirm the
+  gap is closed. Use when asked to add missing tests, close coverage gaps, or
+  raise a module's coverage.
 ---
 
 # Raise test coverage
@@ -21,8 +22,8 @@ always propose the test-case list and **wait for approval** before writing,
 and verify the gap is actually closed afterward.
 
 Before the main flow runs, you ensure the repo is on Kover. If vanilla JaCoCo
-is detected anywhere, you propose a one-shot **repo-wide migration to Kover**
-and wait for approval. The mechanical recipe lives in
+is detected anywhere, you **auto-migrate the repo to Kover** without asking; if
+no coverage plugin is present, you install Kover. The mechanical recipe lives in
 [`references/migrate-to-kover.md`](references/migrate-to-kover.md).
 
 The authoritative standards live in `.agents/`:
@@ -57,12 +58,20 @@ file about *what to do*; that one is *how to read the numbers*.
 
 ## Inputs
 
-`$ARGUMENTS` is one of:
+`$ARGUMENTS` names a target — one of:
 
 - a Gradle module path — e.g. `:base`, `:core`;
 - a source file or directory — e.g. `base/src/main/kotlin/io/spine/...`;
 - `--triage` — read-only: produce a ranked gap report for the repo (or the named
   module) and stop, without proposing or writing tests.
+
+Optional modifier:
+
+- `--yes` (alias `--no-confirm`) — pre-approve the proposed test-case list and
+  skip the step-4 wait. The list is still emitted in the Report for the record;
+  the skill proceeds straight to writing the tests. Ignored under `--triage`
+  (which never writes). A plain-language pre-approval in the prompt ("write the
+  tests without waiting for my confirmation") has the same effect.
 
 If `$ARGUMENTS` is empty, ask which module or path to target (or offer
 `--triage` to help choose).
@@ -78,8 +87,8 @@ Kover is not already applied everywhere, **emit a "Setup required" report
 and stop** without writing anything (and without proposing a migration).
 List the modules that still need migration, point at
 [`references/migrate-to-kover.md`](references/migrate-to-kover.md), and tell
-the user to re-run `/raise-coverage` **without** `--triage` to perform the
-migration first. Once Kover is in place everywhere, `--triage` proceeds to
+the user to re-run the `raise-coverage` skill **without** `--triage` to
+perform the migration first. Once Kover is in place everywhere, `--triage` proceeds to
 the Workflow.
 
 ### Otherwise
@@ -92,37 +101,30 @@ migration recipe in
 2. **No coverage plugin anywhere** — silently install Kover (per the recipe).
    Record "Migration: installed Kover" in the final Report. No approval gate
    for this branch.
-3. **Vanilla JaCoCo in ≥1 module** (with or without Kover alongside) — emit a
-   proposal and **wait for approval** before making any edits.
+3. **Vanilla JaCoCo in ≥1 module** (with or without Kover alongside) —
+   **auto-migrate** the repo to Kover per the recipe, no approval gate. Apply
+   the edits, then record them in the **Migration** report section. The only
+   stop condition is a genuinely unresolvable manual-review surface (below).
 
-### Proposal output
+### Apply the migration (vanilla-JaCoCo branch)
 
-Emit the following Markdown sections, in this order, then stop and wait for approval:
+Apply the migration per
+[`references/migrate-to-kover.md`](references/migrate-to-kover.md) without
+asking, logging `edited <path>` for each file touched: per-module
+`build.gradle.kts`, root `build.gradle.kts`, `.codecov.yml`,
+`.github/workflows/*.yml`, `scripts/*.sh`. Detect the JaCoCo surface first —
+modules applying `jacoco` / `JacocoPlugin` / `JacocoConfig.applyTo` / a
+`jacoco-*.gradle.kts`, plus any root `jacocoRootReport`. Treat a root-level
+`KoverConfig.applyTo(rootProject)` as an existing Kover signal (the successor
+to `JacocoConfig.applyTo`), not a JaCoCo one.
 
-- **Detected** — every module applying `jacoco` / `JacocoPlugin` /
-  `JacocoConfig.applyTo` / a `jacoco-*.gradle.kts`; annotate "vanilla only"
-  vs. "JaCoCo+Kover both"; note any root `jacocoRootReport`. Treat a root-level
-  `KoverConfig.applyTo(rootProject)` as a Kover signal (it is the Kover-based
-  successor to `JacocoConfig.applyTo`).
-- **Plan** — every file that will be edited, with paths: per-module
-  `build.gradle.kts`, root `build.gradle.kts`, `.codecov.yml`,
-  `.github/workflows/*.yml`, `scripts/*.sh`.
-- **Translation notes** — the rows from the translation table in
-  `references/migrate-to-kover.md` that apply to this repo.
-- **Manual-review surfaces** — items from that file's "Manual-review
-  surfaces" list that the user must decide on before the migration can
-  proceed.
-- **Smoke check that will follow** — the commands listed in
-  *Verify (smoke check)* below.
-- Close with: "Confirm to apply, or call out anything to change first."
+The **only** stop condition is a genuinely unresolvable item from that file's
+"Manual-review surfaces" list — something the recipe cannot decide
+deterministically. On such an item, stop with "needs your call on `<x>`"
+rather than guess; everything the recipe covers is applied without asking.
 
-### Wait, then apply
-
-Do not write any file until the user explicitly says "go" / "yes" / "apply"
-(or equivalent). On adjustment requests, regenerate the proposal and wait
-again. After approval, apply the migration per
-`references/migrate-to-kover.md`, logging `edited <path>` per file. Any
-unresolved manual-review surface → stop with "needs your call on `<x>`".
+For the final Report's **Migration** section, capture the edited-file list, the
+applicable translation-table rows, and any manual-review surface you skipped.
 
 ### Verify (smoke check)
 
@@ -182,8 +184,12 @@ On success, **resume** at Workflow step 1.
      uncovered line/branch it closes.
    - Present this list and **wait for the user's confirmation** before writing
      anything. (Under `--triage` you already stopped at step 1.)
+   - **Pre-approved?** When `--yes` / `--no-confirm` is set, or the invocation
+     explicitly pre-approves writing without confirmation, emit the list for the
+     record and proceed directly to step 5 — do not wait.
 
-5. **Generate the tests** (only after approval), per `.agents/guidelines/testing.md`:
+5. **Generate the tests** (after approval — or immediately when pre-approved via
+   `--yes`), per `.agents/guidelines/testing.md`:
    - **Write tests in Kotlin**, regardless of whether the code under test is
      Kotlin or Java. Use JUnit Jupiter structure (`@Test` / `@Nested` /
      `@DisplayName`) with **Kotest assertions** (`shouldBe`, `shouldThrow`,
@@ -228,16 +234,20 @@ actually did work):
 
 - **`--triage` is read-only.** Step 0 never writes under `--triage`; if
   Kover is not in place, emit "Setup required" and stop.
-- **Migration requires approval when vanilla JaCoCo is detected.** Silent
-  install of Kover happens only when *no* coverage frontend is in place and
-  `--triage` is not requested.
-- **Read-only until approval.** Do not write tests before the user confirms the
-  step-4 list.
+- **Kover is applied without asking.** Outside `--triage`, both a fresh Kover
+  install (no coverage plugin) and a vanilla-JaCoCo → Kover migration run
+  without an approval gate — the project policy is to encourage coverage
+  measurement. The only stop is a genuinely unresolvable manual-review surface.
+- **Read-only until approval — for tests.** Do not write tests before the user
+  confirms the step-4 list, **unless** the run is pre-approved with `--yes` /
+  `--no-confirm` (or an equivalent in the prompt), in which case the list is
+  reported but writing proceeds without waiting. The *migration* gate was
+  already removed; this is the test gate's documented opt-out.
 - **Never weaken a `.codecov.yml` target** or extend its `ignore` list to make a
   check pass.
 - **Never add a mocking dependency** (Mockito, MockK, …) — write stubs.
 - **No version bump.** Tests-only changes do not require one; do not invoke
-  `/version-bumped` for a tests-only result. If you had to touch production code
+  the `version-bumped` skill for a tests-only result. If you had to touch production code
   to make it testable, that is a separate change that needs its own review and a
   version bump. The migration itself (Step 0) **does** alter build files and is
   not tests-only — treat it as production-code change for version-bump purposes

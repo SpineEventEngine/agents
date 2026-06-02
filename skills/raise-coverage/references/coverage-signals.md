@@ -9,6 +9,24 @@ owns the Gradle tasks; JaCoCo owns the engine and the XML format. The skill's
 Step 0 ensures every target repo is on Kover before any analysis runs (see
 [`migrate-to-kover.md`](migrate-to-kover.md)).
 
+## Contents
+
+- [Where the report lives][c1]
+- [Generating a report][c2]
+- [Reading the XML][c3]
+- [What is in scope][c4]
+- [KMP / Kotlin-JVM modules][c5]
+- [Verification (SKILL.md step 6)][c6]
+- [Appendix — future: Codecov triage tier (deferred)][c7]
+
+[c1]: #where-the-report-lives
+[c2]: #generating-a-report
+[c3]: #reading-the-xml
+[c4]: #what-is-in-scope
+[c5]: #kmp--kotlin-jvm-modules
+[c6]: #verification-skillmd-step-6
+[c7]: #appendix--future-codecov-triage-tier-deferred
+
 ## Where the report lives
 
 Kover is applied per module via the distributed `jvm-module` /
