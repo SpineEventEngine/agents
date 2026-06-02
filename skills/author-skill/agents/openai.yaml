@@ -1,4 +1,7 @@
 interface:
   display_name: "Author Skill"
   short_description: "Create or edit a skill in the shared-agents repo"
-  default_prompt: "Use $author-skill to create a new skill or edit an existing one in this repository, following its naming, format, and size conventions and validating before a pull request."
+  default_prompt: >-
+    Use $author-skill to create a new skill or edit an existing one in this
+    repository, following its naming, format, and size conventions and
+    validating before a pull request.

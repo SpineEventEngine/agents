@@ -1,4 +1,13 @@
 interface:
   display_name: "Raise Coverage"
   short_description: "Migrate to Kover if needed, then generate unit tests to close coverage gaps."
-  default_prompt: "Use $raise-coverage to raise JVM test coverage for a module or path. Step 0: ensure the repo is on Kover without asking — auto-migrate from vanilla JaCoCo, or install Kover when absent (no approval gate). Then localize uncovered lines and branches from Kover's JaCoCo-format XML report, propose a test-case list and wait for approval (pass `--yes` / `--no-confirm` to skip that wait), and write Kotlin + Kotest unit tests (stubs not mocks; `Spec`-suffixed names) before re-running the report to confirm the gaps closed. Tests-only changes need no version bump. See SKILL.md for the full workflow (KMP, smoke checks, task names)."
+  default_prompt: >-
+    Use $raise-coverage to raise JVM test coverage for a module or path. Step 0:
+    ensure the repo is on Kover without asking — auto-migrate from vanilla
+    JaCoCo, or install Kover when absent (no approval gate). Then localize
+    uncovered lines and branches from Kover's JaCoCo-format XML report, propose
+    a test-case list and wait for approval (pass `--yes` / `--no-confirm` to
+    skip that wait), and write Kotlin + Kotest unit tests (stubs not mocks;
+    `Spec`-suffixed names) before re-running the report to confirm the gaps
+    closed. Tests-only changes need no version bump. See SKILL.md for the full
+    workflow (KMP, smoke checks, task names).
