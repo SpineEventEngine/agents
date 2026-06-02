@@ -15,7 +15,14 @@ Follow the `pre-pr` skill exactly:
   `.agents/guidelines/running-builds.md`. The command may be Gradle or non-Gradle.
 - Dispatch the reviewers as Claude subagents in parallel — send a single
   message with multiple Agent tool uses:
-  - `kotlin-review` when `.kt|.kts|.java` files changed.
+  - `kotlin-engineer` when `.kt|.kts` files changed (general Kotlin language
+    standards).
+  - `spine-code-review` when `.kt|.kts|.java` files changed, or when build-only
+    files changed (`*.gradle`, `settings.gradle`, `gradle.properties`,
+    `*.versions.toml`) — its scope includes build changes (repo-specific
+    rules). When `.kt|.kts` changed it runs alongside `kotlin-engineer`
+    (disjoint concerns, no double-reporting); a Java-only or build-only diff
+    dispatches `spine-code-review` alone (`kotlin-engineer` is Kotlin-only).
   - `review-docs` when `.md` files or KDoc inside sources changed.
   - `dependency-audit` when any file under
     `buildSrc/src/main/kotlin/io/spine/dependency/` changed.

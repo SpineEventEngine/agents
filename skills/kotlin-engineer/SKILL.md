@@ -1,24 +1,44 @@
 ---
 name: kotlin-engineer
 description: >
-  Kotlin 2.x policy and pitfalls. Use when writing, reviewing, or refactoring
-  Kotlin code — enforces coroutine-safety, Flow correctness, null-safety, and
-  API-design rules that LLMs frequently get wrong.
+  Kotlin 2.x implementation policy and pitfalls. Use whenever writing,
+  modifying, refactoring, or explaining Kotlin code, especially coroutines,
+  Flow, null-safety, Java interop, Gradle Kotlin DSL, and public API design.
 ---
 
 # Kotlin — policy & pitfalls
 
 Baseline Kotlin knowledge (data/sealed/value classes, scope functions, null-safety operators, extension functions, `suspend`, `Flow`, `when` exhaustiveness) is assumed. This skill does not teach the language — it encodes the project policy and the traps that keep appearing in code review.
 
-## Setup Check (run first)
+## When to Use
 
-Before writing non-trivial code:
+Use `kotlin-engineer` for implementation work in Kotlin or Kotlin DSL:
+
+- Writing or changing `.kt`, `.kts`, or Kotlin Multiplatform source.
+- Refactoring Java-style Kotlin into idiomatic Kotlin.
+- Designing public Kotlin APIs, result/state types, or domain identifiers.
+- Touching coroutines, `Flow`, `StateFlow`, `SharedFlow`, suspend functions, or
+  cancellation behavior.
+- Reviewing Kotlin code for correctness.
+
+## Fast Path for Agents
+
+1. Run the setup check below only for non-trivial Kotlin changes or when the
+   module's Kotlin/JDK/tooling baseline is unclear.
+2. Apply the MUST / MUST NOT rules while editing.
+3. Load only the reference file that matches the risky part of the task:
+   coroutines, API idioms, or build setup.
+4. Verify with the narrowest relevant Gradle compile/test task.
+
+## Setup Check
+
+Run this before non-trivial Kotlin changes, or when the module's
+Kotlin/JDK/tooling baseline is unclear (see the Fast Path above):
 
 1. **Kotlin version** — target 2.x when possible. Check `build.gradle(.kts)` (`kotlin("jvm") version "2.x"`) or `libs.versions.toml`.
-2. **JDK target** — `kotlin { jvmToolchain(21) }` or `compileOptions { targetCompatibility = JavaVersion.VERSION_21 }`. Matters for virtual threads (21+) and records interop (17+).
-3. **Compiler plugins** — `kotlin("plugin.spring")`, `kotlin("plugin.jpa")`, `kotlinx-serialization`, `kotlin("kapt")` vs `com.google.devtools.ksp`. Missing `plugin.spring` → final Spring classes can't be proxied. Missing `plugin.jpa` → `InstantiationException: No default constructor`.
-4. **Lint** — `detekt` / `ktlint` configured? Follow the existing rules; don't introduce new violations.
-5. **Build wrapper** — use `./gradlew`
+2. **JDK target** — Use JDK 21+ for virtual threads or JDK 17+ for record interop.
+3. **Lint** — `detekt` / `ktlint` configured? Follow the existing rules; don't introduce new violations.
+4. **Build wrapper** — use `./gradlew`
 
 ## MUST DO
 
@@ -48,11 +68,11 @@ Before writing non-trivial code:
 
 ## Reference Guide
 
-| Load when | File |
-|---|---|
-| Async / reactive code — coroutines, Flow, StateFlow/SharedFlow, cancellation, testing | `references/coroutines.md` |
-| API design — scope functions, value/data/sealed classes, extension functions, inline/reified, delegates, `Result<T>` | `references/idioms.md` |
-| Gradle / tooling — Kotlin DSL, version catalogs, KSP vs kapt, multi-module layout, compiler plugins | `references/build-setup.md` |
+| Load when                                                                                                            | File                        |
+|----------------------------------------------------------------------------------------------------------------------|-----------------------------|
+| Async / reactive code — coroutines, Flow, StateFlow/SharedFlow, cancellation, testing                                | `references/coroutines.md`  |
+| API design — scope functions, value/data/sealed classes, extension functions, inline/reified, delegates, `Result<T>` | `references/idioms.md`      |
+| Gradle / tooling — Kotlin DSL, version catalogs, KSP vs kapt, multi-module layout, compiler plugins                  | `references/build-setup.md` |
 
 ## Output Format
 
@@ -62,4 +82,4 @@ When producing code:
 2. The code.
 3. A checklist of the non-obvious MUST rules applied.
 
-When reviewing code: call out MUST-DO / MUST-NOT violations explicitly and suggest the minimal fix.
+When reviewing code: call out MUST-DO / MUST-NOT violations explicitly and suggest the minimal fix. End with a one-line verdict — `APPROVE`, `APPROVE WITH CHANGES`, or `REQUEST CHANGES` — so orchestrators such as `pre-pr` can aggregate the result. Use `APPROVE` when no MUST rules are violated.

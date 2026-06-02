@@ -5,8 +5,8 @@ description: >
   the repository has a root `version.gradle.kts`, run a scope-dependent
   build/check command per `.agents/guidelines/running-builds.md` (docs-only → `dokka`;
   code/deps → `build`; proto → `clean build`; no documented command → skipped),
-  and invoke the relevant reviewers (`kotlin-review`, `review-docs`,
-  `dependency-audit`,
+  and invoke the relevant reviewers (`kotlin-engineer`, `spine-code-review`,
+  `review-docs`, `dependency-audit`,
   `check-links`) against the branch diff. On success, write a sentinel file at
   `.git/pre-pr.ok` so the `gh pr create` hook can verify the checklist ran
   for the current HEAD. Use before opening a PR, or when CI rejected a
@@ -63,6 +63,10 @@ the first failure.
 - Classify changes:
   - **proto** — any `*.proto` changed
   - **code** — any `*.kt`, `*.kts`, or `*.java` changed
+  - **build** — any Gradle/build file changed that is not already **code**
+    (a `*.gradle.kts` counts as **code**) or a **deps** file — e.g. `*.gradle`,
+    `settings.gradle`, `gradle.properties`, `libs.versions.toml`, or any other
+    `*.versions.toml`
   - **docs** — any `*.md` or doc-only source edits changed
   - **deps** — any file under `buildSrc/src/main/kotlin/io/spine/dependency/` changed
   - **site** — a Hugo site exists and any file under `docs/**` or `lychee.toml`
@@ -91,7 +95,7 @@ the first failure.
 Pick the target per `.agents/guidelines/running-builds.md`:
 
 - **proto** changed → `./gradlew clean build`
-- Else **code** changed → `./gradlew build`
+- Else **code** or **build** changed → `./gradlew build`
 - Else **docs**-only → `./gradlew dokka`
 
 If `./gradlew` is absent, read `.agents/guidelines/running-builds.md` for the
@@ -115,7 +119,20 @@ Before running a reviewer, check that the skill directory exists under
 `.agents/skills/`; if a skill is absent, skip it with a note "not applicable
 for this repo" rather than failing.
 
-- **code** changed → `kotlin-review`
+- **code** changed → dispatch by file type, not as a fixed pair:
+  - `spine-code-review` (repo-specific rules) when `.kt`, `.kts`, or `.java`
+    changed.
+  - `kotlin-engineer` (general Kotlin language standards) **only** when `.kt`
+    or `.kts` changed.
+  When `.kt` / `.kts` changed, both run and cover disjoint concerns without
+  double-reporting. A **Java-only** diff dispatches `spine-code-review` alone.
+- **build** changed → `spine-code-review` (its scope includes build changes —
+  repo-specific safety rules and the version gate apply to build files too).
+  `kotlin-engineer` does **not** apply to non-Kotlin build files.
+- **De-duplicate reviewers.** A diff can match both **code** and **build**
+  (e.g. a `.gradle.kts` change plus `gradle.properties`), selecting
+  `spine-code-review` from both bullets. Dispatch each reviewer **at most once**
+  over the whole changed-file set — never run the same reviewer twice.
 - **docs** or KDoc changed → `review-docs`
 - **deps** changed → `dependency-audit`
 - **site** changed → `check-links` (unless the sentinel short-circuit below
@@ -133,9 +150,9 @@ missing version bump.
 
 **Auto-fix policy for reviewer findings:**
 
-- Findings from `kotlin-review`, `review-docs`, or `dependency-audit` → record
-  as Must-fix or Should-fix; do **not** auto-apply. Surface them and wait for
-  user action.
+- Findings from `kotlin-engineer`, `spine-code-review`, `review-docs`, or
+  `dependency-audit` → record as Must-fix or Should-fix; do **not** auto-apply.
+  Surface them and wait for user action.
 - If a reviewer reports a missing version bump after Step 2 already ran, the
   auto-fix did not take — record a Must-fix and do not silently re-apply.
 - `dependency-audit` reports a **version rollback** → do **not** auto-fix.
@@ -182,7 +199,8 @@ prefixed with the source reviewer or check:
 Pre-PR: FAIL (<branch> vs <base>)
 
 Must fix:
-- [kotlin-review] <item>
+- [kotlin-engineer] <item>
+- [spine-code-review] <item>
 - [review-docs] <item>
 
 Should fix:
