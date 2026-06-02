@@ -1,0 +1,13 @@
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Editors / IDEs
+.idea/
+*.iml
+.vscode/
+
+# Claude Code runtime (not part of the shared content)
+.claude/worktrees/

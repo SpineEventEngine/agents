@@ -1,0 +1,78 @@
+# Authoring skills
+
+How to create or edit a skill in this repository. For a guided, scaffolded
+workflow, use the `author-skill` skill — this document is its reference.
+
+## Anatomy of a skill
+
+    skills/<name>/
+    ├── SKILL.md              # required — the skill definition
+    ├── agents/
+    │   └── openai.yaml       # required — Codex/OpenAI interface metadata
+    ├── references/           # optional — long reference docs, loaded on demand
+    ├── scripts/              # optional — deterministic helpers the skill runs
+    └── assets/               # optional — templates and other static files
+
+## Naming
+
+- Lowercase, hyphen-separated (`raise-coverage`, not `raiseCoverage`).
+- The directory name MUST equal the `name:` in the `SKILL.md` frontmatter.
+- Avoid names reserved by other agents (e.g. Codex's `create-skill`, Anthropic's
+  `skill-creator`). When unsure, choose a distinct verb or a `spine-` prefix.
+
+## `SKILL.md`
+
+Frontmatter followed by the body:
+
+    ---
+    name: <kebab-case-name>          # == directory name
+    description: >                   # one folded paragraph, < 1024 characters.
+      What the skill does AND when to use it — this is the text an agent matches
+      a request against, so make the trigger conditions explicit.
+    ---
+
+    # <Title>
+
+    ## Workflow         # numbered, deterministic steps
+    ## Repo Notes       # repo-specific pointers, e.g. `.agents/guidelines/<file>.md`
+    ## Report           # what the skill returns to the caller
+
+Rules:
+
+- Keep `SKILL.md` under ~500 lines; move long material into `references/` and link
+  to it.
+- Reference shared guidance with **repo-rooted** paths
+  (`.agents/guidelines/<file>.md`). These resolve here (via the in-repo dogfood
+  symlinks) and in every consumer repo.
+- Write **agent-neutral** instructions that work for Claude, Codex, and Junie —
+  don't hard-code a single runtime's slash-command syntax in the body.
+
+## `agents/openai.yaml`
+
+    interface:
+      display_name: "<Human Readable Name>"
+      short_description: "<one line>"
+      default_prompt: "Use $<name> to …"     # refer to the skill as $<name>
+
+Keep `default_prompt` short and aligned with the `SKILL.md` description.
+
+## Scripts & copyright
+
+Put a skill's own helpers in `skills/<name>/scripts/`; promote a helper to the
+top-level `scripts/` only when more than one skill (or an agent hook) uses it.
+Make scripts executable and POSIX `bash`. Source files that carry code get the
+standard Apache/TeamDev copyright header.
+
+## Validate before opening a PR
+
+- Directory name == frontmatter `name`.
+- `description` < 1024 characters; `SKILL.md` < ~500 lines.
+- `agents/openai.yaml` present, with a `$<name>` `default_prompt`.
+- Every `.agents/...` reference resolves (check through the in-repo symlinks).
+- Any shipped script parses (`bash -n`) and, where practical, has a test.
+
+## Remember: this is production
+
+`master` floats to every Spine repository, so a merged change is live everywhere
+on the next pull. Land changes through a reviewed pull request — never commit or
+push directly unless explicitly asked.
