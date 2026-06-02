@@ -1,3 +1,7 @@
+---
+max-line-length: 100
+---
+
 # 🧾 Coding guidelines
 
 ## Core principles
@@ -40,23 +44,29 @@
 
 ## Line length
 
-Spine caps line length through detekt's `MaxLineLength` rule. The limit
-is a configuration value, not a constant: read
-`MaxLineLength.maxLineLength` from `buildSrc/quality/detekt-config.yml`
-once at the start of a session and treat it as a session-local constant.
-Never bake the literal number into code, comments, or these guidelines —
-when the config changes, the next session picks up the new value with no
-edit here.
+The line-length limit is **`max-line-length` in this file's frontmatter**
+(currently 100). This guideline is the single source of truth — it lives
+under `.agents/`, which floats to every Spine repo, so the limit is
+available even in repositories that have no build. Read it once at the
+start of a session and treat it as a session-local constant.
+
+Repositories with a Gradle/detekt build also carry detekt's `MaxLineLength`
+rule in `buildSrc/quality/detekt-config.yml`; that is what actually breaks
+`./gradlew build`, and it must hold the same number as `max-line-length`
+here. If the two ever differ, treat it as a Should-fix and realign the
+detekt config with this guideline.
 
 ### Severity
 
-- **Must fix** — non-comment lines in `.kt` / `.kts` over the limit.
-  detekt flags these and they break `./gradlew build`.
-- **Should fix** — KDoc / Javadoc body lines (any source extension),
-  `.java` lines, `.proto` lines, and Markdown body lines. detekt's
-  `excludeCommentStatements: true` exempts comment and KDoc-body lines
-  from the build break, so these are repo policy rather than a hard
-  failure — wrap them anyway.
+- **Must fix** — non-comment `.kt` / `.kts` lines over the limit **in a repo
+  that has a detekt build gate** (`buildSrc/quality/detekt-config.yml` is
+  present): detekt flags them and they break `./gradlew build`.
+  `excludeCommentStatements: true` exempts comment and KDoc-body lines from
+  that break.
+- **Should fix** — everything else over the limit: `.kt` / `.kts` lines in a
+  repo with **no** detekt build gate (nothing breaks, but wrap for
+  consistency), KDoc / Javadoc body lines (any source extension), `.java`
+  lines, `.proto` lines, and Markdown body lines.
 
 ### Splitting strategy
 

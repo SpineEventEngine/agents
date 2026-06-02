@@ -270,8 +270,14 @@ wrap at the configured limit.
 - **YAML lookup at session start, not per line**. Re-reading the YAML
   for every line of output is impractical; the agent caches the value
   as a session-local constant. Documentation never bakes the literal.
+  *(Superseded 2026-06-02 — see Log. The source of truth is now the
+  `max-line-length` constant in `coding.md` frontmatter, not the detekt
+  YAML; detekt is an in-sync enforcer in JVM repos, not the source.)*
 - **Missing YAML is Must-fix, not informational**. Avoids silent
   fallback drift.
+  *(Superseded 2026-06-02 — see Log. A missing `detekt-config.yml` is no
+  longer a finding: the limit comes from `coding.md` frontmatter, which is
+  present in every repo, so there is no silent fallback to guard against.)*
 
 ## Log
 
@@ -300,3 +306,28 @@ wrap at the configured limit.
   Markdown scope, matching Check B. Pre-existing over-length lines in
   files this task does *not* touch (e.g. `java-to-kotlin/SKILL.md`)
   remain deferred per Out of scope.
+- 2026-06-02 — **source-of-truth revision** (addresses Copilot/Codex
+  review on PR #4). The original design read the limit from
+  `buildSrc/quality/detekt-config.yml` and flagged a missing config as a
+  Must-fix — a guaranteed false positive in non-JVM repos (this `agents`
+  repo, and other consumers, have no `buildSrc/`). Resolution, confirmed
+  with the maintainer:
+  - The single source of truth is now a **`max-line-length` constant in
+    `coding.md` frontmatter** (`= 100`), which floats to every repo via
+    `.agents/` and is therefore always readable. `.editorconfig` was
+    considered and rejected (it resolves by directory, so it would not
+    float through the submodule, and detekt does not read it).
+  - In JVM repos, `detekt-config.yml`'s `MaxLineLength` enforces the same
+    number and is what breaks the build; it must stay in sync, and a drift
+    is a Should-fix (not the source).
+  - Severity now depends on the presence of a detekt build gate:
+    over-limit `.kt`/`.kts` is **Must fix** only where detekt runs;
+    elsewhere (no gate) it is **Should fix**. A missing `detekt-config.yml`
+    is never reported.
+  - Edited `coding.md` (frontmatter + § Line length), `documentation.md`,
+    `quick-reference-card.md`, `spine-code-review/SKILL.md` (step-3 bullet
+    + Output buckets), and `review-docs/SKILL.md` (Checks A & B). Also
+    fixed the ambiguous `coding.md` / `documentation.md` references in the
+    skills to repo-rooted `.agents/guidelines/...` paths (Copilot nits).
+    The status-dash and `coding.md` trailing-whitespace/indent nits were
+    already resolved in earlier commits.

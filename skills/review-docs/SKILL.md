@@ -70,8 +70,8 @@ The authoritative standards live in `.agents/`:
   fine in tests; in production source they should explain *why* (a
   constraint, invariant, surprise) and never restate *what* the code does.
 - **TODO comments follow the Spine format.** Linked from
-  `documentation.md` to the wiki "TODO-comments" page. A bare
-  `// TODO: …` without owner/issue reference is a Should-fix.
+  `.agents/guidelines/documentation.md` to the wiki "TODO-comments" page. A
+  bare `// TODO: …` without owner/issue reference is a Should-fix.
 - **File and directory names rendered as code.** Within KDoc/Javadoc prose,
   `path/to/file.kt` and `module-name` must use backticks.
 - **No repository-internal references in API docs.** KDoc and Javadoc must
@@ -86,10 +86,10 @@ The authoritative standards live in `.agents/`:
   `.proto` files, if the file-level documentation header has more than one
   paragraph, it must end with a trailing empty comment line (`//`).
 - **Line length.** KDoc / Javadoc body lines wrap at the limit from
-  `buildSrc/quality/detekt-config.yml` (`MaxLineLength.maxLineLength`),
-  applied to changed lines only. Long body lines are **Should fix**; code
-  lines around the comment, if also too long, are owned by
-  `spine-code-review`. See `coding.md § Line length`.
+  `.agents/guidelines/coding.md` frontmatter (`max-line-length`), applied to
+  changed lines only. Long body lines are **Should fix**; code lines around
+  the comment, if also too long, are owned by `spine-code-review`. See
+  `.agents/guidelines/coding.md § Line length`.
 
 ### B. Markdown docs
 
@@ -111,14 +111,14 @@ The authoritative standards live in `.agents/`:
   per file.
 - **Line length.** Body lines in `.md` — including `README.md`, `docs/**`,
   and `.agents/**` (this expands the skill's prior `.md` scope explicitly)
-  — wrap at the configured limit from `buildSrc/quality/detekt-config.yml`,
-  applied to changed lines only. Long URLs go in reference-style footnote
-  definitions. Long lines are **Should fix**.
+  — wrap at the limit from `.agents/guidelines/coding.md` frontmatter
+  (`max-line-length`), applied to changed lines only. Long URLs go in
+  reference-style footnote definitions. Long lines are **Should fix**.
 
 ### C. Prose flow (Spine-specific)
 
 - **Avoid widows, runts, orphans, and rivers** — the rule from
-  `documentation.md` with the diagram at
+  `.agents/guidelines/documentation.md` with the diagram at
   `.agents/guidelines/widow-runt-orphan.jpg`. Operationally:
     - **Widow / runt**: a paragraph's last line containing only one short
       word (or a hyphenated fragment). Reflow the prior line.

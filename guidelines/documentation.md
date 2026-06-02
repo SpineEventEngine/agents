@@ -6,8 +6,7 @@
 - When using TODO comments, follow the format on the [dedicated page][todo-comments].
 - File and directory names should be formatted as code.
 - Wrap KDoc / Javadoc body lines and Markdown body lines at the limit
-  defined in `buildSrc/quality/detekt-config.yml`
-  (`MaxLineLength.maxLineLength`). See
+  defined in `coding.md` frontmatter (`max-line-length`). See
   `coding.md § Line length` for the splitting strategy.
 
 ## API documentation scope
