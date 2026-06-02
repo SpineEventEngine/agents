@@ -35,8 +35,8 @@
 - Reflection unless specifically requested
 
 ## Text formatting
- - ✅ Replace double empty lines with a single empty line in the code.
- - ✅ Remove trailing space characters in the code.
+- ✅ Replace double empty lines with a single empty line in the code.
+- ✅ Remove trailing space characters in the code.
 
 ## Line length
 
