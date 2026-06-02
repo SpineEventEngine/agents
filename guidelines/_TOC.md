@@ -19,8 +19,8 @@
 16. [Dependency update](../skills/dependency-update/SKILL.md)
 17. [Documentation review](../skills/review-docs/SKILL.md)
 18. [Pre-PR checklist](../skills/pre-pr/SKILL.md)
-19. [Code review](../skills/spine-code-review/SKILL.md) — repo-specific Kotlin
-    and Java review; defers general Kotlin standards to `kotlin-engineer`
+19. [Code review](../skills/spine-code-review/SKILL.md) — repo-specific Kotlin,
+    Java, and build review; defers general Kotlin standards to `kotlin-engineer`
 20. [Dependency audit](../skills/dependency-audit/SKILL.md)
 21. [Gradle review](../skills/gradle-review/SKILL.md)
 22. [Raise test coverage](../skills/raise-coverage/SKILL.md)

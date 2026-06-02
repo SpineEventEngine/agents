@@ -95,7 +95,7 @@ the first failure.
 Pick the target per `.agents/guidelines/running-builds.md`:
 
 - **proto** changed → `./gradlew clean build`
-- Else **code** changed → `./gradlew build`
+- Else **code** or **build** changed → `./gradlew build`
 - Else **docs**-only → `./gradlew dokka`
 
 If `./gradlew` is absent, read `.agents/guidelines/running-builds.md` for the
@@ -129,6 +129,10 @@ for this repo" rather than failing.
 - **build** changed → `spine-code-review` (its scope includes build changes —
   repo-specific safety rules and the version gate apply to build files too).
   `kotlin-engineer` does **not** apply to non-Kotlin build files.
+- **De-duplicate reviewers.** A diff can match both **code** and **build**
+  (e.g. a `.gradle.kts` change plus `gradle.properties`), selecting
+  `spine-code-review` from both bullets. Dispatch each reviewer **at most once**
+  over the whole changed-file set — never run the same reviewer twice.
 - **docs** or KDoc changed → `review-docs`
 - **deps** changed → `dependency-audit`
 - **site** changed → `check-links` (unless the sentinel short-circuit below

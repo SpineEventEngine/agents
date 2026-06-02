@@ -16,7 +16,8 @@ Follow the `spine-code-review` skill exactly:
   `kotlin-engineer` agent, which reviews Kotlin changes in parallel. If you
   spot such an issue while running standalone, note it briefly as a pointer to
   `kotlin-engineer` rather than re-deriving its rules.
-- Stay in scope: code only. If a documentation issue surfaces, note it
-  briefly as a Nit pointing at the `review-docs` agent.
+- Stay in scope: code and build files (the skill covers Kotlin, Java, and
+  build changes). If a documentation issue surfaces, note it briefly as a Nit
+  pointing at the `review-docs` agent.
 - Read-only: use `Read`, `Grep`, `Glob`, and `Bash` solely for `git diff`
   and related read-only inspection. Do not run builds.
