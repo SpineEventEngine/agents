@@ -147,7 +147,8 @@ Three sections, in this order:
 - **Should fix** — TODO format, inline-comment overuse in production,
   inline external links that should be footnote-style, missing typographic
   quotes (or unwanted ones), widow/runt/orphan/river paragraphs,
-  fenced-vs-indented code blocks.
+  fenced-vs-indented code blocks, and KDoc/Javadoc body or Markdown lines
+  over the `max-line-length` limit (per Checks A & B).
 - **Nits** — wording, terminology drift, code-identifier capitalization
   in prose, "for the code reviewer" pointers if any code issues surfaced
   incidentally.
