@@ -17,7 +17,7 @@ Kotlin idioms, safety rules, tests, and version-gate checks).
 
 The authoritative standards live in `.agents/`:
 
-- `.agents/guidelines/documentation-guidelines.md` — commenting rules, TODO-comment
+- `.agents/guidelines/documentation.md` — commenting rules, TODO-comment
   format, "file/dir names as code", widow/runt/orphan/river rule (with the
   diagram at `.agents/guidelines/widow-runt-orphan.jpg`).
 - `.agents/guidelines/documentation-tasks.md` — KDoc-example requirement on APIs;
@@ -70,7 +70,7 @@ The authoritative standards live in `.agents/`:
   fine in tests; in production source they should explain *why* (a
   constraint, invariant, surprise) and never restate *what* the code does.
 - **TODO comments follow the Spine format.** Linked from
-  `documentation-guidelines.md` to the wiki "TODO-comments" page. A bare
+  `documentation.md` to the wiki "TODO-comments" page. A bare
   `// TODO: …` without owner/issue reference is a Should-fix.
 - **File and directory names rendered as code.** Within KDoc/Javadoc prose,
   `path/to/file.kt` and `module-name` must use backticks.
@@ -89,7 +89,7 @@ The authoritative standards live in `.agents/`:
   `buildSrc/quality/detekt-config.yml` (`MaxLineLength.maxLineLength`),
   applied to changed lines only. Long body lines are **Should fix**; code
   lines around the comment, if also too long, are owned by
-  `spine-code-review`. See `coding-guidelines.md § Line length`.
+  `spine-code-review`. See `coding.md § Line length`.
 
 ### B. Markdown docs
 
@@ -118,7 +118,7 @@ The authoritative standards live in `.agents/`:
 ### C. Prose flow (Spine-specific)
 
 - **Avoid widows, runts, orphans, and rivers** — the rule from
-  `documentation-guidelines.md` with the diagram at
+  `documentation.md` with the diagram at
   `.agents/guidelines/widow-runt-orphan.jpg`. Operationally:
     - **Widow / runt**: a paragraph's last line containing only one short
       word (or a hyphenated fragment). Reflow the prior line.

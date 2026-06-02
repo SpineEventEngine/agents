@@ -39,7 +39,7 @@ This skill owns everything below.
 
 The standards live in `.agents/`:
 
-- `.agents/guidelines/coding-guidelines.md` — repo-specific idioms and formatting.
+- `.agents/guidelines/coding.md` — repo-specific idioms and formatting.
 - `.agents/guidelines/safety-rules.md` and `.agents/guidelines/advanced-safety-rules.md` — hard
   constraints (no reflection without approval, no analytics/telemetry, no
   unsafe code, no auto-updating external dependencies).
@@ -62,7 +62,7 @@ The standards live in `.agents/`:
      `APPROVE — all changes are config-distributed files.` and stop.
 2. Read each affected file fully, not just the diff hunks. Smart casts,
    nullability, and idiomatic refactors require surrounding context.
-3. Check the repo-specific guidelines from `.agents/guidelines/coding-guidelines.md`
+3. Check the repo-specific guidelines from `.agents/guidelines/coding.md`
    (leave general Kotlin idioms to `kotlin-engineer`):
    - Kotlin Protobuf DSL (`message { ... }`) preferred over Java builders
      (`newBuilder()`, `toBuilder()`) in Kotlin.
@@ -82,7 +82,7 @@ The standards live in `.agents/`:
      (`**/generated/**`, `**/generated-proto/**`). For a changed line
      inside a string literal the fix is splitting into two or more
      `+`-concatenated pieces; otherwise follow
-     `coding-guidelines.md § Line length`. Cite the actual numbers in the
+     `coding.md § Line length`. Cite the actual numbers in the
      finding, e.g. "line 47 is 108 chars (limit `<value>`, from
      `buildSrc/quality/detekt-config.yml`)". If that file is absent or
      lacks `MaxLineLength.maxLineLength`, report a **Must fix** asking the

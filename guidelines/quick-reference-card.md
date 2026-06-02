@@ -10,4 +10,4 @@ memory.
 
 At session start, read `MaxLineLength.maxLineLength` from
 `buildSrc/quality/detekt-config.yml` and wrap new lines under it. See
-`coding-guidelines.md § Line length`.
+`coding.md § Line length`.

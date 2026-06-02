@@ -2,8 +2,8 @@
 
 1. [Quick Reference Card](quick-reference-card.md)
 2. [JVM project requirements](jvm-project.md) — language, build, and review checklist shared by all JVM repos
-3. [Coding guidelines](coding-guidelines.md)
-4. [Documentation & comments](documentation-guidelines.md)
+3. [Coding guidelines](coding.md)
+4. [Documentation & comments](documentation.md)
 5. [Documentation tasks](documentation-tasks.md)
 6. [Running builds](running-builds.md)
 7. [Version policy](version-policy.md)
@@ -11,7 +11,7 @@
 9. [Testing](testing.md)
 10. [Safety rules](safety-rules.md)
 11. [Advanced safety rules](advanced-safety-rules.md)
-12. [Refactoring guidelines](refactoring-guidelines.md)
+12. [Refactoring guidelines](refactoring.md)
 13. [Common tasks](common-tasks.md)
 14. [Kotlin engineering](../skills/kotlin-engineer/SKILL.md) — implementation
     policy for Kotlin, coroutines, Flow, null-safety, and API design

@@ -47,7 +47,7 @@ description: >
 
 ## Follow local documentation conventions
 
-- Follow `.agents/guidelines/documentation-guidelines.md` and `.agents/guidelines/documentation-tasks.md`.
+- Follow `.agents/guidelines/documentation.md` and `.agents/guidelines/documentation-tasks.md`.
 - Use fenced code blocks for commands and examples; format file/dir names as code.
 - When referencing a documentation page or section in body prose, use typographic
   double quotation marks only if the visible reference text is the actual page or

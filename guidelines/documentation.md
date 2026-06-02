@@ -8,7 +8,7 @@
 - Wrap KDoc / Javadoc body lines and Markdown body lines at the limit
   defined in `buildSrc/quality/detekt-config.yml`
   (`MaxLineLength.maxLineLength`). See
-  `coding-guidelines.md § Line length` for the splitting strategy.
+  `coding.md § Line length` for the splitting strategy.
 
 ## API documentation scope
 

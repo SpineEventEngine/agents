@@ -32,7 +32,7 @@ The authoritative standards live in `.agents/`:
   Flow, and idioms.
 - `.agents/guidelines/testing.md` — stubs not mocks; Kotest assertions; cover API edge
   cases; scaffold `when`/sealed-class branches.
-- `.agents/guidelines/coding-guidelines.md` — Kotlin/Java idioms for the tests you write.
+- `.agents/guidelines/coding.md` — Kotlin/Java idioms for the tests you write.
 - `.agents/guidelines/version-policy.md` — tests-only changes do not require a version bump.
 
 Mechanical detail (report paths, XML parsing, gap rules) lives in

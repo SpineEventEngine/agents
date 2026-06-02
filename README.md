@@ -25,7 +25,7 @@ pull, with **no file churn in any consumer's pull requests**.
     docs/         # documentation about THIS repo (project.md and the authoring guide)
 
 The same content is also exposed under `.agents/` via in-repo symlinks, so a
-skill's own repo-rooted references (e.g. `.agents/guidelines/coding-guidelines.md`)
+skill's own repo-rooted references (e.g. `.agents/guidelines/coding.md`)
 resolve while you work here — the repo dogfoods its own skills.
 
 ## Contributing

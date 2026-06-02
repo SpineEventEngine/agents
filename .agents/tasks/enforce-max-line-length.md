@@ -66,9 +66,6 @@ repo policy, not Must-fix.
 - String literals (including URLs inside strings) split at a
   meaningful boundary into ≥ 2 `+`-concatenated pieces — never
   truncated.
-- Long imports: prefer an import alias
-  (`import a.b.c.LongName as Short`). If unavailable, a
-  `@file:Suppress("MaxLineLength")` is acceptable.
 - Other unbreakable tokens (`[name][some.long.FQN]` in KDoc; long
   generated identifier): prefer restructure (intermediate `val`,
   reference-style Markdown link, alias). When no restructure is
@@ -108,7 +105,7 @@ repo policy, not Must-fix.
 Six `.agents/` Markdown files. No code or build changes. New lines
 wrap at the configured limit.
 
-### 1. `.agents/guidelines/coding-guidelines.md`
+### 1. `.agents/guidelines/coding.md`
 
 - [x] Add a new top-level `## Line length` section, placed immediately
       after the existing "Text formatting" section. The canonical
@@ -134,14 +131,14 @@ wrap at the configured limit.
     file-scope).
   - Scope exclusions: generated sources; changed lines only.
 
-### 2. `.agents/guidelines/documentation-guidelines.md`
+### 2. `.agents/guidelines/documentation.md`
 
 - [x] Append one bullet to "Commenting guidelines":
 
   > Wrap KDoc / Javadoc body lines and Markdown body lines at the
   > limit defined in `buildSrc/quality/detekt-config.yml`
   > (`MaxLineLength.maxLineLength`). See
-  > `coding-guidelines.md § Line length` for the splitting strategy.
+  > `coding.md § Line length` for the splitting strategy.
 
   Single sentence; no duplication of the canonical section.
 
@@ -155,7 +152,7 @@ wrap at the configured limit.
 
   > At session start, read `MaxLineLength.maxLineLength` from
   > `buildSrc/quality/detekt-config.yml` and wrap new lines under it.
-  > See `coding-guidelines.md § Line length`.
+  > See `coding.md § Line length`.
 
 ### 4. `.agents/skills/spine-code-review/SKILL.md`
 
@@ -170,7 +167,7 @@ wrap at the configured limit.
   > build break). KDoc bodies in `.kt` / `.kts`, and any `.java` line
   > over the limit, are **Should fix**. For changed lines inside a
   > string literal the fix is splitting into ≥ 2 `+`-concatenated
-  > pieces; otherwise follow `coding-guidelines.md § Line length`.
+  > pieces; otherwise follow `coding.md § Line length`.
 
 - [x] Update "Output format" correspondingly: add the bucket entries
       but keep the existing Must / Should / Nits semantics unchanged.
@@ -224,7 +221,7 @@ wrap at the configured limit.
       `length` counts bytes; for the ASCII prose introduced here that
       matches characters, but a non-ASCII glyph in future edits would
       miscount. Acceptable for this change.
-- [x] Sanity-check cross-references: every `coding-guidelines.md §
+- [x] Sanity-check cross-references: every `coding.md §
       Line length` link resolves to the new top-level section heading.
 - [x] Spot test the author behaviour. In a fresh session, ask the
       agent to write a long Kotlin string literal containing a URL;
@@ -245,7 +242,7 @@ wrap at the configured limit.
 
 - `buildSrc/quality/detekt-config.yml` — unchanged.
 - `writer/SKILL.md` and `java-to-kotlin/SKILL.md` — they author, they
-  don't enforce. The canonical rule in `coding-guidelines.md` reaches
+  don't enforce. The canonical rule in `coding.md` reaches
   them by reference.
 - `gradle-review/SKILL.md` — `.kts` files are reviewed by
   `spine-code-review` (via pre-pr's `code` dispatch). Adding a second
