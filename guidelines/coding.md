@@ -13,12 +13,12 @@
 ### ✅ Prefer
 - **Kotlin idioms** over Java-style approaches:
   - Extension functions
-  - `when` expressions 
+  - `when` expressions
   - Smart casts
   - Data classes and sealed classes
   - Immutable data structures
-- **Simple nouns** over composite nouns (`user` > `userAccount`)  
-- **Generic parameters** over explicit variable types (`val list = mutableList<Dependency>()`)  
+- **Simple nouns** over composite nouns (`user` > `userAccount`)
+- **Generic parameters** over explicit variable types (`val list = mutableList<Dependency>()`)
 - **Java interop annotations** only when needed (`@file:JvmName`, `@JvmStatic`)
 - **Kotlin DSL** for Gradle files
 - **Kotlin Protobuf DSL** (`myMessage { field = value }`) over Java builder chains
@@ -35,8 +35,8 @@
 - Reflection unless specifically requested
 
 ## Text formatting
- - ✅ Replace double empty lines with a single empty line in the code.
- - ✅ Remove trailing space characters in the code.
+- ✅ Replace double empty lines with a single empty line in the code.
+- ✅ Remove trailing space characters in the code.
 
 ## Line length
 
