@@ -63,6 +63,10 @@ the first failure.
 - Classify changes:
   - **proto** — any `*.proto` changed
   - **code** — any `*.kt`, `*.kts`, or `*.java` changed
+  - **build** — any Gradle/build file changed that is not already **code**
+    (a `*.gradle.kts` counts as **code**) or a **deps** file — e.g. `*.gradle`,
+    `settings.gradle`, `gradle.properties`, `libs.versions.toml`, or any other
+    `*.versions.toml`
   - **docs** — any `*.md` or doc-only source edits changed
   - **deps** — any file under `buildSrc/src/main/kotlin/io/spine/dependency/` changed
   - **site** — a Hugo site exists and any file under `docs/**` or `lychee.toml`
@@ -120,6 +124,9 @@ for this repo" rather than failing.
   disjoint concerns and do not double-report. `kotlin-engineer` applies only
   when `.kt` / `.kts` files changed; `spine-code-review` covers `.kt`, `.kts`,
   and `.java`.
+- **build** changed → `spine-code-review` (its scope includes build changes —
+  repo-specific safety rules and the version gate apply to build files too).
+  `kotlin-engineer` does **not** apply to non-Kotlin build files.
 - **docs** or KDoc changed → `review-docs`
 - **deps** changed → `dependency-audit`
 - **site** changed → `check-links` (unless the sentinel short-circuit below
