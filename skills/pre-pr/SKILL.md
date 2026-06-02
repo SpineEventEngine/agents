@@ -119,11 +119,13 @@ Before running a reviewer, check that the skill directory exists under
 `.agents/skills/`; if a skill is absent, skip it with a note "not applicable
 for this repo" rather than failing.
 
-- **code** changed → `kotlin-engineer` (general Kotlin language standards) and
-  `spine-code-review` (repo-specific rules). Dispatch both; they cover
-  disjoint concerns and do not double-report. `kotlin-engineer` applies only
-  when `.kt` / `.kts` files changed; `spine-code-review` covers `.kt`, `.kts`,
-  and `.java`.
+- **code** changed → dispatch by file type, not as a fixed pair:
+  - `spine-code-review` (repo-specific rules) when `.kt`, `.kts`, or `.java`
+    changed.
+  - `kotlin-engineer` (general Kotlin language standards) **only** when `.kt`
+    or `.kts` changed.
+  When `.kt` / `.kts` changed, both run and cover disjoint concerns without
+  double-reporting. A **Java-only** diff dispatches `spine-code-review` alone.
 - **build** changed → `spine-code-review` (its scope includes build changes —
   repo-specific safety rules and the version gate apply to build files too).
   `kotlin-engineer` does **not** apply to non-Kotlin build files.
