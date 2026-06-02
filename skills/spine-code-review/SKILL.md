@@ -92,8 +92,8 @@ The standards live in `.agents/`:
      `.agents/guidelines/coding.md § Line length`. Cite the actual numbers,
      e.g. "line 47 is 108 chars (limit `<value>`)". If a detekt build gate
      exists and its `MaxLineLength.maxLineLength` differs from
-     `max-line-length` in `coding.md`, note the drift as a **Should fix**
-     and ask to align them.
+     `max-line-length` in `.agents/guidelines/coding.md`, note the drift as a
+     **Should fix** and ask to align them.
 4. Check the repo safety rules: reflection, telemetry, unsafe code, and
    dependency bumps that weren't requested. (Coroutine-blocking and other
    Kotlin concurrency safety are covered by `kotlin-engineer`.)

@@ -23,7 +23,7 @@ max-line-length: 100
   - Data classes and sealed classes
   - Immutable data structures
 - **Simple nouns** over composite nouns (`user` > `userAccount`)
-- **Generic parameters** over explicit variable types (`val list = mutableList<Dependency>()`)
+- **Generic parameters** over explicit variable types (`val list = mutableListOf<Dependency>()`)
 - **Java interop annotations** only when needed (`@file:JvmName`, `@JvmStatic`)
 - **Kotlin DSL** for Gradle files
 - **Kotlin Protobuf DSL** (`myMessage { field = value }`) over Java builder chains

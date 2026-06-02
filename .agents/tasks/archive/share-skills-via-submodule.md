@@ -2,7 +2,7 @@
 slug: share-skills-via-submodule
 branch: sharable-skills
 owner: claude
-status: in-progress
+status: done
 started: 2026-06-02
 related-memories: []
 ---

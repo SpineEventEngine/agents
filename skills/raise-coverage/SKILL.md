@@ -2,8 +2,9 @@
 name: raise-coverage
 description: >
   Raise JVM test coverage for a Gradle module or source path. Before anything
-  else, ensures the repo is on Kover — auto-migrating from vanilla JaCoCo, or
-  installing Kover when absent, without asking. Then localizes
+  else (outside read-only `--triage`), ensures the repo is on Kover —
+  auto-migrating from vanilla JaCoCo, or installing Kover when absent, without
+  asking. Then localizes
   uncovered lines and branches from Kover's JaCoCo-format XML report, and
   generates policy-compliant unit tests — stubs not mocks; tests are written
   in **Kotlin** with Kotest assertions, regardless of whether
