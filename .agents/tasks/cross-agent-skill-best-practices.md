@@ -48,7 +48,7 @@ delegate deterministic work to scripts or references where appropriate.
    - `raise-coverage/references/coverage-signals.md` is 181 lines.
    - `raise-coverage/references/migrate-to-kover.md` is 352 lines.
    - `gradle-review/practices/tasks.md` is 147 lines.
-   - Best-practice risk: reference material over 100 lines should be easier to
+   - Best-practice risk: reference material over `MaxLineLength` lines should be easier to
      skim before an agent loads or follows a specific section.
 
 4. Some metadata and prompt surfaces are less portable than the rest.
@@ -73,11 +73,11 @@ delegate deterministic work to scripts or references where appropriate.
   build-configuration edits require explicit approval.
 - [ ] Extract or introduce deterministic entrypoints for the highest-risk
   procedural skills, starting with `check-links` and `dependency-update`.
-- [ ] Add table-of-contents sections to reference files over 100 lines.
+- [ ] Add table-of-contents sections to reference files over `MaxLineLength` lines.
 - [ ] Normalize cross-agent phrasing by removing slash-command assumptions and
   keeping instructions skill-name based.
 - [ ] Shorten unusually long `openai.yaml` default prompts while preserving
-  discoverability for Codex.
+  discoverability for Codex. Wrap them with the `MaxLineLength`-lines limit for human verification.
 - [ ] Decide whether to add lightweight skill scenarios or eval notes for the
   major skills.
 - [ ] Re-audit all skills against the Claude best-practices checklist and record
