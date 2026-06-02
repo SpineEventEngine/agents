@@ -13,7 +13,7 @@
 ### ✅ Prefer
 - **Kotlin idioms** over Java-style approaches:
   - Extension functions
-  - `when` expressions 
+  - `when` expressions
   - Smart casts
   - Data classes and sealed classes
   - Immutable data structures
