@@ -82,4 +82,4 @@ When producing code:
 2. The code.
 3. A checklist of the non-obvious MUST rules applied.
 
-When reviewing code: call out MUST-DO / MUST-NOT violations explicitly and suggest the minimal fix.
+When reviewing code: call out MUST-DO / MUST-NOT violations explicitly and suggest the minimal fix. End with a one-line verdict — `APPROVE`, `APPROVE WITH CHANGES`, or `REQUEST CHANGES` — so orchestrators such as `pre-pr` can aggregate the result. Use `APPROVE` when no MUST rules are violated.

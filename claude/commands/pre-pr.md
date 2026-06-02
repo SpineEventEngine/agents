@@ -17,9 +17,11 @@ Follow the `pre-pr` skill exactly:
   message with multiple Agent tool uses:
   - `kotlin-engineer` when `.kt|.kts` files changed (general Kotlin language
     standards).
-  - `spine-code-review` when `.kt|.kts|.java` files changed (repo-specific
-    rules). Dispatch it alongside `kotlin-engineer`; they cover disjoint
-    concerns and do not double-report.
+  - `spine-code-review` when `.kt|.kts|.java` files changed, or when build-only
+    files changed (`*.gradle`, `settings.gradle`, `gradle.properties`,
+    `*.versions.toml`) — its scope includes build changes (repo-specific
+    rules). Dispatch it alongside `kotlin-engineer` for Kotlin/Java; they cover
+    disjoint concerns and do not double-report.
   - `review-docs` when `.md` files or KDoc inside sources changed.
   - `dependency-audit` when any file under
     `buildSrc/src/main/kotlin/io/spine/dependency/` changed.
