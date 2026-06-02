@@ -13,16 +13,14 @@
 11. [Advanced safety rules](advanced-safety-rules.md)
 12. [Refactoring guidelines](refactoring-guidelines.md)
 13. [Common tasks](common-tasks.md)
-14. [Team memory](.agents/memory/MEMORY.md)
-15. [Task plans](.agents/tasks/README.md)
-16. [Kotlin engineering](.agents/skills/kotlin-engineer/SKILL.md) — implementation
+14. [Kotlin engineering](.agents/skills/kotlin-engineer/SKILL.md) — implementation
     policy for Kotlin, coroutines, Flow, null-safety, and API design
-17. [Java to Kotlin conversion](.agents/skills/java-to-kotlin/SKILL.md)
-18. [Dependency update](.agents/skills/dependency-update/SKILL.md)
-19. [Documentation review](.agents/skills/review-docs/SKILL.md)
-20. [Pre-PR checklist](.agents/skills/pre-pr/SKILL.md)
-21. [Code review](.agents/skills/spine-code-review/SKILL.md) — repo-specific Kotlin
+15. [Java to Kotlin conversion](.agents/skills/java-to-kotlin/SKILL.md)
+16. [Dependency update](.agents/skills/dependency-update/SKILL.md)
+17. [Documentation review](.agents/skills/review-docs/SKILL.md)
+18. [Pre-PR checklist](.agents/skills/pre-pr/SKILL.md)
+19. [Code review](.agents/skills/spine-code-review/SKILL.md) — repo-specific Kotlin
     and Java review; defers general Kotlin standards to `kotlin-engineer`
-22. [Dependency audit](.agents/skills/dependency-audit/SKILL.md)
-23. [Gradle review](.agents/skills/gradle-review/SKILL.md)
-24. [Raise test coverage](.agents/skills/raise-coverage/SKILL.md)
+20. [Dependency audit](.agents/skills/dependency-audit/SKILL.md)
+21. [Gradle review](.agents/skills/gradle-review/SKILL.md)
+22. [Raise test coverage](.agents/skills/raise-coverage/SKILL.md)

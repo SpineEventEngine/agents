@@ -30,9 +30,10 @@ Use `kotlin-engineer` for implementation work in Kotlin or Kotlin DSL:
    coroutines, API idioms, or build setup.
 4. Verify with the narrowest relevant Gradle compile/test task.
 
-## Setup Check (run first)
+## Setup Check
 
-Before writing non-trivial code:
+Run this before non-trivial Kotlin changes, or when the module's
+Kotlin/JDK/tooling baseline is unclear (see the Fast Path above):
 
 1. **Kotlin version** — target 2.x when possible. Check `build.gradle(.kts)` (`kotlin("jvm") version "2.x"`) or `libs.versions.toml`.
 2. **JDK target** — Use JDK 21+ for virtual threads or JDK 17+ for record interop.
