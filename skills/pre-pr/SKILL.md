@@ -137,6 +137,9 @@ for this repo" rather than failing.
 - **deps** changed → `dependency-audit`
 - **site** changed → `check-links` (unless the sentinel short-circuit below
   applies)
+- **Line length.** Findings on changed Kotlin / Java / Markdown lines are
+  reported by the dispatched reviewers (`spine-code-review`, `review-docs`);
+  pre-pr itself does not re-check.
 
 **`check-links` sentinel short-circuit.** Read `.git/check-links.ok` (if
 present). If `head=` equals the current **full** HEAD SHA and `status=PASS`, skip

@@ -64,11 +64,29 @@ The standards live in `.agents/`:
    nullability, and idiomatic refactors require surrounding context.
 3. Check the repo-specific guidelines from `.agents/guidelines/coding-guidelines.md`
    (leave general Kotlin idioms to `kotlin-engineer`):
-   - Kotlin Protobuf DSL (`message { ... }`) preferred over Java builders (`newBuilder()`, `toBuilder()`) in Kotlin.
+   - Kotlin Protobuf DSL (`message { ... }`) preferred over Java builders
+     (`newBuilder()`, `toBuilder()`) in Kotlin.
    - No type names in variable names.
    - No string duplication — use companion-object constants.
    - No mixing Groovy/Kotlin DSL in build logic.
    - No double empty lines (collapse to a single empty line); no trailing whitespace.
+   - Line length (`MaxLineLength`). Read the limit from
+     `buildSrc/quality/detekt-config.yml` (from the working tree at
+     `HEAD`, so it matches what `./gradlew build` enforces) and apply it
+     only to lines the diff touched — read each file fully for context
+     (step 2) but report only changed lines. Non-comment `.kt` / `.kts`
+     lines over the limit are **Must fix**: detekt breaks the build, and
+     `excludeCommentStatements: true` exempts comment and KDoc-body lines
+     from that break. KDoc / Javadoc body lines, and any `.java` line over
+     the limit, are **Should fix**. Exempt generated sources
+     (`**/generated/**`, `**/generated-proto/**`). For a changed line
+     inside a string literal the fix is splitting into two or more
+     `+`-concatenated pieces; otherwise follow
+     `coding-guidelines.md § Line length`. Cite the actual numbers in the
+     finding, e.g. "line 47 is 108 chars (limit `<value>`, from
+     `buildSrc/quality/detekt-config.yml`)". If that file is absent or
+     lacks `MaxLineLength.maxLineLength`, report a **Must fix** asking the
+     user to restore the config rather than inventing a number.
 4. Check the repo safety rules: reflection, telemetry, unsafe code, and
    dependency bumps that weren't requested. (Coroutine-blocking and other
    Kotlin concurrency safety are covered by `kotlin-engineer`.)
@@ -86,9 +104,12 @@ The standards live in `.agents/`:
 Return three sections, in this order:
 
 - **Must fix** — violations of safety rules, broken builds, missing version
-  bump when the version gate applies, missing tests for functional changes.
+  bump when the version gate applies, missing tests for functional changes,
+  non-comment `.kt` / `.kts` lines over the `MaxLineLength` limit (detekt
+  breaks the build), and a missing or incomplete `detekt-config.yml`.
 - **Should fix** — repo coding-guideline violations and clearer repo-idiomatic
-  alternatives. Cite the specific guideline.
+  alternatives, including KDoc / Javadoc body lines and `.java` lines over the
+  `MaxLineLength` limit. Cite the specific guideline.
 - **Nits** — style and naming suggestions.
 
 For each item, quote the file and line, show the current code, and show the

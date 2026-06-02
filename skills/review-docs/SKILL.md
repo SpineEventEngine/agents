@@ -2,9 +2,9 @@
 name: review-docs
 description: >
   Review documentation changes — KDoc/Javadoc inside Kotlin/Java sources and
-  Markdown docs (`README.md`, `docs/**`) — against Spine documentation
-  conventions. Use when a diff touches doc comments or Markdown, before
-  opening a doc-affecting PR, or when asked for a documentation review.
+  Markdown docs (`README.md`, `docs/**`, `.agents/**`) — against Spine
+  documentation conventions. Use when a diff touches doc comments or Markdown,
+  before opening a doc-affecting PR, or when asked for a documentation review.
   Read-only; does not run builds.
 ---
 
@@ -85,6 +85,11 @@ The authoritative standards live in `.agents/`:
 - **Multi-paragraph Protobuf headers end with an empty comment line.** In
   `.proto` files, if the file-level documentation header has more than one
   paragraph, it must end with a trailing empty comment line (`//`).
+- **Line length.** KDoc / Javadoc body lines wrap at the limit from
+  `buildSrc/quality/detekt-config.yml` (`MaxLineLength.maxLineLength`),
+  applied to changed lines only. Long body lines are **Should fix**; code
+  lines around the comment, if also too long, are owned by
+  `spine-code-review`. See `coding-guidelines.md § Line length`.
 
 ### B. Markdown docs
 
@@ -104,6 +109,11 @@ The authoritative standards live in `.agents/`:
   blocks for shell snippets (they swallow `$` prompts and hurt copy/paste).
 - **Heading hierarchy.** No skipped levels (`#` → `###`); exactly one `#`
   per file.
+- **Line length.** Body lines in `.md` — including `README.md`, `docs/**`,
+  and `.agents/**` (this expands the skill's prior `.md` scope explicitly)
+  — wrap at the configured limit from `buildSrc/quality/detekt-config.yml`,
+  applied to changed lines only. Long URLs go in reference-style footnote
+  definitions. Long lines are **Should fix**.
 
 ### C. Prose flow (Spine-specific)
 
