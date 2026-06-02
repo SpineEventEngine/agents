@@ -117,8 +117,8 @@ Return three sections, in this order:
 - **Should fix** — repo coding-guideline violations and clearer repo-idiomatic
   alternatives, including over-limit lines that break no build (KDoc / Javadoc
   bodies, `.java`, and `.kt` / `.kts` where no detekt gate exists), and a
-  `detekt-config.yml` whose `MaxLineLength` drifts from `coding.md`. Cite the
-  specific guideline.
+  `detekt-config.yml` whose `MaxLineLength` drifts from
+  `.agents/guidelines/coding.md`. Cite the specific guideline.
 - **Nits** — style and naming suggestions.
 
 For each item, quote the file and line, show the current code, and show the

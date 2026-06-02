@@ -9,7 +9,8 @@ max-line-length: 100
 - Adhere to [Spine Event Engine Documentation][spine-docs] for coding style.
 - Generate code that compiles cleanly and passes static analysis.
 - Respect existing architecture, naming conventions, and project structure.
-- Write clear, incremental commits with descriptive messages.
+- Keep commits clear and incremental, with descriptive messages. Commit only
+  with explicit authorization (see `safety-rules.md`).
 - Include automated tests for any code change that alters functionality.
 
 ## Kotlin best practices
@@ -44,8 +45,8 @@ max-line-length: 100
 
 ## Line length
 
-The line-length limit is **`max-line-length` in this file's frontmatter**
-(currently 100). This guideline is the single source of truth — it lives
+The line-length limit is the **`max-line-length` value in this file's
+frontmatter** — the single source of truth. It lives
 under `.agents/`, which floats to every Spine repo, so the limit is
 available even in repositories that have no build. Read it once at the
 start of a session and treat it as a session-local constant.
