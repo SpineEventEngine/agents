@@ -2,7 +2,7 @@
 slug: kotlin-jvm-tester-skill
 branch: kotlin-jvm-tester-skill
 owner: claude
-status: in-progress
+status: done
 started: 2026-06-03
 ---
 
