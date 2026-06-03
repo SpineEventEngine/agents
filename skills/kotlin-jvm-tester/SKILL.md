@@ -89,9 +89,9 @@ supplement-KDoc template: [`references/java-coexistence.md`](references/java-coe
   must be Java.
 - **`@DisplayName` is required on every suite** (not a backticked class name) — it
   improves IDE searchability and reads as documentation. Name the subject with a
-  "should" lead-in, type in backticks: `@DisplayName("`Math2` should")`. For
+  "should" lead-in, type in backticks: ``@DisplayName("`Math2` should")``. For
   extension-function suites the subject reads naturally:
-  `@DisplayName("Extensions for `Iterable` should")`.
+  ``@DisplayName("Extensions for `Iterable` should")``.
 - **Test method names are backticked sentences**: `` fun `multiply long by int`() ``.
 
 ## Structure & formatting
