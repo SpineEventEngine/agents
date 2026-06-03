@@ -28,10 +28,16 @@ tasks use the conventional groups `build`, `verification`,
 Every custom task registered or configured by Spine SDK code must set
 both:
 
-- **`group`** equal to the string `"spine"`. A shared `buildSrc`
-  constant for this value (planned as `io.spine.gradle.SpineTaskGroup.name`)
-  does not ship yet; until it does, use the string literal and switch to
-  the constant once it is introduced.
+- **`group`** equal to the string `"spine"`, set via the shared
+  `SpineTaskGroup.name` constant (value `"spine"`) rather than a bare
+  literal. Two constants expose it, one per scope:
+  - `io.spine.gradle.SpineTaskGroup.name` — in `buildSrc` code and
+    project build scripts. Defined in `config`'s `buildSrc` and
+    propagated into every repo's `buildSrc`, so it is visible to every
+    `build.gradle.kts`.
+  - `io.spine.tools.gradle.task.SpineTaskGroup.name` — in Spine tool
+    plugin production code. Published from `tool-base`'s `plugin-base`
+    module.
 - **`description`** as a short imperative sentence describing what
   the task does (no trailing period).
 
@@ -43,26 +49,25 @@ The rule applies to:
   configures tasks (`Plugin<Project>` implementations under
   `tool-base` and similar repos).
 
-The examples below use the string literal `"spine"`. A shared `buildSrc`
-constant (planned as `io.spine.gradle.SpineTaskGroup.name`, which would hold
-the value `"spine"` and be visible to every `build.gradle.kts`) does not ship
-yet; replace the literal with that constant once it is introduced.
-
-### Example — registering a new task
+### Example — registering a new task (`buildSrc` / build script)
 
 ```kotlin
+import io.spine.gradle.SpineTaskGroup
+
 tasks.register("generateSpineModel") {
-    group = "spine" // Replace with the shared constant once it ships.
+    group = SpineTaskGroup.name
     description = "Generates Spine model classes from .proto definitions"
     // ...
 }
 ```
 
-### Example — configuring an existing task type
+### Example — configuring a task type in plugin production code
 
 ```kotlin
+import io.spine.tools.gradle.task.SpineTaskGroup
+
 tasks.withType<YourTaskType>().configureEach {
-    group = "spine" // Replace with the shared constant once it ships.
+    group = SpineTaskGroup.name
     description = "Compiles Spine-specific module sources"
 }
 ```

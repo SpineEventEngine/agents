@@ -101,8 +101,10 @@ If after filtering nothing in the diff falls in any scope, return
 
    - Every custom task registered or configured in scope sets both
      `group` and `description`.
-   - `group` equals `"spine"`. Once the shared constant ships, a bare
-     literal `"spine"` where it could have been used becomes a Nit whose
+   - `group` equals `"spine"`, set via the `SpineTaskGroup.name`
+     constant (`io.spine.gradle` in `buildSrc`/build scripts,
+     `io.spine.tools.gradle.task` in plugin production code). A bare
+     `"spine"` literal where the constant was reachable is a Nit whose
      recommended replacement is the constant.
 
 4. **Check upstream Gradle best practices** (from `practices/`):
