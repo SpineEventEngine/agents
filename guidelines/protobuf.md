@@ -22,7 +22,7 @@ option java_multiple_files = true;
 
 import "google/protobuf/timestamp.proto";
 
-import "spine/annotations.proto";
+import "spine/options.proto";
 ```
 
 The `type_url_prefix` option precedes `java_package`. Google Protobuf imports are grouped
