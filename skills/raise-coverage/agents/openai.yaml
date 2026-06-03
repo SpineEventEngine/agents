@@ -10,5 +10,4 @@ interface:
     a test-case list and wait for approval (pass `--yes` / `--no-confirm` to
     skip that wait), and write Kotlin + Kotest unit tests (stubs not mocks;
     `Spec`-suffixed names) before re-running the report to confirm the gaps
-    closed. Tests-only changes need no version bump. See SKILL.md for the full
-    workflow (KMP, smoke checks, task names).
+    closed. See SKILL.md for the full workflow (KMP, smoke checks, task names).
