@@ -24,15 +24,15 @@ forward-reference: "Every custom task must set `group`. The value must equal
 `"spine"` (use the shared constant **once introduced** — see …)." The
 referenced task plan was never created, so the link is broken.
 
-Four occurrences, all pointing at `…/tasks/spine-task-group-constant.md`:
+Three live occurrences, all pointing at
+`…/tasks/spine-task-group-constant.md` (a fourth, in `tasks.md`'s
+"Spine-specific must-fix" section, was already delinked on this branch):
 
 - `skills/gradle-review/SKILL.md:105`
   — href `../../tasks/spine-task-group-constant.md`
 - `skills/gradle-review/spine-task-conventions.md:33`
   — href `../../tasks/spine-task-group-constant.md`
-- `skills/gradle-review/practices/tasks.md:49`
-  — href `../../../tasks/spine-task-group-constant.md`
-- `skills/gradle-review/practices/tasks.md:166`
+- `skills/gradle-review/practices/tasks.md:165` (Nits section)
   — href `../../../tasks/spine-task-group-constant.md`
 
 Two problems, not one:
