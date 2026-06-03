@@ -4,7 +4,8 @@ description: >
   Raise JVM test coverage for a Gradle module or source path. Before anything
   else (outside read-only `--triage`), ensures the repo is on Kover —
   auto-migrating from vanilla JaCoCo, or installing Kover when absent, without
-  asking. Then localizes
+  asking for routine cases (manual-review surfaces are still flagged). Then
+  localizes
   uncovered lines and branches from Kover's JaCoCo-format XML report, and
   generates policy-compliant unit tests — stubs not mocks; tests are written
   in **Kotlin** with Kotest assertions, regardless of whether
@@ -23,8 +24,10 @@ always propose the test-case list and **wait for approval** before writing,
 and verify the gap is actually closed afterward.
 
 Before the main flow runs, you ensure the repo is on Kover. If vanilla JaCoCo
-is detected anywhere, you **auto-migrate the repo to Kover** without asking; if
-no coverage plugin is present, you install Kover. The mechanical recipe lives in
+is detected anywhere, you **auto-migrate the repo to Kover** without asking for
+the routine edits — still flagging the recipe's §7 manual-review surfaces for a
+decision; if no coverage plugin is present, you install Kover. The mechanical
+recipe lives in
 [`references/migrate-to-kover.md`](references/migrate-to-kover.md).
 
 The authoritative standards live in `.agents/`:
@@ -103,9 +106,10 @@ migration recipe in
    Record "Migration: installed Kover" in the final Report. No approval gate
    for this branch.
 3. **Vanilla JaCoCo in ≥1 module** (with or without Kover alongside) —
-   **auto-migrate** the repo to Kover per the recipe, no approval gate. Apply
-   the edits, then record them in the **Migration** report section. The only
-   stop condition is a genuinely unresolvable manual-review surface (below).
+   **auto-migrate** the repo to Kover per the recipe: no blanket approval gate
+   for the routine edits. Record them in the **Migration** report section, and
+   **stop to flag the recipe's §7 manual-review surfaces** for a decision
+   before applying those (below).
 
 ### Apply the migration (vanilla-JaCoCo branch)
 
@@ -119,10 +123,11 @@ modules applying `jacoco` / `JacocoPlugin` / `JacocoConfig.applyTo` / a
 `KoverConfig.applyTo(rootProject)` as an existing Kover signal (the successor
 to `JacocoConfig.applyTo`), not a JaCoCo one.
 
-The **only** stop condition is a genuinely unresolvable item from that file's
-"Manual-review surfaces" list — something the recipe cannot decide
-deterministically. On such an item, stop with "needs your call on `<x>`"
-rather than guess; everything the recipe covers is applied without asking.
+Stop and ask on the recipe's **§7 manual-review surfaces** (e.g. an intentional
+dual JaCoCo/Kover pipeline, custom `executionData`, or a custom report
+destination CI consumers depend on): flag each with "needs your call on `<x>`"
+before applying that edit. Everything else — the routine, mechanical migration
+— is applied without asking.
 
 For the final Report's **Migration** section, capture the edited-file list, the
 applicable translation-table rows, and any manual-review surface you skipped.
@@ -235,10 +240,11 @@ actually did work):
 
 - **`--triage` is read-only.** Step 0 never writes under `--triage`; if
   Kover is not in place, emit "Setup required" and stop.
-- **Kover is applied without asking.** Outside `--triage`, both a fresh Kover
-  install (no coverage plugin) and a vanilla-JaCoCo → Kover migration run
-  without an approval gate — the project policy is to encourage coverage
-  measurement. The only stop is a genuinely unresolvable manual-review surface.
+- **Kover is applied without asking — for routine cases.** Outside `--triage`,
+  a fresh Kover install (no coverage plugin) and the routine vanilla-JaCoCo →
+  Kover migration run without a blanket approval gate — the project policy is to
+  encourage coverage measurement. The migration still **flags the §7
+  manual-review surfaces** and asks before applying those.
 - **Read-only until approval — for tests.** Do not write tests before the user
   confirms the step-4 list, **unless** the run is pre-approved with `--yes` /
   `--no-confirm` (or an equivalent in the prompt), in which case the list is

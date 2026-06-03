@@ -1,9 +1,10 @@
 # Migrate from vanilla JaCoCo to Kover
 
 Mechanical recipe for the `raise-coverage` skill's Step 0. The skill detects
-vanilla JaCoCo in a consumer repo and applies the edits below without asking
-(no approval gate; the only stop is a genuinely unresolvable manual-review
-surface — see §7). The convention is **Kover Gradle plugin** with
+vanilla JaCoCo in a consumer repo and applies the **routine** edits below
+without asking (no blanket approval gate). It still **flags the §7
+manual-review surfaces** and asks before touching them. The convention is
+**Kover Gradle plugin** with
 the JaCoCo engine via `useJacoco(version = Jacoco.version)` — JaCoCo-format XML
 is preserved, only the Gradle plugin and task names change.
 
@@ -92,10 +93,10 @@ Classify each module as one of:
 | Vanilla JaCoCo only | migrate to Kover |
 | Neither | install Kover |
 
-Every branch runs without an approval gate. If at least one module is "vanilla
-JaCoCo only" or "Kover + vanilla JaCoCo", the skill applies the migration
-straight away and records the edited files in the Report's **Migration**
-section. It stops only on a genuinely unresolvable manual-review surface (§7).
+No blanket approval gate. If at least one module is "vanilla JaCoCo only" or
+"Kover + vanilla JaCoCo", the skill applies the routine migration straight away
+and records the edited files in the Report's **Migration** section. It still
+flags the §7 manual-review surfaces and asks before applying those.
 
 ## 3. Per-module migration
 

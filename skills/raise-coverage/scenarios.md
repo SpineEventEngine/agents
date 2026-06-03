@@ -17,9 +17,11 @@ human-readable validation notes, not an executable harness.
 
 - **Trigger:** "Add the missing tests for `:client`."
 - **State:** the `jacoco` plugin is applied; Kover is absent.
-- **Expected:** **auto-migrate** the repo to Kover (no approval gate) — apply
-  the recipe's edits, record them in the **Migration** report, then run the
-  normal flow. Stop only on a genuinely unresolvable manual-review surface.
+- **Expected:** **auto-migrate** the repo to Kover with no blanket approval
+  gate — apply the recipe's routine edits, record them in the **Migration**
+  report, then run the normal flow. Still flag the recipe's §7 manual-review
+  surfaces (dual JaCoCo/Kover pipeline, custom `executionData`, etc.) for a
+  decision before applying those.
 
 ## Scenario 3 — no coverage frontend at all
 
