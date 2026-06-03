@@ -79,9 +79,9 @@ The authoritative standards live in `.agents/`:
   or any path under `.agents/` (task plans, skill rules, conventions, …).
   These details are invisible to consumers of the published artifact and
   rot quickly. Cross-repository parity notes and work-in-progress
-  justifications belong in `.agents/tasks/`, not in the API docs. A mention
-  in newly-added or modified KDoc/Javadoc is a Should-fix; summarise the
-  *outcome* in the doc instead.
+  justifications belong in the team's transient work-tracking, not in the
+  API docs. A mention in newly-added or modified KDoc/Javadoc is a
+  Should-fix; summarise the *outcome* in the doc instead.
 - **Multi-paragraph Protobuf headers end with an empty comment line.** In
   `.proto` files, if the file-level documentation header has more than one
   paragraph, it must end with a trailing empty comment line (`//`).

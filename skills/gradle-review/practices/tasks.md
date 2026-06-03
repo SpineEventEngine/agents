@@ -160,9 +160,7 @@ writes to its own deterministic location, typically under
   [`spine-task-conventions.md`](../spine-task-conventions.md) is the
   canonical source; this Nit tracks whatever convention that file
   establishes.
-- **`"spine"` as a string literal.** Once the shared constant exists
-  (see
-  [`.agents/tasks/spine-task-group-constant.md`](../../../tasks/spine-task-group-constant.md)),
+- **`"spine"` as a string literal.** Once the shared constant exists,
   the literal `"spine"` in `buildSrc/` code, build files, or plugin
   production code is a Nit unless wrapped in a comment with a TODO
   referencing the migration.

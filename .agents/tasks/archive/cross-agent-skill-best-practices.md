@@ -2,7 +2,7 @@
 slug: cross-agent-skill-best-practices
 branch: codex/audit-skills-discoverability
 owner: codex
-status: in-progress
+status: done
 started: 2026-05-31
 ---
 
@@ -158,5 +158,14 @@ touch build logic. Two heavier items are deferred (see below).
   the proposed list for the record and proceeds without waiting. `--yes` is
   ignored under `--triage`. Documented in `SKILL.md` (frontmatter, Inputs,
   step 4/5, Safety), `agents/openai.yaml`, and `scenarios.md` (Scenario 5).
+- 2026-06-03: Closed out. Verified the safe-slice deliverables are present on
+  `master` (no slash-command phrasing in any `SKILL.md`; `writer/openai.yaml`
+  references `$writer`; `dependency-update/references/version-discovery.md`
+  exists; `scenarios.md` present for `raise-coverage`, `check-links`,
+  `dependency-update`). The three deferred items were each spun off into their
+  own draft task file and this task moved to `archive/`:
+  - `check-links` entrypoint script → `check-links-entrypoint-script.md`
+  - `dependency-update` implementation script → `dependency-update-script.md`
+  - executable eval/test harness → `skill-eval-harness.md`
 
 [^claude-best-practices]: https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices

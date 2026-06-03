@@ -29,8 +29,7 @@ Every custom task registered or configured by Spine SDK code must set
 both:
 
 - **`group`** equal to the string `"spine"`. Use the shared constant
-  once it exists — see
-  [`../../tasks/spine-task-group-constant.md`](../../tasks/spine-task-group-constant.md).
+  once it exists.
 - **`description`** as a short imperative sentence describing what
   the task does (no trailing period).
 
