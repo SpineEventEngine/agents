@@ -6,7 +6,7 @@
 * [File header](#file-header)
 * [API documentation](#api-documentation)
 * [Nested types declaration](#nested-types-declaration)
-* [Code in Prototobuf documentation and GitHub comments](#code-in-prototobuf-documentation-and-github-comments)
+* [Code in Protobuf documentation and GitHub comments](#code-in-protobuf-documentation-and-github-comments)
 * [Naming `repeated` and `map` fields](#naming-repeated-and-map-fields)
 
 ---
@@ -14,7 +14,7 @@
 ## General Rules
 
 * *4 spaces* (instead of 2) for indentation —
-  we want it less dense and inline with Java indentation.
+  we want it less dense and inline with Kotlin and Java indentation.
 * Maintain the right margin defined by `max-line-length` in `coding.md` frontmatter.
 
 ## File header
@@ -51,7 +51,7 @@ If documentation of a type or a field fits into one paragraph, do NOT add an emp
 the paragraph.
 
 ```proto
-// This is now to document a proto type description of which
+// This is how to document a proto type description of which
 // fits into one paragraph.
 message OneParaExample {
 
@@ -69,11 +69,11 @@ If a field or a message requires two or more paragraphs, the text should end wit
 //
 message TwoParaExample {
 
-   // This field requires more explanation.
-   //
-   // It could be this, and it could be that. Have an empty line in such a text.
-   //
-   uint32 bar = 2;
+    // This field requires more explanation.
+    //
+    // It could be this, and it could be that. Have an empty line in such a text.
+    //
+    uint32 bar = 2;
 }
 ```
 
@@ -82,10 +82,9 @@ message TwoParaExample {
 To improve readability, please declare nested types at the end of the enclosing message type
 after all field declarations.
 
-## Code in Prototobuf documentation and GitHub comments
+## Code in Protobuf documentation and GitHub comments
 
-Please use \` \` quotes (as in Markdown) to mark code names in Protobuf documentation and
-GitHub comments.
+Please use backticks to mark code names in Protobuf documentation and GitHub comments.
 
 ```protobuf
   // This field contains string representation of `AggregateId`.
@@ -108,12 +107,11 @@ The generated Java code would then have:
 ```java
    List<Item> getItemList() { ... }
    Builder addItem(Item item) { ... }
-      
+
    Value getValueOrThrow(String key) { ... }
    Value getValueOrDefault(String key) { ... }
    Builder putValue(String key, Value value) { ... }
-   Builder removeValue(String key) { ... }   
-   
+   Builder removeValue(String key) { ... }
 ```
 
 and other methods that play nicely with singular field names.
