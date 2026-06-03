@@ -184,7 +184,8 @@ case that needs it.
 
 | Target shape | Use | Source |
 |---|---|---|
-| Utility class (static/`object` members, private ctor) | `UtilityClassTest<T>(T::class.java)` | `io.spine.testing.UtilityClassTest` |
+| Java utility class (static members, private ctor) | `UtilityClassTest<T>(T::class.java)` | `io.spine.testing.UtilityClassTest` |
+| Kotlin `object` (utility or singleton) | Plain `XSpec` — no `testlib` base | — |
 | A class's static methods / class-level concerns | `ClassTest<T>` | `io.spine.testing.ClassTest` |
 | A singleton | `SingletonTest<T>` | `io.spine.testing.SingletonTest` |
 | `equals()` / `hashCode()` contract | Guava `EqualsTester` | `com.google.common.testing.EqualsTester` |

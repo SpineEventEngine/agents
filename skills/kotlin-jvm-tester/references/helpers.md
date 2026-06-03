@@ -10,7 +10,7 @@ free — do not re-implement the checks they already make.
 
 ### `UtilityClassTest<C>`
 
-For a utility class (only static / `object` members, private parameterless ctor).
+For a Java utility class (only static members, private parameterless ctor).
 Extends `ClassTest<C>`; adds "be final" and "have utility constructor" tests, and
 runs `NullPointerTester` over the static methods.
 

@@ -24,3 +24,5 @@
 20. [Dependency audit](../skills/dependency-audit/SKILL.md)
 21. [Gradle review](../skills/gradle-review/SKILL.md)
 22. [Raise test coverage](../skills/raise-coverage/SKILL.md)
+23. [Kotlin JVM tester](../skills/kotlin-jvm-tester/SKILL.md) — how to write JVM tests
+    in Kotlin for Spine: naming, structure, helpers, and Java coexistence
