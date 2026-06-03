@@ -3,8 +3,8 @@ interface:
   short_description: "How to write JVM tests in Kotlin for Spine — for both Kotlin and Java code."
   default_prompt: >-
     Use $kotlin-jvm-tester whenever you add or restructure a JVM test in the Spine
-    SDK. New tests are Kotlin (even for Java production code): JUnit 5 structure with
-    Kotest assertions, stubs not mocks, `internal` `Spec`-suffixed classes, the
+    SDK. New tests are Kotlin (even for Java production code), except for the Java-only
+    `XJavaSpec` bridge test: JUnit 5 structure with Kotest assertions, stubs not mocks, `internal` `Spec`-suffixed classes, the
     backticked `@Nested` layout, and `testlib` helpers (`UtilityClassTest`,
     `ClassTest`, `SingletonTest`, Guava `EqualsTester`). Naming: default `XSpec`;
     `XKtSpec` only to dodge a class-name clash with an existing Java `XSpec`;
