@@ -201,10 +201,10 @@ On success, **resume** at Workflow step 1.
 
 5. **Generate the tests** (after approval — or immediately when pre-approved via
    `--yes`). **Write them per `.agents/skills/kotlin-jvm-tester/SKILL.md`** — it owns
-   how a Spine JVM test is written: Kotlin always (even for Java code), JUnit 5
-   structure + Kotest assertions, stubs not mocks, the `Spec` / `XKtSpec` naming
-   rule, the backticked `@Nested` layout, and the right `testlib` helper
-   (`UtilityClassTest`, `EqualsTester`, …) for the target. Coverage-specific points
+   how a Spine JVM test is written (Kotlin by default even for Java code; the only
+   sanctioned Java suite is an `XJavaSpec` bridge test), JUnit 5 structure + Kotest
+   assertions, stubs not mocks, the `Spec` / `XKtSpec` naming rule, the backticked
+   `@Nested` layout, and the right `testlib` helper (`UtilityClassTest`, `EqualsTester`, …) for the target. Coverage-specific points
    on top of that skill:
    - Map each test back to the uncovered line/branch it closes; cover API edge cases
      and add a case per `when`/sealed-class branch.
