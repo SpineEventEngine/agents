@@ -6,7 +6,7 @@ max-line-length: 100
 
 ## Core principles
 
-- Adhere to Spine coding style guidelines: [Protobuf](protobuf.md), Kotlin (this file), Java (this file).
+- Adhere to Spine coding style guidelines: [Protobuf](protobuf.md), Kotlin (see below).
 - Generate code that compiles cleanly and passes static analysis.
 - Respect existing architecture, naming conventions, and project structure.
 - Keep commits clear and incremental, with descriptive messages. Commit only

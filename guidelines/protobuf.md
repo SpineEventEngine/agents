@@ -3,7 +3,7 @@
 ## General rules
 
 - Use **4 spaces** for indentation to maintain consistency with Java conventions.
-- Maintain a **100-character right margin**.
+- Maintain the right margin defined by `max-line-length` in `coding.md` frontmatter (currently 100 characters).
 
 ## File header
 
