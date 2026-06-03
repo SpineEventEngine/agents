@@ -204,8 +204,9 @@ On success, **resume** at Workflow step 1.
    how a Spine JVM test is written (Kotlin by default even for Java code; the only
    sanctioned Java suite is an `XJavaSpec` bridge test), JUnit 5 structure + Kotest
    assertions, stubs not mocks, the `Spec` / `XKtSpec` naming rule, the backticked
-   `@Nested` layout, and the right `testlib` helper (`UtilityClassTest`, `EqualsTester`, …) for the target. Coverage-specific points
-   on top of that skill:
+   `@Nested` layout, and the right helper for the target (`testlib` bases like
+   `UtilityClassTest` / `ClassTest` / `SingletonTest`, plus Guava `EqualsTester`, …).
+   Coverage-specific points on top of that skill:
    - Map each test back to the uncovered line/branch it closes; cover API edge cases
      and add a case per `when`/sealed-class branch.
    - Place the test under `<module>/src/test/kotlin/...`, mirroring the
