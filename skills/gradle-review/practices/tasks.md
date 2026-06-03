@@ -45,8 +45,7 @@ Each is mapped below to a Spine review level used by the
 From [`spine-task-conventions.md`](../spine-task-conventions.md):
 
 - Every custom task must set `group`. The value must equal `"spine"`
-  (use the shared constant once introduced — see
-  [`.agents/tasks/spine-task-group-constant.md`](../../../tasks/spine-task-group-constant.md)).
+  (use the shared constant once introduced).
 - Every custom task must set `description`.
 
 These are **Must fix** findings in `gradle-review`.
