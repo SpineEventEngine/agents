@@ -2,16 +2,17 @@
 name: kotlin-jvm-tester
 description: >
   The Spine SDK authority on how to write a JVM test in Kotlin — for both Kotlin
-  and Java production code. New tests are always Kotlin (the codebase is migrating
-  off Java), using JUnit 5 structure with Kotest assertions, the `Spec` naming
-  convention, `testlib` base classes (`UtilityClassTest`, `ClassTest`,
-  `SingletonTest`), and Guava's `EqualsTester`. Use whenever you add or restructure
-  a JVM test: writing a fresh suite, adding cases to one, or adding a Kotlin suite
-  alongside an existing Java test. `raise-coverage` delegates its test-writing
-  conventions here, and `kotlin-engineer` remains the baseline for the Kotlin inside
-  each test body. Covers test structure, assertions, class/display naming, the
-  backticked `@Nested` layout, Java-coexistence naming (`XSpec` vs `XKtSpec`), and
-  which `testlib` helper fits a given target.
+  and Java production code. New tests are Kotlin (the codebase is migrating off Java),
+  using JUnit 5 structure with Kotest assertions, `internal` `Spec`-suffixed classes,
+  `testlib` base classes (`UtilityClassTest`, `ClassTest`, `SingletonTest`), and
+  Guava's `EqualsTester`; the one sanctioned new Java test is an `XJavaSpec` that
+  verifies a Kotlin class works from Java across the compatibility bridge. Use
+  whenever you add or restructure a JVM test: a fresh suite, more cases, a Kotlin
+  suite beside an existing Java test, an integration `XIgTest`, or a Java-bridge spec.
+  `raise-coverage` delegates its test-writing conventions here, and `kotlin-engineer`
+  remains the baseline for the Kotlin inside each test body. Covers test structure,
+  assertions, naming (`XSpec` / `XKtSpec` / `XJavaSpec` / `XIgTest`), `@DisplayName`,
+  the backticked `@Nested` layout, and which `testlib` helper fits a target.
 ---
 
 # Kotlin JVM tester
@@ -31,18 +32,25 @@ Two companions own neighbouring concerns; defer to them rather than restating:
 
 ## Core policy
 
-1. **New tests are Kotlin — always.** Write every new test in Kotlin regardless of
-   whether the code under test is Kotlin or Java. The codebase is migrating to
-   Kotlin; writing tests in Kotlin now avoids future conversion work. Never add a
-   new Java test.
-2. **JUnit 5 for structure, Kotest for assertions.** Spine uses JUnit Jupiter
-   class-based structure (`@Test`, `@Nested`, `@DisplayName`, `@BeforeEach`,
-   `@TempDir`, `@ParameterizedTest`) — *not* Kotest spec styles
-   (`FunSpec`/`StringSpec`/`DescribeSpec` do not appear in the codebase). Assertions
-   are Kotest matchers (`shouldBe`, `shouldThrow`, `shouldContainExactly`, …).
-3. **Stubs, not mocks.** No mocking framework is on the classpath by design; write
+1. **New tests are Kotlin — with one exception.** Write every new test in Kotlin
+   regardless of whether the code under test is Kotlin or Java; the codebase is
+   migrating to Kotlin, and writing tests in Kotlin now avoids future conversion
+   work. The **only** sanctioned new Java test is an `XJavaSpec` — a deliberately
+   Java-language suite that verifies a Kotlin class is usable from Java across the
+   Java↔Kotlin compatibility bridge (see "Naming"). Outside that case, do not add a
+   Java test.
+2. **JUnit 5 for structure; Kotest (Kotlin) / Truth (Java) for assertions.** Spine
+   uses JUnit Jupiter class-based structure (`@Test`, `@Nested`, `@DisplayName`,
+   `@BeforeEach`, `@TempDir`, `@ParameterizedTest`) — *not* Kotest spec styles
+   (`FunSpec`/`StringSpec`/`DescribeSpec` do not appear in the codebase, and there is
+   no plan to adopt the Kotest framework). Kotlin suites assert with Kotest matchers
+   (`shouldBe`, `shouldThrow`, `shouldContainExactly`, …); the Java `XJavaSpec`
+   suites assert with Google Truth (`assertThat(...)`).
+3. **Mark Kotlin suites `internal`** unless the class is an abstract base reused from
+   other modules. (Java `XJavaSpec` suites are package-private — no modifier.)
+4. **Stubs, not mocks.** No mocking framework is on the classpath by design; write
    hand-rolled stubs. (See `.agents/guidelines/testing.md`.)
-4. **Use the right `testlib` base class / helper** for the shape of the target —
+5. **Use the right `testlib` base class / helper** for the shape of the target —
    see "Pick the helper" below.
 
 ## Workflow
@@ -50,36 +58,45 @@ Two companions own neighbouring concerns; defer to them rather than restating:
 1. **Read first.** Read the class under test in full (public API, constructors,
    branches, `when`/sealed exhaustiveness, error paths). Read existing tests in the
    same module to match structure, fixtures, and the source set you add to.
-2. **Decide the file and class name** per "Naming" below — including the
-   Java-coexistence rule when a test for that class already exists.
+2. **Decide the kind of test, then the class name** per "Naming" below — `XSpec`
+   (default), `XKtSpec` (only to dodge a clash with an existing Java `XSpec`),
+   `XJavaSpec` (Java bridge), or `XIgTest` (integration).
 3. **Pick the helper** (base class or assertion helper) that fits the target.
-4. **Write the test** following "Structure & formatting", placing it under
+4. **Write the test** following "Structure & formatting". Place a Kotlin suite under
    `<module>/src/test/kotlin/...` mirroring the package of the code under test
    (KMP: `src/jvmTest/kotlin/...` or `src/commonTest/kotlin/...` per the module's
-   target). Reuse the surrounding files' copyright header.
+   target); place an `XJavaSpec` under `<module>/src/test/java/...`. Reuse the
+   surrounding files' copyright header.
 5. **Verify** it compiles and runs with the narrowest Gradle test task for the
    module before reporting done.
 
 ## Naming
 
-- **Kotlin test class suffix is `Spec`** — e.g. `Math2Spec`, not `Math2Test`. This
-  holds even when the code under test is Java.
-- **Java-coexistence.** When adding a Kotlin suite for class `X`:
-  - Default to **`XSpec`**.
-  - If a test suite for `X` already exists (a Java `XTest`, or any existing
-    `XTest`/`XSpec` in either language), name the new Kotlin suite **`XKtSpec`** so
-    it coexists unambiguously — then document it as a Kotlin supplement and link to
-    the original suite in its KDoc.
-  - The detailed decision table and the supplement-KDoc template live in
-    [`references/java-coexistence.md`](references/java-coexistence.md).
-- **`@DisplayName` names the subject with a "should" lead-in**, with the type in
-  backticks: `@DisplayName("`Math2` should")`. For extension-function suites the
-  subject reads naturally: `@DisplayName("Extensions for `Iterable` should")`.
+Pick the suffix by *what kind of test* it is. Full decision table and the
+supplement-KDoc template: [`references/java-coexistence.md`](references/java-coexistence.md).
+
+| Suffix | Language | For |
+|---|---|---|
+| `XSpec` | Kotlin | Default unit test for class `X` (Kotlin *or* Java code). |
+| `XKtSpec` | Kotlin | Disambiguation only: when a Kotlin `XSpec` would clash with an existing Java `XSpec`. Rare. See reference. |
+| `XJavaSpec` | **Java** | Verifies the **Kotlin** class `X` is usable from Java across the bridge (`src/test/java/`, Truth). See reference. |
+| `XIgTest` | Kotlin | An integration test (`Ig` = integration), vs. a unit `Spec`. |
+
+- **When to write an `XJavaSpec`:** when a Kotlin class is part of the Java-facing
+  API and you must lock its Java consumption — `@JvmStatic` / `@JvmOverloads` /
+  companion members, default arguments, `@JvmName`, operator/infix functions, and
+  nullability annotations. Only a Java caller can exercise that surface, so the test
+  must be Java.
+- **`@DisplayName` is required on every suite** (not a backticked class name) — it
+  improves IDE searchability and reads as documentation. Name the subject with a
+  "should" lead-in, type in backticks: `@DisplayName("`Math2` should")`. For
+  extension-function suites the subject reads naturally:
+  `@DisplayName("Extensions for `Iterable` should")`.
 - **Test method names are backticked sentences**: `` fun `multiply long by int`() ``.
 
 ## Structure & formatting
 
-A canonical suite (mirrors `base-libraries/.../util/Math2Spec.kt`):
+A canonical Kotlin suite (adapted from `base-libraries/.../util/Math2Spec.kt`):
 
 ```kotlin
 import io.kotest.assertions.throwables.shouldThrow
@@ -89,7 +106,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
 @DisplayName("`Math2` should")
-class Math2Spec : UtilityClassTest<Math2>(Math2::class.java) {
+internal class Math2Spec : UtilityClassTest<Math2>(Math2::class.java) {
 
     @Test
     fun `multiply long by int`() {
@@ -99,6 +116,28 @@ class Math2Spec : UtilityClassTest<Math2>(Math2::class.java) {
     @Test
     fun `fail to multiply on overflow`() {
         shouldThrow<ArithmeticException> { Math2.safeMultiply(Long.MAX_VALUE, 2) }
+    }
+}
+```
+
+A Java-bridge suite (`src/test/java/...`, JUnit 5 + Truth; from
+`base-libraries/.../string/StringifyJavaSpec.java`):
+
+```java
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import static com.google.common.truth.Truth.assertThat;
+import static io.spine.string.Stringifiers.stringify;
+
+@DisplayName("`Stringify` should")
+class StringifyJavaSpec {
+
+    @Test
+    @DisplayName("provide `stringify()` method")
+    void provideStringifyMethod() {
+        var value = "foo-bar";
+        assertThat(stringify(value)).isEqualTo(value);
     }
 }
 ```
@@ -171,9 +210,16 @@ points.
 - Shared policy: `.agents/guidelines/testing.md`; coding idioms:
   `.agents/guidelines/coding.md`.
 - Kotlin baseline for test bodies: `.agents/skills/kotlin-engineer/SKILL.md`.
-- Tests-only changes need **no version bump** (see
-  `.agents/guidelines/version-policy.md`).
+- **Bump the version even for a tests-only change.** In a repo with root
+  `version.gradle.kts`, CI rejects any PR that does not bump the version — there is no
+  tests-only exception. Use the `bump-version` skill. (See
+  `.agents/guidelines/version-policy.md`.)
 - `testlib` lives at `io.spine.testing.*` (artifact `spine-testlib`).
+- **Keep reusable stubs/fixtures out of the spec files.** Use Gradle's
+  `java-test-fixtures` plugin (the `testFixtures` source set) to share stub classes
+  and test data across suites, so a `Spec` stays focused on its cases.
+- Upstream source for these conventions: the Spine *Testing* wiki —
+  <https://github.com/SpineEventEngine/documentation/wiki/Testing>.
 
 ## Report
 

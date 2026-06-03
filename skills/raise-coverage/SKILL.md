@@ -42,7 +42,8 @@ The authoritative standards live in `.agents/`:
 - `.agents/guidelines/testing.md` — stubs not mocks; Kotest assertions; cover API edge
   cases; scaffold `when`/sealed-class branches.
 - `.agents/guidelines/coding.md` — Kotlin/Java idioms for the tests you write.
-- `.agents/guidelines/version-policy.md` — tests-only changes do not require a version bump.
+- `.agents/guidelines/version-policy.md` — in a repo with root `version.gradle.kts`,
+  every PR (tests-only included) must bump the version or CI fails.
 
 Mechanical detail (report paths, XML parsing, gap rules) lives in
 [`references/coverage-signals.md`](references/coverage-signals.md). Keep this
@@ -251,9 +252,9 @@ actually did work):
 - **Never weaken a `.codecov.yml` target** or extend its `ignore` list to make a
   check pass.
 - **Never add a mocking dependency** (Mockito, MockK, …) — write stubs.
-- **No version bump.** Tests-only changes do not require one; do not invoke
-  the `version-bumped` skill for a tests-only result. If you had to touch production code
-  to make it testable, that is a separate change that needs its own review and a
-  version bump. The migration itself (Step 0) **does** alter build files and is
-  not tests-only — treat it as production-code change for version-bump purposes
-  when it runs.
+- **Bump the version.** In a repo with root `version.gradle.kts`, CI rejects any PR
+  that does not bump the version — tests-only changes included. Run the
+  `version-bumped` / `bump-version` skill before opening the PR. (Repos without that
+  file are not versioned Gradle projects; the check is not applicable.) If you had to
+  touch production code to make it testable, that is a separate change needing its
+  own review.

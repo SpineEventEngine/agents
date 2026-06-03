@@ -1,50 +1,93 @@
-# Adding Kotlin tests for existing Java code
+# Test naming, language, and coexistence
 
-The codebase is mixed Java/Kotlin and a large share of tests are still Java. New
-tests are written **only in Kotlin**, so you constantly add Kotlin suites next to,
-or in place of, Java ones. This page is the deterministic naming + documentation
-rule for that situation.
+The codebase is mixed Java/Kotlin, and a large share of existing tests are still
+Java. New tests are written **in Kotlin** — with one deliberate exception, the
+`XJavaSpec` bridge test (below). This page is the deterministic rule for the four
+kinds of suite (`XSpec`, `XKtSpec`, `XJavaSpec`, `XIgTest`): which to pick, and how
+to add a Kotlin suite next to an existing one.
 
-## Situations
+## The four kinds of suite
 
-For production class `X` that needs new test coverage:
+| Suffix | Language / location | When |
+|---|---|---|
+| `XSpec` | Kotlin, `src/test/kotlin/` | Default unit test for `X` (Kotlin *or* Java code). |
+| `XKtSpec` | Kotlin, `src/test/kotlin/` | Disambiguation only: when a Kotlin `XSpec` would clash with an existing **Java** test suite already named `XSpec`. |
+| `XJavaSpec` | **Java**, `src/test/java/` | Verifies the **Kotlin** `X` is consumable from Java across the bridge. |
+| `XIgTest` | Kotlin, `src/test/kotlin/` | Integration test (`Ig` = integration), vs. a unit `Spec`. |
+
+Mark Kotlin suites `internal` unless they are an abstract base reused from other
+modules. Java `XJavaSpec` suites are package-private (no modifier).
+
+## Naming a Kotlin unit suite
+
+For production class `X` needing more unit coverage:
 
 | Situation | Action |
 |---|---|
-| **No test suite exists** | Create a new Kotlin suite named `XSpec`. |
-| **A Kotlin suite already exists** | Add cases to it. Create a second suite only if there is a real reason (e.g. a distinct fixture); then use `XKtSpec`. |
-| **A test suite for `X` already exists** (Java `XTest`, a Kotlin `XTest`, or an existing `XSpec`) and you are adding a *new, separate* Kotlin suite | Create `XKtSpec`, document it as a supplement, and link to the original (below). |
+| **No test suite exists** | Create a Kotlin suite named `XSpec`. |
+| **A Kotlin suite already exists** | Just add your cases to it. |
+| **A Java test suite named `XSpec` exists** | A Kotlin `XSpec` in the same package would clash (both compile to `X​Spec.class`). Name the Kotlin suite `XKtSpec` instead. |
 
-The driving rule: **default to `XSpec`; switch to `XKtSpec` when a same-subject test
-suite already exists**, so the two coexist without name confusion.
+A Java `XTest` does **not** trigger `XKtSpec` — `XSpec` (Kotlin) and `XTest` (Java)
+don't clash, so the Kotlin suite is simply `XSpec`. `XKtSpec` exists *only* to dodge
+the JVM class-name collision with an existing Java `XSpec`, and is expected to be
+rare.
 
-This matches the codebase, e.g. in `base-libraries`:
+If you genuinely need a *second* suite for a distinct feature (also rare), name it
+after the feature — e.g. `XParsingSpec`, `XSerializationSpec` — not `XKtSpec`.
 
-- `RejectionTypeTest.java` (Java) → Kotlin supplement `RejectionTypeKtSpec.kt`.
-- `TypeSetTest.kt` (Kotlin) → Kotlin supplement `TypeSetKtSpec.kt`.
+## The `XJavaSpec` bridge test
 
-There are no Java test suites with a `Spec` suffix in main sources, so you never have
-to disambiguate against a Java `XSpec`.
+`XJavaSpec` is a separate kind of test, written **in Java on purpose**: it checks how
+Java code consumes a **Kotlin** class across the Java↔Kotlin compatibility bridge.
+Only a Java caller can exercise that surface, so the test cannot be Kotlin.
 
-## Documenting an `XKtSpec` supplement
+Write one when a Kotlin class is part of the Java-facing API and its Java consumption
+must be locked: `@JvmStatic` / `@JvmOverloads`, `@JvmName`, companion members, default
+arguments, operator/infix functions, and platform-type / nullability behavior.
 
-When you create `XKtSpec` alongside an existing suite, its KDoc must (1) state that it
-supplements the existing suite and is where new tests for `X` go, and (2) link to the
-original suite for navigation. Use a KDoc `[link]` plus an `@see` tag so IDEs
-resolve it:
+It lives in `src/test/java/`, uses JUnit 5 structure and Google Truth assertions, and
+is named `<KotlinClass>JavaSpec` (e.g. `StringifyJavaSpec` for the Kotlin `Stringify`
+API in `io.spine.string`, `TypeSystemJavaSpec` for the Kotlin `TypeSystem`).
+
+```java
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import static com.google.common.truth.Truth.assertThat;
+import static io.spine.string.Stringifiers.stringify;
+
+@DisplayName("`Stringify` should")
+class StringifyJavaSpec {
+
+    @Test
+    @DisplayName("provide `stringify()` method")
+    void provideStringifyMethod() {
+        var value = "foo-bar";
+        assertThat(stringify(value)).isEqualTo(value);
+    }
+}
+```
+
+## Documenting an `XKtSpec`
+
+When you add `XKtSpec` because a Java `XSpec` already exists, its KDoc should (1) note
+that it holds the Kotlin-side tests for the same subject (and is where new tests go,
+as the codebase migrates to Kotlin), and (2) link to the Java `XSpec` for navigation.
+Use a KDoc `[link]` plus an `@see` tag so IDEs resolve it:
 
 ```kotlin
 /**
- * Supplements [RejectionTypeTest][io.spine.base.RejectionTypeTest] with tests
- * written in Kotlin.
+ * Holds the Kotlin tests for [Parser], complementing the Java `ParserSpec`.
  *
- * New tests for [RejectionType] should be added here rather than to the Java suite,
- * as the codebase migrates test code to Kotlin.
+ * New tests for [Parser] should be added here as the codebase migrates test code to
+ * Kotlin. Named `ParserKtSpec` because a Kotlin `ParserSpec` would clash with the
+ * existing Java `ParserSpec`.
  *
- * @see io.spine.base.RejectionTypeTest
+ * @see io.spine.example.ParserSpec
  */
-@DisplayName("`RejectionType` should")
-class RejectionTypeKtSpec {
+@DisplayName("`Parser` should")
+internal class ParserKtSpec {
     // ...
 }
 ```

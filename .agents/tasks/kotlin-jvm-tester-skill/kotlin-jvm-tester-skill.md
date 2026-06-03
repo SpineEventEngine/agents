@@ -122,15 +122,37 @@ backticked descriptive names for inner classes keep `@Nested` on the same line a
 - **No Java test suite uses a `Spec` suffix** in main sources; the memo's
   "Java `XSpec` → `XKtSpec`" branch never triggers in practice.
 
-### Naming rule (final)
+### Naming rule (final — updated after the Testing wiki)
 
-For a new Kotlin test suite covering class `X`:
-1. Default name: **`XSpec`**.
-2. If a test suite for `X` already exists (Java `XTest`, or any existing
-   `XTest`/`XSpec` in either language), name the new Kotlin suite **`XKtSpec`** so
-   it coexists unambiguously, document it as a Kotlin supplement, and link to the
-   original suite in its KDoc. (Matches base-libraries: `RejectionTypeTest.java` →
-   `RejectionTypeKtSpec.kt`; `TypeSetTest.kt` → `TypeSetKtSpec.kt`.)
+Four kinds of suite, picked by *what kind of test* it is:
+1. **`XSpec`** (Kotlin, `internal`, `src/test/kotlin`) — default unit test for `X`
+   (Kotlin or Java production code).
+2. **`XKtSpec`** (Kotlin) — **disambiguation only**: used when a Kotlin `XSpec` would
+   clash with an existing **Java** test suite already named `XSpec` (same package +
+   simple name → JVM class collision). A Java `XTest` does *not* trigger it. Expected
+   to be rare; a second suite for a distinct feature is named after the feature
+   instead. (Owner correction, 2026-06-03 round 3 — supersedes the earlier
+   "any pre-existing suite" reading; the legacy `*KtSpec.kt` files in base-libraries
+   coexist with Java `XTest`, so they do **not** illustrate this rule.)
+3. **`XJavaSpec`** (**Java**, `src/test/java`, JUnit 5 + Google Truth) — the one
+   sanctioned new Java test: verifies a **Kotlin** class is usable from Java across
+   the Java↔Kotlin compatibility bridge. (Per the owner: this is *not* about
+   alphabetical sorting; it must be Java because only a Java caller exercises that
+   surface. Found: `StringifyJavaSpec`, `TypeSystemJavaSpec`, … under `src/test/java`.)
+4. **`XIgTest`** (Kotlin) — integration tests (`Ig` = integration).
+
+### Testing wiki incorporated (2026-06-03, round 2)
+
+Source: <https://github.com/SpineEventEngine/documentation/wiki/Testing>. Added:
+- `internal` visibility on Kotlin suites (unless an abstract base) — codebase
+  plurality 75/25.
+- `IgTest` integration-test suffix.
+- The `XJavaSpec` Java-bridge category + the narrowed language policy (Kotlin for new
+  tests *except* `XJavaSpec`).
+- `@DisplayName` is required (IDE searchability); Gradle `java-test-fixtures` for
+  separating stubs/fixtures from specs.
+- Correction: my earlier `find *JavaSpec.kt` conflated `SourceFile<Java>`-style names
+  with the convention; the real `XJavaSpec` suites are the 8 `*JavaSpec.java` files.
 
 - [x] **2. Scaffold the skill.** Created `skills/kotlin-jvm-tester/SKILL.md`
       (`name: kotlin-jvm-tester`, description 833 chars, 183 lines),
@@ -172,6 +194,21 @@ For a new Kotlin test suite covering class `X`:
 - 2026-06-03 — drafted from the original prose plan + the three input memos;
   resolved architecture (delegated-to skill), scope (unit-first, analysis-driven),
   delegation wiring (in this PR), and this-turn deliverable (plan only) via Q&A.
+- 2026-06-03 (round 3) — owner review corrections: (a) narrowed `XKtSpec` to the
+  JVM class-name collision with an existing Java `XSpec` only (a Kotlin suite that
+  already exists is simply reused; a distinct-feature suite is named after the
+  feature); (b) fixed the version-bump note — `version-policy.md` confirms PRs
+  without a bump fail CI in versioned repos, so there is no tests-only exception.
+  Updated SKILL.md, `references/java-coexistence.md`, `openai.yaml`. Also corrected
+  the same wrong "tests-only → no version bump" claim in `raise-coverage` (standards
+  list + Safety bullet) at the owner's request — now both align with
+  `version-policy.md`. Verified no other skill repeats the false claim.
+- 2026-06-03 (round 2) — incorporated the Spine *Testing* wiki. Added `internal`
+  visibility, the `IgTest` integration suffix, the `XJavaSpec` Java-bridge category
+  (with the owner's correction that it tests Kotlin-from-Java interop, not sorting),
+  the required `@DisplayName`, and the test-fixtures note. Updated SKILL.md
+  (naming table + Java example), `references/java-coexistence.md`, `openai.yaml`, and
+  the description. Validation green (973-char description, 226 lines, no task refs).
 - 2026-06-03 — approved; executed steps 1–5. Analyzed the 5 repos + `testlib`
   (435 Kotlin test files): confirmed JUnit 5 + Kotest, plurality same-line `@Nested`;
   reconciled the naming rule with reality (`XKtSpec` when a suite exists — *match the
