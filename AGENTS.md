@@ -32,4 +32,15 @@ stop — let the maintainer open the pull request. See
 - Reference shared guidance with repo-rooted paths: `.agents/guidelines/<file>.md`.
 - No analytics, telemetry, or tracking code.
 
+## Asking questions
+
+- Ask at most one question per message. If a decision has a small set of
+  options, include those options as part of that one question.
+- Do not bundle unrelated clarification questions. Ask the next question only
+  after the user answers the previous one.
+- Apply this rule both when the agent needs clarification and when the user's
+  prompt means "ask questions".
+- Prefer a reasonable assumption over another question when the answer would not
+  materially change the next step.
+
 Full standards: `.agents/guidelines/_TOC.md`.

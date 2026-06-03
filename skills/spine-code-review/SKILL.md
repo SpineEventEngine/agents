@@ -39,7 +39,7 @@ This skill owns everything below.
 
 The standards live in `.agents/`:
 
-- `.agents/guidelines/coding-guidelines.md` — repo-specific idioms and formatting.
+- `.agents/guidelines/coding.md` — repo-specific idioms and formatting.
 - `.agents/guidelines/safety-rules.md` and `.agents/guidelines/advanced-safety-rules.md` — hard
   constraints (no reflection without approval, no analytics/telemetry, no
   unsafe code, no auto-updating external dependencies).
@@ -62,13 +62,38 @@ The standards live in `.agents/`:
      `APPROVE — all changes are config-distributed files.` and stop.
 2. Read each affected file fully, not just the diff hunks. Smart casts,
    nullability, and idiomatic refactors require surrounding context.
-3. Check the repo-specific guidelines from `.agents/guidelines/coding-guidelines.md`
+3. Check the repo-specific guidelines from `.agents/guidelines/coding.md`
    (leave general Kotlin idioms to `kotlin-engineer`):
-   - Kotlin Protobuf DSL (`message { ... }`) preferred over Java builders (`newBuilder()`, `toBuilder()`) in Kotlin.
+   - Kotlin Protobuf DSL (`message { ... }`) preferred over Java builders
+     (`newBuilder()`, `toBuilder()`) in Kotlin.
    - No type names in variable names.
    - No string duplication — use companion-object constants.
    - No mixing Groovy/Kotlin DSL in build logic.
    - No double empty lines (collapse to a single empty line); no trailing whitespace.
+   - Line length. Read the limit from `.agents/guidelines/coding.md`
+     frontmatter (`max-line-length`) — the single source of truth, present
+     in every repo — and apply it only to lines the diff touched (read each
+     file fully for context per step 2, but report only changed lines).
+     Severity depends on whether the repo has a detekt build gate
+     (`buildSrc/quality/detekt-config.yml` present):
+       - **With a gate:** non-comment `.kt` / `.kts` lines over the limit
+         are **Must fix** — detekt breaks `./gradlew build`
+         (`excludeCommentStatements: true` exempts comment and KDoc-body
+         lines from that break).
+       - **Without a gate** (e.g. a non-JVM repo like this one): the same
+         lines are **Should fix** — nothing breaks, but wrap for
+         consistency. Never report the absence of `detekt-config.yml` as a
+         finding.
+     KDoc / Javadoc body lines and any `.java` line over the limit are
+     **Should fix** in either case. Exempt generated sources
+     (`**/generated/**`, `**/generated-proto/**`). For a changed line inside
+     a string literal the fix is splitting into two or more
+     `+`-concatenated pieces; otherwise follow
+     `.agents/guidelines/coding.md § Line length`. Cite the actual numbers,
+     e.g. "line 47 is 108 chars (limit `<value>`)". If a detekt build gate
+     exists and its `MaxLineLength.maxLineLength` differs from
+     `max-line-length` in `.agents/guidelines/coding.md`, note the drift as a
+     **Should fix** and ask to align them.
 4. Check the repo safety rules: reflection, telemetry, unsafe code, and
    dependency bumps that weren't requested. (Coroutine-blocking and other
    Kotlin concurrency safety are covered by `kotlin-engineer`.)
@@ -86,9 +111,14 @@ The standards live in `.agents/`:
 Return three sections, in this order:
 
 - **Must fix** — violations of safety rules, broken builds, missing version
-  bump when the version gate applies, missing tests for functional changes.
+  bump when the version gate applies, missing tests for functional changes,
+  and non-comment `.kt` / `.kts` lines over the line-length limit **in a repo
+  with a detekt build gate** (they break the build).
 - **Should fix** — repo coding-guideline violations and clearer repo-idiomatic
-  alternatives. Cite the specific guideline.
+  alternatives, including over-limit lines that break no build (KDoc / Javadoc
+  bodies, `.java`, and `.kt` / `.kts` where no detekt gate exists), and a
+  `detekt-config.yml` whose `MaxLineLength` drifts from
+  `.agents/guidelines/coding.md`. Cite the specific guideline.
 - **Nits** — style and naming suggestions.
 
 For each item, quote the file and line, show the current code, and show the

@@ -2,6 +2,36 @@
 
 Assumes you know scope functions, data/sealed/value classes, extension functions, inline/reified. This file is which to pick, and where LLMs pick wrong.
 
+## Contents
+
+- [Scope functions — pick by intent][i1]
+- [Classes — pick the right kind][i2]
+- [Extension functions — when and where][i3]
+- [`inline` / `reified` — when it earns its cost][i4]
+- [Delegation][i5]
+- [`Result<T>` vs exceptions][i6]
+- [Generics & variance][i7]
+- [Immutability & collection choice][i8]
+- [Null-safety traps][i9]
+- [Equality & hashing][i10]
+- [Enums vs sealed][i11]
+- [Domain modelling — non-obvious policy][i12]
+- [When you'd reach for Java-idiom and Kotlin has a better one][i13]
+
+[i1]: #scope-functions--pick-by-intent
+[i2]: #classes--pick-the-right-kind
+[i3]: #extension-functions--when-and-where
+[i4]: #inline--reified--when-it-earns-its-cost
+[i5]: #delegation
+[i6]: #resultt-vs-exceptions
+[i7]: #generics--variance
+[i8]: #immutability--collection-choice
+[i9]: #null-safety-traps
+[i10]: #equality--hashing
+[i11]: #enums-vs-sealed
+[i12]: #domain-modelling--non-obvious-policy
+[i13]: #when-youd-reach-for-java-idiom-and-kotlin-has-a-better-one
+
 ## Scope functions — pick by intent
 
 | Function | Receiver is | Returns | Use for |

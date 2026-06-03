@@ -1,10 +1,32 @@
 # Migrate from vanilla JaCoCo to Kover
 
 Mechanical recipe for the `raise-coverage` skill's Step 0. The skill detects
-vanilla JaCoCo in a consumer repo, proposes the migration, waits for approval,
-and then applies the edits below. The convention is **Kover Gradle plugin** with
+vanilla JaCoCo in a consumer repo and applies the **routine** edits below
+without asking (no blanket approval gate). It still **flags the §7
+manual-review surfaces** and asks before touching them. The convention is
+**Kover Gradle plugin** with
 the JaCoCo engine via `useJacoco(version = Jacoco.version)` — JaCoCo-format XML
 is preserved, only the Gradle plugin and task names change.
+
+## Contents
+
+- [1. Purpose][m1]
+- [2. Detection signals][m2]
+- [3. Per-module migration][m3]
+- [4. Root-level aggregation][m4]
+- [5. CI, `.codecov.yml`, scripts — substitutions][m5]
+- [6. KMP recipe (JVM target only)][m6]
+- [7. Manual-review surfaces][m7]
+- [8. References][m8]
+
+[m1]: #1-purpose
+[m2]: #2-detection-signals
+[m3]: #3-per-module-migration
+[m4]: #4-root-level-aggregation
+[m5]: #5-ci-codecovyml-scripts--substitutions
+[m6]: #6-kmp-recipe-jvm-target-only
+[m7]: #7-manual-review-surfaces
+[m8]: #8-references
 
 ## 1. Purpose
 
@@ -69,10 +91,12 @@ Classify each module as one of:
 | Kover only | nothing to do |
 | Kover + vanilla JaCoCo | strip JaCoCo, keep Kover (decision 4) |
 | Vanilla JaCoCo only | migrate to Kover |
-| Neither | silent install of Kover (no approval gate) |
+| Neither | install Kover |
 
-If at least one module is "vanilla JaCoCo only" or "Kover + vanilla JaCoCo",
-the skill emits the migration proposal and waits.
+No blanket approval gate. If at least one module is "vanilla JaCoCo only" or
+"Kover + vanilla JaCoCo", the skill applies the routine migration straight away
+and records the edited files in the Report's **Migration** section. It still
+flags the §7 manual-review surfaces and asks before applying those.
 
 ## 3. Per-module migration
 

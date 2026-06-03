@@ -12,13 +12,40 @@ The Gradle user guide enumerates a set of best practices for tasks.
 Each is mapped below to a Spine review level used by the
 `gradle-review` skill.
 
+## Contents
+
+- [Spine-specific must-fix][t1]
+- [Upstream practices][t2]
+  - [1. Avoid `dependsOn` — *Should fix*][t3]
+  - [2. Favor `@CacheableTask` / `@DisableCachingByDefault` — *Should fix*][t4]
+  - [3. Don't call `get()` on a `Provider` outside a task action — *Must fix*][t5]
+  - [4. Group and describe custom tasks — *Must fix*][t6]
+  - [5. Avoid eager APIs on `FileCollection` / `Configuration` — *Must fix*][t7]
+  - [6. Don't resolve `Configuration`s before task execution — *Must fix*][t8]
+  - [7. Use the right `@PathSensitivity` — *Should fix*][t9]
+  - [8. Use unique output files and directories — *Must fix*][t10]
+- [Spine additions (not on the upstream page)][t11]
+- [Nits][t12]
+
+[t1]: #spine-specific-must-fix
+[t2]: #upstream-practices
+[t3]: #1-avoid-dependson--should-fix
+[t4]: #2-favor-cacheabletask--disablecachingbydefault--should-fix
+[t5]: #3-dont-call-get-on-a-provider-outside-a-task-action--must-fix
+[t6]: #4-group-and-describe-custom-tasks--must-fix
+[t7]: #5-avoid-eager-apis-on-filecollection--configuration--must-fix
+[t8]: #6-dont-resolve-configurations-before-task-execution--must-fix
+[t9]: #7-use-the-right-pathsensitivity--should-fix
+[t10]: #8-use-unique-output-files-and-directories--must-fix
+[t11]: #spine-additions-not-on-the-upstream-page
+[t12]: #nits
+
 ## Spine-specific must-fix
 
 From [`spine-task-conventions.md`](../spine-task-conventions.md):
 
 - Every custom task must set `group`. The value must equal `"spine"`
-  (use the shared constant once introduced — see
-  [`.agents/tasks/spine-task-group-constant.md`](../../../tasks/spine-task-group-constant.md)).
+  (use the shared constant once introduced).
 - Every custom task must set `description`.
 
 These are **Must fix** findings in `gradle-review`.

@@ -1,4 +1,7 @@
 interface:
   display_name: "Kotlin Engineer"
   short_description: "Kotlin implementation policy and pitfalls"
-  default_prompt: "Use $kotlin-engineer when writing, modifying, refactoring, or explaining Kotlin code, including coroutines, Flow, null-safety, Java interop, Gradle Kotlin DSL, and API design."
+  default_prompt: >-
+    Use $kotlin-engineer when writing, modifying, refactoring, or explaining
+    Kotlin code, including coroutines, Flow, null-safety, Java interop, Gradle
+    Kotlin DSL, and API design.

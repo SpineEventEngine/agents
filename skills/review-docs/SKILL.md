@@ -2,9 +2,9 @@
 name: review-docs
 description: >
   Review documentation changes — KDoc/Javadoc inside Kotlin/Java sources and
-  Markdown docs (`README.md`, `docs/**`) — against Spine documentation
-  conventions. Use when a diff touches doc comments or Markdown, before
-  opening a doc-affecting PR, or when asked for a documentation review.
+  Markdown docs (`README.md`, `docs/**`, `.agents/**`) — against Spine
+  documentation conventions. Use when a diff touches doc comments or Markdown,
+  before opening a doc-affecting PR, or when asked for a documentation review.
   Read-only; does not run builds.
 ---
 
@@ -17,7 +17,7 @@ Kotlin idioms, safety rules, tests, and version-gate checks).
 
 The authoritative standards live in `.agents/`:
 
-- `.agents/guidelines/documentation-guidelines.md` — commenting rules, TODO-comment
+- `.agents/guidelines/documentation.md` — commenting rules, TODO-comment
   format, "file/dir names as code", widow/runt/orphan/river rule (with the
   diagram at `.agents/guidelines/widow-runt-orphan.jpg`).
 - `.agents/guidelines/documentation-tasks.md` — KDoc-example requirement on APIs;
@@ -70,8 +70,8 @@ The authoritative standards live in `.agents/`:
   fine in tests; in production source they should explain *why* (a
   constraint, invariant, surprise) and never restate *what* the code does.
 - **TODO comments follow the Spine format.** Linked from
-  `documentation-guidelines.md` to the wiki "TODO-comments" page. A bare
-  `// TODO: …` without owner/issue reference is a Should-fix.
+  `.agents/guidelines/documentation.md` to the wiki "TODO-comments" page. A
+  bare `// TODO: …` without owner/issue reference is a Should-fix.
 - **File and directory names rendered as code.** Within KDoc/Javadoc prose,
   `path/to/file.kt` and `module-name` must use backticks.
 - **No repository-internal references in API docs.** KDoc and Javadoc must
@@ -85,6 +85,11 @@ The authoritative standards live in `.agents/`:
 - **Multi-paragraph Protobuf headers end with an empty comment line.** In
   `.proto` files, if the file-level documentation header has more than one
   paragraph, it must end with a trailing empty comment line (`//`).
+- **Line length.** KDoc / Javadoc body lines wrap at the limit from
+  `.agents/guidelines/coding.md` frontmatter (`max-line-length`), applied to
+  changed lines only. Long body lines are **Should fix**; code lines around
+  the comment, if also too long, are owned by `spine-code-review`. See
+  `.agents/guidelines/coding.md § Line length`.
 
 ### B. Markdown docs
 
@@ -104,11 +109,16 @@ The authoritative standards live in `.agents/`:
   blocks for shell snippets (they swallow `$` prompts and hurt copy/paste).
 - **Heading hierarchy.** No skipped levels (`#` → `###`); exactly one `#`
   per file.
+- **Line length.** Body lines in `.md` — including `README.md`, `docs/**`,
+  and `.agents/**` (this expands the skill's prior `.md` scope explicitly)
+  — wrap at the limit from `.agents/guidelines/coding.md` frontmatter
+  (`max-line-length`), applied to changed lines only. Long URLs go in
+  reference-style footnote definitions. Long lines are **Should fix**.
 
 ### C. Prose flow (Spine-specific)
 
 - **Avoid widows, runts, orphans, and rivers** — the rule from
-  `documentation-guidelines.md` with the diagram at
+  `.agents/guidelines/documentation.md` with the diagram at
   `.agents/guidelines/widow-runt-orphan.jpg`. Operationally:
     - **Widow / runt**: a paragraph's last line containing only one short
       word (or a hyphenated fragment). Reflow the prior line.
@@ -137,7 +147,8 @@ Three sections, in this order:
 - **Should fix** — TODO format, inline-comment overuse in production,
   inline external links that should be footnote-style, missing typographic
   quotes (or unwanted ones), widow/runt/orphan/river paragraphs,
-  fenced-vs-indented code blocks.
+  fenced-vs-indented code blocks, and KDoc/Javadoc body or Markdown lines
+  over the `max-line-length` limit (per Checks A & B).
 - **Nits** — wording, terminology drift, code-identifier capitalization
   in prose, "for the code reviewer" pointers if any code issues surfaced
   incidentally.
