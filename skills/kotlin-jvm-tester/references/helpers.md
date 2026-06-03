@@ -16,7 +16,7 @@ runs `NullPointerTester` over the static methods.
 
 ```kotlin
 @DisplayName("`Math2` should")
-class Math2Spec : UtilityClassTest<Math2>(Math2::class.java) {
+internal class Math2Spec : UtilityClassTest<Math2>(Math2::class.java) {
 
     @Test
     fun `multiply long by int`() {
