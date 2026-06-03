@@ -76,8 +76,10 @@ standard Apache/TeamDev copyright header.
 - `description` < 1024 characters; `SKILL.md` < ~500 lines.
 - `agents/openai.yaml` present, with a `$<name>` `default_prompt`.
 - Every `.agents/...` reference resolves (check through the in-repo symlinks).
-- No skill file references a task plan: `grep -rnE '(\.agents/)?tasks/' skills/<name>/`
-  returns nothing that links to or cites `.agents/tasks/` or `tasks/`.
+- No skill file references a task plan:
+  `grep -rnE '(^|[^[:alnum:]])(\.agents/)?tasks/' skills/<name>/` returns nothing
+  that links to or cites `.agents/tasks/` or `tasks/` (the boundary guard avoids
+  matching unrelated words like `subtasks/`).
 - Any shipped script parses (`bash -n`) and, where practical, has a test.
 
 ## Remember: this is production

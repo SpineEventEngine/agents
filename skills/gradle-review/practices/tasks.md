@@ -160,10 +160,11 @@ writes to its own deterministic location, typically under
   [`spine-task-conventions.md`](../spine-task-conventions.md) is the
   canonical source; this Nit tracks whatever convention that file
   establishes.
-- **`"spine"` as a string literal.** Once the shared constant exists,
-  the literal `"spine"` in `buildSrc/` code, build files, or plugin
-  production code is a Nit unless wrapped in a comment with a TODO
-  referencing the migration.
+- **`"spine"` as a string literal.** Where the shared constant
+  `io.spine.gradle.SpineTaskGroup.name` could be used, the literal
+  `"spine"` in `buildSrc/` code, build files, or plugin production code
+  is a Nit unless wrapped in a comment with a TODO referencing the
+  migration.
 - **KDoc back-link.** A public custom task class should link the
   Gradle docs anchor that motivated its design (the relevant rule
   above in this file, or the upstream page[^src]) so future readers

@@ -28,8 +28,8 @@ tasks use the conventional groups `build`, `verification`,
 Every custom task registered or configured by Spine SDK code must set
 both:
 
-- **`group`** equal to the string `"spine"`. Use the shared constant
-  once it exists.
+- **`group`** equal to the string `"spine"` — use the shared constant
+  `io.spine.gradle.SpineTaskGroup.name` (see the examples below).
 - **`description`** as a short imperative sentence describing what
   the task does (no trailing period).
 
