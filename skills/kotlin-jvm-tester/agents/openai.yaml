@@ -1,0 +1,13 @@
+interface:
+  display_name: "Kotlin JVM Tester"
+  short_description: "How to write JVM tests in Kotlin for Spine — for both Kotlin and Java code."
+  default_prompt: >-
+    Use $kotlin-jvm-tester whenever you add or restructure a JVM test in the Spine
+    SDK. New tests are always Kotlin (even for Java production code): JUnit 5
+    structure with Kotest assertions, stubs not mocks, the `Spec` class-name
+    convention, the backticked `@Nested` layout, and `testlib` helpers
+    (`UtilityClassTest`, `ClassTest`, `SingletonTest`, Guava `EqualsTester`). When a
+    test suite for the class already exists, add a Kotlin supplement named `XKtSpec`
+    that links to the original; otherwise name it `XSpec`. It owns test-writing
+    conventions for `raise-coverage`; defer to `$kotlin-engineer` for the Kotlin
+    inside each test body. See SKILL.md for the full workflow.

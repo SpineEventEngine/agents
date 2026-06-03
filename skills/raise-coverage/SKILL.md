@@ -32,9 +32,13 @@ recipe lives in
 
 The authoritative standards live in `.agents/`:
 
+- `.agents/skills/kotlin-jvm-tester/SKILL.md` — **how to write the test**: Kotlin
+  + JUnit 5 + Kotest, `Spec` / `XKtSpec` naming, the backticked `@Nested` layout,
+  and which `testlib` helper fits the target. This skill owns those conventions;
+  follow it for every test you generate.
 - `.agents/skills/kotlin-engineer/SKILL.md` — Kotlin implementation baseline
-  for every test you write, including null-safety, API design, coroutines,
-  Flow, and idioms.
+  for the body of every test you write, including null-safety, API design,
+  coroutines, Flow, and idioms.
 - `.agents/guidelines/testing.md` — stubs not mocks; Kotest assertions; cover API edge
   cases; scaffold `when`/sealed-class branches.
 - `.agents/guidelines/coding.md` — Kotlin/Java idioms for the tests you write.
@@ -195,20 +199,14 @@ On success, **resume** at Workflow step 1.
      record and proceed directly to step 5 — do not wait.
 
 5. **Generate the tests** (after approval — or immediately when pre-approved via
-   `--yes`), per `.agents/guidelines/testing.md`:
-   - **Write tests in Kotlin**, regardless of whether the code under test is
-     Kotlin or Java. Use JUnit Jupiter structure (`@Test` / `@Nested` /
-     `@DisplayName`) with **Kotest assertions** (`shouldBe`, `shouldThrow`,
-     `shouldContainExactlyInAnyOrder`, …). Reach for the
-     `truth-proto-extension` only when asserting on Protobuf message subjects
-     that Kotest's matchers cannot express, and keep that import isolated to
-     the case that needs it.
-   - **Class names use the `Spec` suffix** — e.g. `AbstractSourceFileSpec`,
-     not `AbstractSourceFileTest`. This matches the house convention in
-     existing `*Spec.kt` files (`base-libraries`, etc.) and applies even when
-     the code under test is Java.
-   - **Stubs, not mocks.** No mocking framework is on the classpath by design.
-   - Cover API edge cases; add a case per `when`/sealed-class branch.
+   `--yes`). **Write them per `.agents/skills/kotlin-jvm-tester/SKILL.md`** — it owns
+   how a Spine JVM test is written: Kotlin always (even for Java code), JUnit 5
+   structure + Kotest assertions, stubs not mocks, the `Spec` / `XKtSpec` naming
+   rule, the backticked `@Nested` layout, and the right `testlib` helper
+   (`UtilityClassTest`, `EqualsTester`, …) for the target. Coverage-specific points
+   on top of that skill:
+   - Map each test back to the uncovered line/branch it closes; cover API edge cases
+     and add a case per `when`/sealed-class branch.
    - Place the test under `<module>/src/test/kotlin/...`, mirroring the
      package of the code under test (KMP: `src/jvmTest/kotlin/...` or
      `src/commonTest/kotlin/...` per the module's target). Reuse the file's
