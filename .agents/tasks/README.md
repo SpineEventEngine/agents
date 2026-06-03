@@ -62,20 +62,24 @@ complete unchecked items by ticking them and adding a `Log` line.
 
 ## Workflow
 
-1. **Discover** — at task start, scan `.agents/tasks/` for
-   in-progress or blocked plans on the current branch. Resume
-   rather than restart.
+1. **Discover** — at task start, scan `.agents/tasks/` for `in-progress`
+   or `blocked` plans **whose `branch` frontmatter equals the current git
+   branch**, and resume rather than restart. Ignore plans tagged to other
+   branches — they are someone else's in-flight work, not yours to pick up,
+   so a plan that lands on `master` (or any other branch) is never
+   resurfaced outside its own branch.
 2. **Draft** — write `<slug>.md` with `status: draft` and the
    plan checklist.
-3. **Approval gate** — `EnterPlanMode` → `ExitPlanMode`. The plan
-   presented to the human references the file path; the human may
-   edit the file directly before approving.
-4. **Mirror** — on approval, flip `status: approved` → `in-progress`
-   and populate `TaskCreate` from the top-level checklist for live
-   in-session progress.
-5. **Execute + sync** — use `TaskUpdate` for fine-grained progress.
-   Edit the file only at meaningful checkpoints: step done, blocker,
-   scope change, new note.
+3. **Approval gate** — present the plan to the human for approval,
+   referencing the file path; the human may edit the file directly before
+   approving. (In Claude Code this is plan mode — `EnterPlanMode` /
+   `ExitPlanMode`; other agents use their own approval step.)
+4. **Mirror** — on approval, flip `status: approved` → `in-progress` and
+   mirror the top-level checklist into the agent's in-session task list, if
+   it has one, for live progress. (Claude Code: `TaskCreate`.)
+5. **Execute + sync** — track fine-grained progress in that in-session list
+   (Claude Code: `TaskUpdate`). Edit the file only at meaningful
+   checkpoints: step done, blocker, scope change, new note.
 6. **Complete** — flip `status: done`. The file is raw material for
    the PR description.
 7. **Delete on merge** — once the branch lands on master, delete the
@@ -91,8 +95,8 @@ complete unchecked items by ticking them and adding a `Log` line.
   checkbox — each agent claims unchecked items by tagging the line
   (e.g. `- [ ] (owner: reviewer-bot) Run dependency-audit`) or by
   appending a `Log` line.
-- The **file** is the contract. In-session `TaskCreate` state is
-  per-session and not authoritative.
+- The **file** is the contract. In-session task-list state (e.g. Claude
+  Code's `TaskCreate`) is per-session and not authoritative.
 
 ## When to create a task file
 
