@@ -26,7 +26,7 @@ For production class `X` needing more unit coverage:
 |---|---|
 | **No test suite exists** | Create a Kotlin suite named `XSpec`. |
 | **A Kotlin suite already exists** | Just add your cases to it. |
-| **A Java test suite named `XSpec` exists** | A Kotlin `XSpec` in the same package would clash (both compile to `X​Spec.class`). Name the Kotlin suite `XKtSpec` instead. |
+| **A Java test suite named `XSpec` exists** | A Kotlin `XSpec` in the same package would clash (both compile to `XSpec.class`). Name the Kotlin suite `XKtSpec` instead. |
 
 A Java `XTest` does **not** trigger `XKtSpec` — `XSpec` (Kotlin) and `XTest` (Java)
 don't clash, so the Kotlin suite is simply `XSpec`. `XKtSpec` exists *only* to dodge
