@@ -6,7 +6,7 @@ max-line-length: 100
 
 ## Core principles
 
-- Adhere to [Spine Event Engine Documentation][spine-docs] for coding style.
+- Adhere to Spine coding style guidelines: [Protobuf](protobuf.md), Kotlin (this file), Java (this file).
 - Generate code that compiles cleanly and passes static analysis.
 - Respect existing architecture, naming conventions, and project structure.
 - Keep commits clear and incremental, with descriptive messages. Commit only
@@ -95,4 +95,3 @@ detekt config with this guideline.
 - **Changed lines only.** At review time, wrap and report only lines the
   diff touches; pre-existing long lines are out of scope.
 
-[spine-docs]: https://github.com/SpineEventEngine/documentation/wiki
