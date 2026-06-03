@@ -41,9 +41,10 @@ Two companions own neighbouring concerns; defer to them rather than restating:
    Java test.
 2. **JUnit 5 for structure; Kotest (Kotlin) / Truth (Java) for assertions.** Spine
    uses JUnit Jupiter class-based structure (`@Test`, `@Nested`, `@DisplayName`,
+   uses JUnit Jupiter class-based structure (`@Test`, `@Nested`, `@DisplayName`,
    `@BeforeEach`, `@TempDir`, `@ParameterizedTest`) — *not* Kotest spec styles
    (`FunSpec`/`StringSpec`/`DescribeSpec` do not appear in the codebase, and there is
-   no plan to adopt the Kotest framework). Kotlin suites assert with Kotest matchers
+   no plan to adopt Kotest spec-style tests / the Kotest test engine). Kotlin suites assert with Kotest matchers
    (`shouldBe`, `shouldThrow`, `shouldContainExactly`, …); the Java `XJavaSpec`
    suites assert with Google Truth (`assertThat(...)`).
 3. **Mark Kotlin suites `internal`** unless the class is an abstract base reused from
