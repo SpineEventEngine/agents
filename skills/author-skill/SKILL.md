@@ -37,15 +37,27 @@ Create or edit a skill in this repository. The full conventions live in
    - Make the change in `skills/<name>/`, keeping the directory name and the
      frontmatter `name` in sync and preserving the agent-neutral tone.
 
-4. Keep references repo-rooted.
+4. Keep references repo-rooted and durable.
    - Link shared guidance as `.agents/guidelines/<file>.md` (resolves here via the
      in-repo dogfood symlinks and in every consumer). Do not hard-code a single
      runtime's slash-command syntax in the body.
+   - **Never reference a task plan.** Skill content — `SKILL.md`, `references/`,
+     `scripts/`, `assets/`, `agents/openai.yaml` — must not link to or cite any
+     path under `.agents/tasks/` or `tasks/`. Task plans are volatile — removed
+     during or soon after the PR they track — so any such reference rots. Point
+     to a durable home instead — a `.agents/guidelines/` page, the relevant
+     source, or its KDoc — or inline the stable fact and drop the link.
 
 5. Validate.
    - Directory name equals frontmatter `name`; `description` < 1024 chars;
      `SKILL.md` < ~500 lines; `openai.yaml` present with a `$<name>` prompt.
    - Any shipped script parses (`bash -n`); every `.agents/...` reference resolves.
+   - **No task-plan references.** Scan the skill's files —
+     `grep -rnE '(^|[^[:alnum:]])(\.agents/)?tasks/' skills/<name>/` — and remove
+     every hit that links to or cites a task plan (step 4). The boundary guard
+     keeps unrelated words like `subtasks/` from matching. The only legitimate
+     match anywhere is in this `author-skill`, where the rule itself names
+     `.agents/tasks/`.
 
 6. Hand off for review.
    - This repo floats to every Spine repository, so do NOT commit or push unless

@@ -46,6 +46,13 @@ Rules:
   symlinks) and in every consumer repo.
 - Write **agent-neutral** instructions that work for Claude, Codex, and Junie —
   don't hard-code a single runtime's slash-command syntax in the body.
+- **Never reference a task plan.** No part of a skill — `SKILL.md`, `references/`,
+  `scripts/`, `assets/`, or `agents/openai.yaml` — may link to or cite a path
+  under `.agents/tasks/` or `tasks/`. Task plans are volatile: they are deleted
+  during or soon after the PR they track (see the lifecycle in
+  `.agents/tasks/README.md`), so the reference rots. Point at a durable target
+  instead — a `.agents/guidelines/` page, the relevant source, or its KDoc — or
+  inline the stable fact.
 
 ## `agents/openai.yaml`
 
@@ -69,6 +76,10 @@ standard Apache/TeamDev copyright header.
 - `description` < 1024 characters; `SKILL.md` < ~500 lines.
 - `agents/openai.yaml` present, with a `$<name>` `default_prompt`.
 - Every `.agents/...` reference resolves (check through the in-repo symlinks).
+- No skill file references a task plan:
+  `grep -rnE '(^|[^[:alnum:]])(\.agents/)?tasks/' skills/<name>/` returns nothing
+  that links to or cites `.agents/tasks/` or `tasks/` (the boundary guard avoids
+  matching unrelated words like `subtasks/`).
 - Any shipped script parses (`bash -n`) and, where practical, has a test.
 
 ## Remember: this is production

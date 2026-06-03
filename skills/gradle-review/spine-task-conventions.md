@@ -28,9 +28,16 @@ tasks use the conventional groups `build`, `verification`,
 Every custom task registered or configured by Spine SDK code must set
 both:
 
-- **`group`** equal to the string `"spine"`. Use the shared constant
-  once it exists — see
-  [`../../tasks/spine-task-group-constant.md`](../../tasks/spine-task-group-constant.md).
+- **`group`** equal to the string `"spine"`, set via the shared
+  `SpineTaskGroup.name` constant (value `"spine"`) rather than a bare
+  literal. Two constants expose it, one per scope:
+  - `io.spine.gradle.SpineTaskGroup.name` — in `buildSrc` code and
+    project build scripts. Defined in `config`'s `buildSrc` and
+    propagated into every repo's `buildSrc`, so it is visible to every
+    `build.gradle.kts`.
+  - `io.spine.tools.gradle.task.SpineTaskGroup.name` — in Spine tool
+    plugin production code. Published from `tool-base`'s `plugin-base`
+    module.
 - **`description`** as a short imperative sentence describing what
   the task does (no trailing period).
 
@@ -42,12 +49,7 @@ The rule applies to:
   configures tasks (`Plugin<Project>` implementations under
   `tool-base` and similar repos).
 
-Both examples below reference the shared constant
-`io.spine.gradle.SpineTaskGroup.name`, which holds the value
-`"spine"` and is visible to every `build.gradle.kts` because it
-lives in `buildSrc/`.
-
-### Example — registering a new task
+### Example — registering a new task (`buildSrc` / build script)
 
 ```kotlin
 import io.spine.gradle.SpineTaskGroup
@@ -59,10 +61,10 @@ tasks.register("generateSpineModel") {
 }
 ```
 
-### Example — configuring an existing task type
+### Example — configuring a task type in plugin production code
 
 ```kotlin
-import io.spine.gradle.SpineTaskGroup
+import io.spine.tools.gradle.task.SpineTaskGroup
 
 tasks.withType<YourTaskType>().configureEach {
     group = SpineTaskGroup.name
