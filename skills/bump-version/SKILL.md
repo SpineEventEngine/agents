@@ -51,19 +51,24 @@ Run this **before any edit**. It is what makes repeated invocations safe and
 keeps a branch to a single bump.
 
 ```bash
-# Override the base only if the merge target is not origin/master:
+# The script auto-selects the base ref (`master`, else `main`). Override only
+# for a different merge target, e.g. a release branch:
 #   export VERSION_BUMPED_BASE=origin/<release-branch>
 .agents/skills/version-bumped/scripts/version-bumped.sh
 ```
 
-- **Already ahead of base** (script exit `0`, or a manual merge-base compare
-  shows the branch version strictly greater than base) → **stop. Make no edit
-  and no commit.** Report "version already bumped on this branch" and the
-  current value. This is the normal outcome when the skill is invoked a second
-  time on a branch (branch start, pre-PR, after another commit).
-- **Not ahead of base** (script exit `1`) → proceed to the Checklist.
-- **Configuration error** (script exit `2`: no merge-base, parse failure) →
-  surface stderr and stop; do not guess.
+- **Exit `0` — nothing to bump → stop. Make no edit and no commit.** The script
+  prints the reason on stdout; report *that* line rather than asserting a fixed
+  message. Exit `0` covers several OK states: the branch version is already
+  strictly greater than base (the common "invoked a second time" case — branch
+  start, pre-PR, after another commit), **or** a non-bumpable state — no root
+  `version.gradle.kts` (N/A), no changes vs base, HEAD is the base branch, or
+  the file is newly introduced. Do not claim "already bumped" when the reason is
+  N/A or no-diff.
+- **Exit `1` — branch differs from base but the version has not advanced** →
+  proceed to the Checklist.
+- **Exit `2` — configuration error** (no `master`/`main`, base ref does not
+  resolve, no merge-base, parse failure) → surface stderr and stop; do not guess.
 
 **The one sanctioned override.** Bump again *even though the branch is already
 ahead of base* only when CI's `Version Guard` / `checkVersionIncrement` rejected
@@ -160,15 +165,24 @@ justifies a second bump.
    RANGE="$(git merge-base HEAD origin/$BASE)..HEAD"
    git diff --name-only "$RANGE" -- version.gradle.kts | grep '^version.gradle.kts$'
 
-   # Exactly one bump commit on the branch — more than one means it was
-   # over-bumped and the extras must be reconciled (see "One bump per branch").
-   count="$(git log --format=%s "$RANGE" | grep -c '^Bump version ->')"
-   test "$count" -eq 1 || echo "WARNING: $count bump commits on branch; expected 1"
+   # Count bump commits on the branch. `|| true` keeps the zero-match case
+   # (grep exits 1) from aborting under `set -e`.
+   count="$(git log --format=%s "$RANGE" | grep -c '^Bump version ->' || true)"
+   echo "bump commits on branch: $count (expected 1)"
    ```
 
-   Use the actual merge target for `BASE` when it is not `master`. A count above
-   one signals the idempotency gate was bypassed on an earlier run; report it
-   rather than adding yet another bump. Also confirm `git status --short` has no
+   Interpret `count`:
+
+   - **1** — expected. The branch carries exactly one bump.
+   - **0** — the bump commit is missing: this step ran but the Checklist did not
+     produce a commit. Investigate and report; do not silently proceed.
+   - **>1** — over-bumped. Legitimate only when you deliberately re-bumped to
+     clear a published-version collision (see "The one sanctioned override");
+     otherwise the idempotency gate was bypassed on an earlier run. Report it
+     rather than adding yet another bump.
+
+   Use the actual merge target for `BASE` when it is not `master`. Also confirm
+   `git status --short` has no
    uncommitted changes created by the version bump or report regeneration.
 
 ## Conflict Rule
