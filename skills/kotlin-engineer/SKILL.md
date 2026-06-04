@@ -21,6 +21,12 @@ Use `kotlin-engineer` for implementation work in Kotlin or Kotlin DSL:
   cancellation behavior.
 - Reviewing Kotlin code for correctness.
 
+This skill is the baseline for the Kotlin *inside* a test body too. But the
+test-writing conventions themselves — JUnit 5 + Kotest structure, `Spec` / `XKtSpec`
+naming, the backticked `@Nested` layout, and `testlib` helpers — live in
+`.agents/skills/kotlin-jvm-tester/SKILL.md`. Defer there when writing or reviewing
+test code.
+
 ## Fast Path for Agents
 
 1. Run the setup check below only for non-trivial Kotlin changes or when the
