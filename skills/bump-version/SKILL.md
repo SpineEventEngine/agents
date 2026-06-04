@@ -50,33 +50,51 @@ create the commit.
 Run this **before any edit**. It is what makes repeated invocations safe and
 keeps a branch to a single bump.
 
+Compare against the **PR's merge target on the remote**, not a possibly-stale
+local `master`/`main` (the script defaults to the local branch, which may lag
+`origin` and make the version look already-ahead when it is not). Fetch the
+target and point the check at it:
+
 ```bash
-# The script auto-selects the base ref (`master`, else `main`). Override only
-# for a different merge target, e.g. a release branch:
-#   export VERSION_BUMPED_BASE=origin/<release-branch>
+git fetch --quiet origin master           # the PR's actual base branch
+export VERSION_BUMPED_BASE=origin/master   # compare against the remote target
 .agents/skills/version-bumped/scripts/version-bumped.sh
 ```
 
-- **Exit `0` — nothing to bump → stop. Make no edit and no commit.** The script
-  prints the reason on stdout; report *that* line rather than asserting a fixed
-  message. Exit `0` covers several OK states: the branch version is already
-  strictly greater than base (the common "invoked a second time" case — branch
-  start, pre-PR, after another commit), **or** a non-bumpable state — no root
-  `version.gradle.kts` (N/A), no changes vs base, HEAD is the base branch, or
-  the file is newly introduced. Do not claim "already bumped" when the reason is
-  N/A or no-diff.
+Read the exit code, and for exit `0` the reason the script prints on stdout —
+not every exit `0` means "already bumped":
+
+- **Exit `0`, reason `OK (… -> …)` or `… newly introduced … treating as
+  bumped`** — the branch version is already strictly greater than base. **Stop:
+  make no edit and no commit.** This is the idempotent case (the skill invoked a
+  second time on a branch — branch start, pre-PR, after another commit).
+- **Exit `0`, reason `no changes vs base` or `on base branch`** — the branch is
+  **not** bumped; the script only means there is nothing to gate *yet*. A
+  deliberate direct `bump-version` call **proceeds to the Checklist** — this is
+  how a bump-only branch is created (e.g. retrying a publish whose only change
+  is the bump). Report the script's own line; do not claim "already bumped".
+- **Exit `0`, reason `N/A (no root version.gradle.kts)`** — this skill does not
+  apply; stop (Checklist step 1 also catches this).
 - **Exit `1` — branch differs from base but the version has not advanced** →
   proceed to the Checklist.
 - **Exit `2` — configuration error** (no `master`/`main`, base ref does not
   resolve, no merge-base, parse failure) → surface stderr and stop; do not guess.
 
-**The one sanctioned override.** Bump again *even though the branch is already
-ahead of base* only when CI's `Version Guard` / `checkVersionIncrement` rejected
-the branch because the version already exists in the Maven repository — a
-collision with a *published* artifact, which is a different question than
-git-vs-base. In that single case, skip this gate and run the Checklist to
-advance the version once more. No other reason (including a large commit)
-justifies a second bump.
+**Sanctioned re-bumps.** The stop applies only while the *existing* bump is
+still sufficient. Bump again *even though the branch is already ahead of base*
+only when the prior bump no longer satisfies policy:
+
+- **Published-version collision** — CI's `Version Guard` /
+  `checkVersionIncrement` rejected the branch because the version already exists
+  in the Maven repository (a *published*-artifact collision, a different
+  question than git-vs-base).
+- **Scope reclassification to a breaking PR** — the branch was bumped as a
+  normal snapshot but is now a breaking snapshot-line PR, so the version must
+  advance to the next multiple of 10 (Checklist step 3), which is higher than
+  the `+1` already applied.
+
+In either case, skip this gate and run the Checklist once more to advance the
+version. No other reason — including a large commit — justifies a second bump.
 
 ## Checklist
 
@@ -176,10 +194,10 @@ justifies a second bump.
    - **1** — expected. The branch carries exactly one bump.
    - **0** — the bump commit is missing: this step ran but the Checklist did not
      produce a commit. Investigate and report; do not silently proceed.
-   - **>1** — over-bumped. Legitimate only when you deliberately re-bumped to
-     clear a published-version collision (see "The one sanctioned override");
-     otherwise the idempotency gate was bypassed on an earlier run. Report it
-     rather than adding yet another bump.
+   - **>1** — over-bumped. Legitimate only after a deliberate sanctioned re-bump
+     (a published-version collision or a breaking-scope reclassification — see
+     "Sanctioned re-bumps"); otherwise the idempotency gate was bypassed on an
+     earlier run. Report it rather than adding yet another bump.
 
    Use the actual merge target for `BASE` when it is not `master`. Also confirm
    `git status --short` has no

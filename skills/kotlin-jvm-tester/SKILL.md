@@ -69,8 +69,11 @@ Two companions own neighbouring concerns; defer to them rather than restating:
    members → `UtilityClassTest<T>`**; singleton → `SingletonTest<T>`; a class's
    static/class-level concerns → `ClassTest<T>`. A bare `internal class …Spec` with
    no base is correct *only* when no row in "Pick the helper" fits — e.g. a
-   non-`final` holder of statics (like `IoPreconditions`) or a Kotlin `object`.
-   Never hand-roll a final-class or private-ctor check that a base already provides.
+   a Kotlin `object` (no `testlib` base fits). A **non-`final` holder of statics
+   is not a bare-spec case** — it matches the `ClassTest<T>` row, so extend
+   `ClassTest` (you keep its static-method `NullPointerTester` coverage; `final`
+   is not required). Never hand-roll a final-class or private-ctor check that a
+   base already provides.
    Do this even when the target is reached only to close a coverage gap.
 4. **Write the test** following "Structure & formatting". Place a Kotlin suite under
    `<module>/src/test/kotlin/...` mirroring the package of the code under test
@@ -233,7 +236,8 @@ those for free; don't duplicate them. Worked usage in
 **Default to a base.** When a target's shape matches a row above, extending that base
 is the default — not a nice-to-have. Skipping it (a bare `…Spec`) is a deliberate
 choice you make only because no row fits, and the reason should be obvious from the
-target (non-`final`, a Kotlin `object`, …). A utility class such as `Exceptions`
+target (a Kotlin `object`, …) — note a non-`final` holder of statics is **not** such
+a case: it takes `ClassTest<T>`. A utility class such as `Exceptions`
 (`public final`, private ctor, only static members) must extend `UtilityClassTest`;
 the base also covers the otherwise-uncredited private-constructor line.
 
