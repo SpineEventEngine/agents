@@ -4,8 +4,9 @@ description: >
   The Spine SDK authority on how to write a JVM test in Kotlin — for both Kotlin
   and Java production code. New tests are Kotlin (the codebase is migrating off Java),
   using JUnit 5 structure with Kotest assertions, `internal` `Spec`-suffixed classes,
-  `testlib` base classes (`UtilityClassTest`, `ClassTest`, `SingletonTest`), and
-  Guava's `EqualsTester`; the one sanctioned new Java test is an `XJavaSpec` that
+  the matching `testlib` base class (`UtilityClassTest`, `ClassTest`,
+  `SingletonTest`) — required when the target fits — and Guava's
+  `EqualsTester`; the one sanctioned new Java test is an `XJavaSpec` that
   verifies a Kotlin class works from Java across the compatibility bridge. Use
   whenever you add or restructure a JVM test: a fresh suite, more cases, a Kotlin
   suite beside an existing Java test, an integration `XIgTest`, or a Java-bridge spec.
@@ -62,7 +63,15 @@ Two companions own neighbouring concerns; defer to them rather than restating:
 2. **Decide the kind of test, then the class name** per "Naming" below — `XSpec`
    (default), `XKtSpec` (only to dodge a clash with an existing Java `XSpec`),
    `XJavaSpec` (Java bridge), or `XIgTest` (integration).
-3. **Pick the helper** (base class or assertion helper) that fits the target.
+3. **Classify the target, then extend the matching base — required, not optional.**
+   Before writing a fresh suite, decide the target's shape and inherit the
+   corresponding `testlib` base: **final class + private constructor + only static
+   members → `UtilityClassTest<T>`**; singleton → `SingletonTest<T>`; a class's
+   static/class-level concerns → `ClassTest<T>`. A bare `internal class …Spec` with
+   no base is correct *only* when no row in "Pick the helper" fits — e.g. a
+   non-`final` holder of statics (like `IoPreconditions`) or a Kotlin `object`.
+   Never hand-roll a final-class or private-ctor check that a base already provides.
+   Do this even when the target is reached only to close a coverage gap.
 4. **Write the test** following "Structure & formatting". Place a Kotlin suite under
    `<module>/src/test/kotlin/...` mirroring the package of the code under test
    (KMP: `src/jvmTest/kotlin/...` or `src/commonTest/kotlin/...` per the module's
@@ -93,7 +102,13 @@ supplement-KDoc template: [`references/java-coexistence.md`](references/java-coe
   "should" lead-in, type in backticks: ``@DisplayName("`Math2` should")``. For
   extension-function suites the subject reads naturally:
   ``@DisplayName("Extensions for `Iterable` should")``.
-- **Test method names are backticked sentences**: `` fun `multiply long by int`() ``.
+- **Test method names read as sentences, backticked only when they have to be.**
+  A multi-word name is a backticked sentence: `` fun `multiply long by int`() ``.
+  But when the name is a single token that is already a legal Kotlin identifier,
+  write it **without** backticks: `fun multiply()`, `fun failsOnOverflow()`. The
+  exception is a single word that is a Kotlin *hard keyword* (`is`, `in`, `object`,
+  `fun`, …) — that still needs backticks: `` fun `is`() ``. The same rule governs
+  `@Nested inner class` names (see "Backticked `@Nested` layout").
 
 ## Structure & formatting
 
@@ -143,12 +158,17 @@ class StringifyJavaSpec {
 }
 ```
 
-**Backticked `@Nested` layout.** Keep `@Nested` (with any visibility and
-`inner class`) on **one line**, and put the backticked class name on the **next**
-line. This is the more common of the two layouts seen in the codebase.
+**Backticked `@Nested` layout.** A `@Nested` class name follows the same
+backtick rule as a test method: backtick it **only** when it is a multi-word
+sentence or a Kotlin hard keyword. When the name is a single token that is
+already a legal Kotlin identifier, write it plainly.
+
+For a *backticked* (multi-word) name, keep `@Nested` (with any visibility and
+`inner class`) on **one line** and put the name on the **next** line — the more
+common of the two layouts seen in the codebase:
 
 ```kotlin
-// Correct
+// Correct — multi-word name, so backticked and wrapped to the next line
 @Nested inner class
 `create instances by extension which` {
     // ...
@@ -162,9 +182,22 @@ line. This is the more common of the two layouts seen in the codebase.
 ```
 
 ```kotlin
-// Avoid — name on the same line as the declaration
+// Avoid — backticked name on the same line as the declaration
 @Nested
 internal inner class `check that a value is positive` {
+}
+```
+
+A *single-word* name needs no backticks; keep the whole declaration on one line:
+
+```kotlin
+// Correct — single valid identifier, no backticks
+@Nested inner class Construction {
+    // ...
+}
+
+@Nested internal inner class Validation : SomeBase() {
+    // ...
 }
 ```
 
@@ -196,6 +229,13 @@ case that needs it.
 parameterless ctor, `NullPointerTester` for static methods) — inheriting them covers
 those for free; don't duplicate them. Worked usage in
 [`references/helpers.md`](references/helpers.md).
+
+**Default to a base.** When a target's shape matches a row above, extending that base
+is the default — not a nice-to-have. Skipping it (a bare `…Spec`) is a deliberate
+choice you make only because no row fits, and the reason should be obvious from the
+target (non-`final`, a Kotlin `object`, …). A utility class such as `Exceptions`
+(`public final`, private ctor, only static members) must extend `UtilityClassTest`;
+the base also covers the otherwise-uncredited private-constructor line.
 
 ## Higher-level harnesses
 
