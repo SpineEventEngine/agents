@@ -1,11 +1,16 @@
 ---
 name: bump-version
 description: >
-  Bump the project version in `version.gradle.kts` following the Spine SDK
-  versioning policy. Use when starting a new branch, before opening a PR, or
-  when CI rejects a branch for a missing/insufficient version increment. Covers
-  locating the published version value, choosing the increment, committing the
-  bump, rebuilding reports, and resolving version conflicts.
+  Ensure `version.gradle.kts` is bumped exactly once above the base ref,
+  following the Spine SDK versioning policy. A branch needs only one version
+  bump; this skill is idempotent — it stops without committing when the branch
+  is already ahead of base. For the routine "make sure the branch is bumped"
+  check use the `version-bumped` guard, which calls this skill only on a miss.
+  Invoke this skill directly to perform the actual bump, or to re-bump for the
+  one sanctioned reason: CI rejected the branch because the version already
+  exists in the Maven repository. Covers the idempotency gate, locating the
+  published version value, choosing the increment, committing the bump,
+  rebuilding reports, and resolving version conflicts.
 ---
 
 # Bump the project version
@@ -17,6 +22,11 @@ project version already exists in the Maven repository. It does not compare git
 branches or inspect commit subjects; the checks below are agent-side guardrails.
 
 ## Commit authorization
+
+**One bump per branch.** A branch carries **at most one** `Bump version ->`
+commit relative to base. Do not add another bump just because the branch grew —
+even a large commit does not warrant a second bump. The single exception is
+clearing a published-version collision (see the Idempotency gate below).
 
 This skill is authorized to run `git commit` **exactly once** per invocation,
 under these constraints:
@@ -34,6 +44,34 @@ under these constraints:
 If the bump cannot be performed cleanly (no diff to commit, conflicting
 staged files, build failures preceding the commit), report and stop — do not
 create the commit.
+
+## Idempotency gate
+
+Run this **before any edit**. It is what makes repeated invocations safe and
+keeps a branch to a single bump.
+
+```bash
+# Override the base only if the merge target is not origin/master:
+#   export VERSION_BUMPED_BASE=origin/<release-branch>
+.agents/skills/version-bumped/scripts/version-bumped.sh
+```
+
+- **Already ahead of base** (script exit `0`, or a manual merge-base compare
+  shows the branch version strictly greater than base) → **stop. Make no edit
+  and no commit.** Report "version already bumped on this branch" and the
+  current value. This is the normal outcome when the skill is invoked a second
+  time on a branch (branch start, pre-PR, after another commit).
+- **Not ahead of base** (script exit `1`) → proceed to the Checklist.
+- **Configuration error** (script exit `2`: no merge-base, parse failure) →
+  surface stderr and stop; do not guess.
+
+**The one sanctioned override.** Bump again *even though the branch is already
+ahead of base* only when CI's `Version Guard` / `checkVersionIncrement` rejected
+the branch because the version already exists in the Maven repository — a
+collision with a *published* artifact, which is a different question than
+git-vs-base. In that single case, skip this gate and run the Checklist to
+advance the version once more. No other reason (including a large commit)
+justifies a second bump.
 
 ## Checklist
 
@@ -113,19 +151,25 @@ create the commit.
    If the PR has the `License Reports` workflow, make sure the branch modifies
    `docs/dependencies/pom.xml` and `docs/dependencies/dependencies.md`.
 
-7. Validate the branch state.
+7. Validate the branch state — confirm the version advanced and that the branch
+   carries **exactly one** bump commit (not merely that *a* bump exists).
 
    ```bash
    BASE=master
    git fetch --quiet origin "$BASE"
    RANGE="$(git merge-base HEAD origin/$BASE)..HEAD"
-   git log --format=%s "$RANGE" | grep '^Bump version ->'
    git diff --name-only "$RANGE" -- version.gradle.kts | grep '^version.gradle.kts$'
+
+   # Exactly one bump commit on the branch — more than one means it was
+   # over-bumped and the extras must be reconciled (see "One bump per branch").
+   count="$(git log --format=%s "$RANGE" | grep -c '^Bump version ->')"
+   test "$count" -eq 1 || echo "WARNING: $count bump commits on branch; expected 1"
    ```
 
-   Use the actual merge target for `BASE` when it is not `master`.
-   Also confirm `git status --short` has no uncommitted changes created by the
-   version bump or report regeneration.
+   Use the actual merge target for `BASE` when it is not `master`. A count above
+   one signals the idempotency gate was bypassed on an earlier run; report it
+   rather than adding yet another bump. Also confirm `git status --short` has no
+   uncommitted changes created by the version bump or report regeneration.
 
 ## Conflict Rule
 

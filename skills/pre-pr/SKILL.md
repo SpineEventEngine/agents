@@ -85,6 +85,9 @@ the first failure.
   + Spine snapshot rules in `.agents/guidelines/version-policy.md`): if
   `.agents/skills/bump-version/` exists, **auto-fix immediately** by running
   the `bump-version` skill without asking; otherwise record a Must-fix and continue.
+  `bump-version` is idempotent — it runs its own gate and stops without
+  committing when the branch is already ahead of base — so this auto-fix never
+  stacks a second bump even if Step 2 runs more than once on the branch.
   Re-read the file after the fix. If the version is still not strictly greater,
   record a Must-fix and continue. If the auto-fix succeeded, recompute the
   changed-file list (`git diff <base>...HEAD --name-only`) before proceeding to
