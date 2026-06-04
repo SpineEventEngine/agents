@@ -6,9 +6,9 @@ description: >
   bump; this skill is idempotent — it stops without committing when the branch
   is already ahead of base. For the routine "make sure the branch is bumped"
   check use the `version-bumped` guard, which calls this skill only on a miss.
-  Invoke this skill directly to perform the actual bump, or to re-bump for the
-  one sanctioned reason: CI rejected the branch because the version already
-  exists in the Maven repository. Covers the idempotency gate, locating the
+  Invoke this skill directly to perform the actual bump, or to re-bump only for
+  a sanctioned reason — a published-version collision, or reclassification to a
+  breaking PR (see "Sanctioned re-bumps"). Covers the idempotency gate, locating the
   published version value, choosing the increment, committing the bump,
   rebuilding reports, and resolving version conflicts.
 ---
@@ -25,8 +25,9 @@ branches or inspect commit subjects; the checks below are agent-side guardrails.
 
 **One bump per branch.** A branch carries **at most one** `Bump version ->`
 commit relative to base. Do not add another bump just because the branch grew —
-even a large commit does not warrant a second bump. The single exception is
-clearing a published-version collision (see the Idempotency gate below).
+even a large commit does not warrant a second bump. The only exceptions are the
+sanctioned re-bumps (a published-version collision or reclassification to a
+breaking PR) listed under the Idempotency gate below.
 
 This skill is authorized to run `git commit` **exactly once** per invocation,
 under these constraints:
@@ -56,8 +57,10 @@ local `master`/`main` (the script defaults to the local branch, which may lag
 target and point the check at it:
 
 ```bash
-git fetch --quiet origin master           # the PR's actual base branch
-export VERSION_BUMPED_BASE=origin/master   # compare against the remote target
+# Set BASE to the PR's actual base branch — master, main, or a release branch.
+BASE=master
+git fetch --quiet origin "$BASE"
+export VERSION_BUMPED_BASE="origin/$BASE"   # compare against the remote target
 .agents/skills/version-bumped/scripts/version-bumped.sh
 ```
 
@@ -68,11 +71,14 @@ not every exit `0` means "already bumped":
   bumped`** — the branch version is already strictly greater than base. **Stop:
   make no edit and no commit.** This is the idempotent case (the skill invoked a
   second time on a branch — branch start, pre-PR, after another commit).
-- **Exit `0`, reason `no changes vs base` or `on base branch`** — the branch is
-  **not** bumped; the script only means there is nothing to gate *yet*. A
-  deliberate direct `bump-version` call **proceeds to the Checklist** — this is
-  how a bump-only branch is created (e.g. retrying a publish whose only change
-  is the bump). Report the script's own line; do not claim "already bumped".
+- **Exit `0`, reason `no changes vs base`** — the branch is **not** bumped; the
+  script only means there is nothing to gate *yet*. A deliberate direct
+  `bump-version` call **proceeds to the Checklist** — this is how a bump-only
+  branch is created (e.g. retrying a publish whose only change is the bump).
+  Report the script's own line; do not claim "already bumped".
+- **Exit `0`, reason `on base branch`** — HEAD *is* the base branch. **Stop:
+  never bump the base branch directly.** Create or switch to a feature branch and
+  re-run the gate there.
 - **Exit `0`, reason `N/A (no root version.gradle.kts)`** — this skill does not
   apply; stop (Checklist step 1 also catches this).
 - **Exit `1` — branch differs from base but the version has not advanced** →

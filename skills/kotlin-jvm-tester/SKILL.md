@@ -69,7 +69,7 @@ Two companions own neighbouring concerns; defer to them rather than restating:
    members → `UtilityClassTest<T>`**; singleton → `SingletonTest<T>`; a class's
    static/class-level concerns → `ClassTest<T>`. A bare `internal class …Spec` with
    no base is correct *only* when no row in "Pick the helper" fits — e.g. a
-   a Kotlin `object` (no `testlib` base fits). A **non-`final` holder of statics
+   Kotlin `object` (no `testlib` base fits). A **non-`final` holder of statics
    is not a bare-spec case** — it matches the `ClassTest<T>` row, so extend
    `ClassTest` (you keep its static-method `NullPointerTester` coverage; `final`
    is not required). Never hand-roll a final-class or private-ctor check that a
