@@ -82,9 +82,27 @@ Read the exit code, and for exit `0` the reason the script prints on stdout —
 not every exit `0` means "already bumped":
 
 - **Exit `0`, reason `OK (… -> …)` or `… newly introduced … treating as
-  bumped`** — the branch version is already strictly greater than base. **Stop:
-  make no edit and no commit.** This is the idempotent case (the skill invoked a
-  second time on a branch — branch start, pre-PR, after another commit).
+  bumped`** — the *working-tree* version is strictly greater than base. The
+  script parses the working tree, so an unstaged (or staged-but-uncommitted)
+  edit to `version.gradle.kts` also reads as "OK". Before stopping, confirm the
+  advance is actually **committed** on the branch:
+
+  ```bash
+  if git diff --quiet "origin/$BASE"...HEAD -- version.gradle.kts; then
+    echo "bump NOT committed — proceed to the Checklist (step 4) to commit it"
+  else
+    echo "bump already committed — stop"
+  fi
+  ```
+
+  - **Committed** (`version.gradle.kts` differs from base in a commit) — **Stop:
+    make no edit and no commit.** This is the idempotent case (the skill invoked
+    a second time on a branch — branch start, pre-PR, after another commit).
+  - **Not committed** (no committed change to `version.gradle.kts` vs base — the
+    bump lives only in the working tree or index) — do **not** stop. Go to the
+    Checklist and commit the staged `version.gradle.kts` (step 4) so the branch
+    carries a real `Bump version ->` commit; otherwise a later head-only pre-PR
+    check still fails.
 - **Exit `0`, reason `no changes vs base`** — the branch is **not** bumped; the
   script only means there is nothing to gate *yet*. A deliberate direct
   `bump-version` call **proceeds to the Checklist** — this is how a bump-only
