@@ -1,9 +1,9 @@
 ---
 name: bump-version
 description: >
-  Ensures `version.gradle.kts` is bumped exactly once above the base ref,
-  following the Spine SDK versioning policy. A branch needs only one version
-  bump; this skill is idempotent — it stops without committing when the branch
+  Ensures `version.gradle.kts` is bumped above the base ref — at most once per
+  branch, barring the sanctioned re-bumps below — per the Spine SDK versioning
+  policy. This skill is idempotent: it stops without committing when the branch
   is already ahead of base. For the routine "make sure the branch is bumped"
   check use the `version-bumped` guard, which calls this skill only on a miss.
   Invoke this skill directly to perform the actual bump, or to re-bump only for
