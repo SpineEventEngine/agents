@@ -62,7 +62,8 @@ Two companions own neighbouring concerns; defer to them rather than restating:
 3. **Classify the target, then extend the matching base — required, not optional.**
    Before writing a fresh suite, decide the target's shape and inherit the
    corresponding `testlib` base: **final class + private constructor + only static
-   members → `UtilityClassTest<T>`**; singleton → `SingletonTest<T>`; a class's
+   members → `UtilityClassTest<T>`**; a singleton class (a Kotlin `object` takes
+   no base — see "Pick the helper") → `SingletonTest<T>`; a class's
    static/class-level concerns → `ClassTest<T>`. A bare `internal class …Spec` with
    no base is correct *only* when no row in "Pick the helper" fits — e.g. a
    Kotlin `object` (no `testlib` base fits). A **non-`final` holder of statics
@@ -162,9 +163,8 @@ backtick rule as a test method: backtick it **only** when it is a multi-word
 sentence or a Kotlin hard keyword. When the name is a single token that is
 already a legal Kotlin identifier, write it plainly.
 
-For a *backticked* (multi-word) name, keep `@Nested` (with any visibility and
-`inner class`) on **one line** and put the name on the **next** line — the more
-common of the two layouts seen in the codebase:
+Keep `@Nested` (with any visibility and `inner class`) on **one line** and put
+the name on the **next** line — for backticked and plain names alike:
 
 ```kotlin
 // Correct — multi-word name, so backticked and wrapped to the next line
@@ -181,21 +181,23 @@ common of the two layouts seen in the codebase:
 ```
 
 ```kotlin
-// Avoid — backticked name on the same line as the declaration
+// Avoid — name on the same line as the declaration
 @Nested
 internal inner class `check that a value is positive` {
 }
 ```
 
-A *single-word* name needs no backticks; keep the whole declaration on one line:
+A *single-word* name needs no backticks, but still goes on its **own line**:
 
 ```kotlin
-// Correct — single valid identifier, no backticks
-@Nested inner class Construction {
+// Correct — single valid identifier, no backticks, name on the next line
+@Nested inner class
+Construction {
     // ...
 }
 
-@Nested internal inner class Validation : SomeBase() {
+@Nested internal inner class
+Validation : SomeBase() {
     // ...
 }
 ```
