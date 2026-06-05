@@ -1,63 +1,43 @@
 ---
 name: java-to-kotlin
 description: >
-  Convert Java code to Kotlin, including Java API comments from Javadoc to KDoc.
-  Use when asked to migrate Java files, classes, methods, nullability semantics,
-  or common Java patterns into idiomatic Kotlin while preserving behavior.
+  Converts Java code to idiomatic Kotlin, including its API comments from
+  Javadoc to KDoc. Use when asked to migrate Java files, classes, methods,
+  nullability semantics, or common Java patterns into Kotlin while preserving
+  behavior.
 ---
 
-# 🪄 Converting Java code to Kotlin
+# Converting Java code to Kotlin
 
 Use `.agents/skills/kotlin-engineer/SKILL.md` as the Kotlin implementation
-baseline for every conversion. Its null-safety, API-design, coroutine, Flow,
-and idiom rules apply to the Kotlin code produced by this skill.
+baseline for every conversion — its null-safety, API-design, coroutine, `Flow`,
+and idiom rules govern the Kotlin this skill produces. This skill adds only the
+conversion-specific policy below; it does not re-teach the language.
 
-* Java code API comments are Javadoc format.
-* Kotlin code API comments are in KDoc format. 
- 
-## Javadoc to KDoc conversion
+## Conversion policy
 
-* The wording of original Javadoc comments must be preserved.
-                                                                      
-## Treating nullability
+- **Preserve behavior and structure.** Keep the original functionality, and the
+  class/member organization, unless idiomatic Kotlin forces a change.
+- **Nullability is opt-in.** Use a nullable Kotlin type only where the Java
+  declaration is annotated `@Nullable`; treat everything else as non-null.
+- **Idioms come from `kotlin-engineer`.** Apply its rules for properties,
+  companion/top-level functions, lambdas, variance (`in`/`out`), and exhaustive
+  `when` rather than restating them here.
 
-* Use nullable Kotlin type only if the type in Java is annotated as `@Nullable`.
+## Javadoc → KDoc
 
-## Efficient Conversion Workflow
-
-* First, analyze the entire Java file structure before beginning conversion to understand dependencies and class relationships.
-* Convert Java code to Kotlin systematically: imports first, followed by class definitions, methods, and finally expressions.
-* Preserve all existing functionality and behavior during conversion.
-* Maintain original code structure and organization to ensure readability.
-
-## Common Java to Kotlin Patterns
-
-* Convert Java getters/setters to Kotlin properties with appropriate visibility modifiers.
-* Transform Java static methods to companion object functions or top-level functions as appropriate.
-* Replace Java anonymous classes with Kotlin lambda expressions when possible.
-* Convert Java interfaces with default methods to Kotlin interfaces with implementations.
-* Transform Java builders to Kotlin DSL patterns when appropriate.
-
-## Error Prevention
-
-* Pay special attention to Java's checked exceptions versus Kotlin's unchecked exceptions.
-* Be cautious with Java wildcards (`? extends`, `? super`) conversion to Kotlin's `out` and `in` type parameters.
-* Ensure proper handling of Java static initialization blocks in Kotlin companion objects.
-* Verify that Java overloaded methods convert correctly with appropriate default parameter values in Kotlin.
-* Remember that Kotlin has smart casts which can eliminate explicit type casting needed in Java.
-
-## Documentation Conversion
-
-* Convert `@param` to `@param` with the same description.
-* Convert `@return` to `@return` with the same description.
-* Convert `@throws` to `@throws` with the same description.
-* Convert `{@link}` to `[name][fully.qualified.Name]` format.
-* Convert `{@code}` to inline code with backticks (`).
+- **Preserve the original wording** of every comment.
+- `@param`, `@return`, and `@throws` keep their tag and description.
+- `{@link X}` becomes `[X]`, or `[label][fully.qualified.Name]` when a label
+  is needed.
+- `{@code x}` becomes an inline code span (`` `x` ``).
+- Remove residual HTML (`<p>`, entities); `review-docs` owns the full
+  Javadoc-residue checklist.
 
 ## Final step: ensure the version is bumped
 
 After the conversion is verified, run the `version-bumped` skill so the branch
-carries a strictly greater `version.gradle.kts` than the base ref before
-any `./gradlew build` (which may transitively `publishToMavenLocal` and
-overwrite the previously published snapshot consumer repos depend on).
-The skill is a no-op when a bump already happened earlier on the branch.
+carries a strictly greater `version.gradle.kts` than the base ref before any
+`./gradlew build` (which may transitively `publishToMavenLocal` and overwrite
+the published snapshot that consumer repos depend on). The skill is a no-op
+when a bump already happened earlier on the branch.
