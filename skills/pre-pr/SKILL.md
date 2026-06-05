@@ -37,6 +37,18 @@ The authoritative standards live in `.agents/`:
 Run steps 1–4 fully before aggregating. Collect all findings; do not stop at
 the first failure.
 
+Copy this checklist into your reply and tick each item as you finish it:
+
+```text
+Pre-PR progress:
+- [ ] 1. Scope + repository capabilities; classify the changed files
+- [ ] 2. Version-bump check (auto-fix via `bump-version` when it applies)
+- [ ] 3. Build or check (proto → clean build; code/build → build; docs → dokka)
+- [ ] 4. Reviewers dispatched for the changed file types
+- [ ] 5. Aggregate to PASS / FAIL
+- [ ] 6. Write the `.git/pre-pr.ok` sentinel
+```
+
 ### 1. Determine scope and repository capabilities
 
 - Base ref: `master` unless the user provides a different one.

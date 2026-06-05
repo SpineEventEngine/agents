@@ -21,6 +21,20 @@ skill's target repository, CI runs the `Version Guard` workflow, which invokes
 project version already exists in the Maven repository. It does not compare git
 branches or inspect commit subjects; the checks below are agent-side guardrails.
 
+Copy this checklist into your reply and tick each item as you finish it:
+
+```text
+Bump progress:
+- [ ] Idempotency gate — stop if already bumped, on the base branch, or N/A
+- [ ] 1. Confirm `version.gradle.kts` exists; preserve unrelated changes
+- [ ] 2. Locate the value that feeds `versionToPublish`
+- [ ] 3. Choose the increment (snapshot +1, or next multiple of 10 if breaking)
+- [ ] 4. Commit only `version.gradle.kts`
+- [ ] 5. Build to verify and regenerate dependency reports
+- [ ] 6. Commit changed dependency reports separately
+- [ ] 7. Validate: exactly one bump commit on the branch
+```
+
 ## Commit authorization
 
 **One bump per branch.** A branch carries **at most one** `Bump version ->`

@@ -21,6 +21,19 @@ the unit tests that close the gap. Work on one Gradle module or path at a time,
 always propose the test-case list and **wait for approval** before writing,
 and verify the gap is actually closed afterward.
 
+Copy this checklist into your reply and tick each item as you finish it:
+
+```text
+Coverage progress:
+- [ ] Step 0: Ensure Kover (migrate from JaCoCo / install if needed; smoke-check)
+- [ ] 1. Resolve the target module/path (or run `--triage` and stop)
+- [ ] 2. Localize uncovered lines/branches from the Kover XML
+- [ ] 3. Read the code under test and existing tests before writing
+- [ ] 4. Propose the test-case list — and WAIT for approval (unless `--yes`)
+- [ ] 5. Generate tests per `kotlin-jvm-tester`
+- [ ] 6. Verify the gap closed; no `.codecov.yml` target regressed
+```
+
 Before the main flow runs, you ensure the repo is on Kover. If vanilla JaCoCo
 is detected anywhere, you **auto-migrate the repo to Kover** without asking for
 the routine edits — still flagging the recipe's §7 manual-review surfaces for a
