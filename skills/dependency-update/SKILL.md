@@ -1,10 +1,10 @@
 ---
 name: dependency-update
 description: >
-  Walk every dependency declaration under
-  `buildSrc/src/main/kotlin/io/spine/dependency/`, discover the latest accepted
+  Walks every dependency declaration under
+  `buildSrc/src/main/kotlin/io/spine/dependency/`, discovers the latest accepted
   version of each artifact from the URL hinted in its file (or from Maven
-  metadata if no URL is present), and update the `version` constant in place.
+  metadata if no URL is present), and updates the `version` constant in place.
   External dependency scopes accept only released versions; the `local` scope
   also accepts snapshots and pre-releases published from sibling Spine repos.
   Use when asked to refresh dependency versions, bump libraries, run a

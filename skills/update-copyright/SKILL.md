@@ -1,10 +1,9 @@
 ---
 name: update-copyright
 description: >
-  Update source file copyright headers from the IntelliJ IDEA copyright profile,
-  replacing `today.year` with the current year.
-  Automatically apply to changed source files when source files are modified
-  in a change set.
+  Updates source file copyright headers from the IntelliJ IDEA copyright
+  profile, replacing `today.year` with the current year. Automatically applies
+  to changed source files when source files are modified in a change set.
 ---
 
 # Copyright Update

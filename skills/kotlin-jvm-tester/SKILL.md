@@ -1,19 +1,15 @@
 ---
 name: kotlin-jvm-tester
 description: >
-  The Spine SDK authority on how to write a JVM test in Kotlin — for both Kotlin
-  and Java production code. New tests are Kotlin (the codebase is migrating off Java),
-  using JUnit 5 structure with Kotest assertions, `internal` `Spec`-suffixed classes,
-  the matching `testlib` base class (`UtilityClassTest`, `ClassTest`,
-  `SingletonTest`) — required when the target fits — and Guava's
-  `EqualsTester`; the one sanctioned new Java test is an `XJavaSpec` that
-  verifies a Kotlin class works from Java across the compatibility bridge. Use
-  whenever you add or restructure a JVM test: a fresh suite, more cases, a Kotlin
-  suite beside an existing Java test, an integration `XIgTest`, or a Java-bridge spec.
-  `raise-coverage` delegates its test-writing conventions here, and `kotlin-engineer`
-  remains the baseline for the Kotlin inside each test body. Covers test structure,
-  assertions, naming (`XSpec` / `XKtSpec` / `XJavaSpec` / `XIgTest`), `@DisplayName`,
-  the backticked `@Nested` layout, and which `testlib` helper fits a target.
+  The Spine SDK authority on writing a JVM test in Kotlin, for both Kotlin and
+  Java production code. New tests are Kotlin — JUnit 5 structure, Kotest
+  assertions, `internal` `Spec`-suffixed classes, and the matching `testlib`
+  base class — with one sanctioned exception: an `XJavaSpec` that verifies a
+  Kotlin class works from Java across the compatibility bridge. Use when adding
+  or restructuring any JVM test: a fresh suite, more cases, a Kotlin suite
+  beside an existing Java test, an integration `XIgTest`, or a Java-bridge spec.
+  `raise-coverage` delegates its test-writing conventions here; `kotlin-engineer`
+  remains the baseline for the Kotlin inside each test body.
 ---
 
 # Kotlin JVM tester

@@ -1,7 +1,7 @@
 ---
 name: dependency-audit
 description: >
-  Audit changes to dependency declarations under
+  Audits changes to dependency declarations under
   `buildSrc/src/main/kotlin/io/spine/dependency/` — catches accidental
   version downgrades, BOM mismatches, missing deprecation markers when
   artifacts are renamed or removed, copyright drift, and convention drift.

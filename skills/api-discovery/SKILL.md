@@ -1,11 +1,11 @@
 ---
 name: api-discovery
 description: >
-  Resolve the on-disk location of a Maven artifact's source code,
-  so you can inspect it directly instead of running `unzip` against JARs
-  in the Gradle cache. Use this whenever you need to inspect a library's
-  API or implementation — definitions of public
-  types, method signatures, KDoc, internal helpers, etc.
+  Resolves the on-disk location of a Maven artifact's source code, so it
+  can be inspected directly instead of running `unzip` against JARs in the
+  Gradle cache. Use when inspecting a library's API or implementation —
+  definitions of public types, method signatures, KDoc, internal helpers,
+  etc.
 ---
 
 # API discovery

@@ -1,19 +1,17 @@
 ---
 name: raise-coverage
 description: >
-  Raise JVM test coverage for a Gradle module or source path. Before anything
-  else (outside read-only `--triage`), ensures the repo is on Kover —
-  auto-migrating from vanilla JaCoCo, or installing Kover when absent, without
-  asking for routine cases (manual-review surfaces are still flagged). Then
-  localizes
-  uncovered lines and branches from Kover's JaCoCo-format XML report, and
-  generates policy-compliant unit tests — stubs not mocks; tests are written
-  in **Kotlin** with Kotest assertions, regardless of whether
-  the code under test is Kotlin or Java; class names use the **`Spec`**
-  suffix. Proposes a test-case list and waits for approval before writing any
-  test (pass `--yes` to skip that wait), then re-runs the report to confirm the
-  gap is closed. Use when asked to add missing tests, close coverage gaps, or
-  raise a module's coverage.
+  Raises JVM test coverage for a Gradle module or source path. Outside
+  read-only `--triage`, first ensures the repo is on Kover — auto-migrating
+  from vanilla JaCoCo, or installing Kover when absent (routine cases run
+  without asking; manual-review surfaces are flagged). Then localizes uncovered
+  lines and branches from Kover's JaCoCo-format XML report and generates
+  policy-compliant unit tests: stubs not mocks, written in Kotlin with Kotest
+  assertions even when the code under test is Java, class names suffixed
+  `Spec`. Proposes a test-case list and waits for approval before writing any
+  test (pass `--yes` to skip), then re-runs the report to confirm the gap
+  closed. Use when asked to add missing tests, close coverage gaps, or raise a
+  module's coverage.
 ---
 
 # Raise test coverage
