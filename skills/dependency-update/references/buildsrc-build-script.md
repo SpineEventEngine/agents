@@ -55,10 +55,12 @@ A version can appear in three places in `buildSrc/build.gradle.kts`:
    header comment. When you change one, change the other in the same pass so they
    do not drift.
 
-3. **An inline literal inside `dependencies {}`** — no `val` at all:
+3. **An inline literal inside `dependencies {}`** — no `val` at all. The
+   coordinate is hard-coded in the configuration call (often an element of a
+   `listOf(…).forEach { implementation(it) }`):
 
        // https://github.com/srikanth-lingala/zip4j
-       "net.lingala.zip4j:zip4j:2.10.0"
+       implementation("net.lingala.zip4j:zip4j:2.10.0")
 
    Edit the version segment inside the coordinate string.
 
@@ -84,26 +86,39 @@ target value comes from.
   with the current value, the newest available value, and the quoted rationale,
   so the user can decide.
 
-- **Synced** — the comment ties the version to a dependency object under
-  `io.spine.dependency`, e.g.:
+- **Synced** — the comment carries an **explicit sync directive** tying the
+  version to a dependency object under `io.spine.dependency`. Require the
+  directive wording, not a bare cross-reference:
   - "keep this value in sync with `[io.spine.dependency.lib.Jackson.version]`",
   - "Always use the same version as `[io.spine.dependency.lib.Guava]`",
-  - "@see [io.spine.dependency.test.Kover]".
+  - "keep in sync with …", "must match …", "same version as …".
 
-  The reference may point at the object (`[…lib.Guava]`) or at its property
-  (`[…lib.Jackson.version]`); both resolve to the same object's `version`. The
-  **source of truth is that object's `version`**, not an independent latest
-  lookup. (Some sync comments add "it is not a requirement but would be good for
-  consistency" — aligning is still safe and is the intent.) Resolve the
-  referenced object, read its current `version` value (already updated if the
-  dependency-object pass bumped it earlier this run), and use that as the target.
+  A bare `@see [io.spine.dependency.…]` link with **no** sync wording is **not**
+  a sync directive — it is just a cross-reference, and the referenced object may
+  govern a *different* artifact than the build-script declaration. For example,
+  `kotestJvmPluginVersion` carries only `@see [io.spine.dependency.test.Kotest]`,
+  but it versions `io.kotest:kotest-gradle-plugin` (a `0.4.x` line), whereas
+  `Kotest.version` tracks the `io.kotest` **library** (a `6.x` line); copying the
+  library version onto the plugin would produce an unresolvable dependency. Treat
+  a bare `@see` to a dependency object as an **independent** hint and look the
+  artifact up by its own coordinate.
+
+  The directive's reference may point at the object (`[…lib.Guava]`) or at its
+  property (`[…lib.Jackson.version]`); both resolve to the same object's
+  `version`. The **source of truth is that object's `version`**, not an
+  independent latest lookup. (Some sync comments add "it is not a requirement but
+  would be good for consistency" — aligning is still safe and is the intent.)
+  Resolve the referenced object, read its current `version` value (already
+  updated if the dependency-object pass bumped it earlier this run), and use that
+  as the target — subject to the no-downgrade guard in step 3.
 
   If a version is *both* synced and pinned, the **pin wins** — treat it as
   pinned and flag it.
 
-- **Independent** — has a URL hint (or a usable Maven coordinate) and neither a
-  pin nor a sync comment. Treat it exactly like an external dependency object:
-  discover the latest released version from its hint and auto-edit.
+- **Independent** — has a URL hint or a usable Maven coordinate (including a
+  declaration whose only dependency-object reference is a bare `@see`), and no
+  pin or explicit sync directive. Treat it exactly like an external dependency
+  object: discover the latest released version from its hint and auto-edit.
 
 ## 3. Resolve the target value
 
@@ -112,8 +127,13 @@ target value comes from.
   when `latest > current`. No URL and no Maven hit → leave it and list under
   **Skipped (manual review)**.
 - **Synced** → target = the referenced object's current `version`. Update only
-  when it differs from the build-script value. If the referenced object cannot
-  be resolved (renamed/removed), do not guess — list it under
+  when the target is **strictly greater** than the build-script value (semver,
+  `version-discovery.md` step 4) — **never downgrade**. A sync edit must run
+  after the dependency-object pass; when that pass is skipped (e.g. a
+  `buildsrc`-only scope) or the object's value is **lower** than the current
+  build-script value, do not edit — report the gap under **Build script — synced
+  drift** so the user can reconcile it. If the referenced object cannot be
+  resolved (renamed/removed), do not guess — list it under
   **Skipped (manual review)** with a note.
 - **Pinned** → never edit; report as above.
 

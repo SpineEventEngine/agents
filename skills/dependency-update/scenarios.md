@@ -80,3 +80,23 @@ reference live in [`references/version-discovery.md`](references/version-discove
   `val licenseReportVersion = "…"`.
 - **Expected:** move both occurrences to the same new value in one pass; preserve
   the header comment explaining the dual declaration.
+
+## Scenario 10 — bare `@see` to a dependency object is not a sync directive
+
+- **Trigger:** default full scan.
+- **State:** `val kotestJvmPluginVersion = "0.4.10"` carries only
+  `@see [io.spine.dependency.test.Kotest]` (no "keep in sync" wording). It
+  versions `io.kotest:kotest-gradle-plugin` (a `0.4.x` line), while
+  `Kotest.version` tracks the `io.kotest` library (a `6.x` line).
+- **Expected:** treat it as **independent**, not synced — look up
+  `io.kotest:kotest-gradle-plugin` by its own coordinate. Do **not** copy
+  `Kotest.version`, which would write an unresolvable `6.x` onto the plugin.
+
+## Scenario 11 — synced object is behind the build script (no downgrade)
+
+- **Trigger:** `buildsrc` (object pass skipped), or the object simply lags.
+- **State:** `val errorPronePluginVersion = "4.2.0"` is synced to
+  `ErrorProne.GradlePlugin.version`, which is still `4.1.0`.
+- **Expected:** do **not** downgrade to `4.1.0`. Leave the value and report it
+  under **Build script — synced drift** with both values, so the user can
+  reconcile.

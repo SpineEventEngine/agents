@@ -29,8 +29,9 @@ from sibling Spine repositories, and it may move to newer snapshots or
 pre-releases such as `2.0.0-SNAPSHOT.388` or `2.1.0-RC1`.
 
 Beyond that catalogue, also refresh the **build script's own** dependencies —
-the Gradle plugins and `buildSrc` libraries declared as version constants in
-`buildSrc/build.gradle.kts`. These follow the same released-only rule, but the
+the Gradle plugins and `buildSrc` libraries declared in
+`buildSrc/build.gradle.kts` (as version constants, `plugins {}` literals, or
+inline coordinates). These follow the same released-only rule, but the
 file constrains them with its own comments: some versions are deliberately
 **pinned** below the newest release, and some must be **kept in sync** with a
 `io.spine.dependency.*` object rather than chasing latest independently. The
@@ -116,11 +117,10 @@ often need to move together; one-off bumps can cause runtime ABI mismatches.
 
 ## Build-script dependencies (`buildSrc/build.gradle.kts`)
 
-After the per-file pass above, refresh the Gradle plugins and `buildSrc`
-libraries declared as version constants in `buildSrc/build.gradle.kts`. Run this
-pass **last** so that versions which mirror
-a `io.spine.dependency.*` object can read the value that pass may have just
-updated. The full mechanics are in
+After the per-file pass above, refresh the version declarations for the Gradle
+plugins and `buildSrc` libraries in `buildSrc/build.gradle.kts`. Run this pass
+**last** so that versions which mirror a `io.spine.dependency.*` object can read
+the value that pass may have just updated. The full mechanics are in
 [`references/buildsrc-build-script.md`](references/buildsrc-build-script.md);
 the policy is:
 
@@ -134,14 +134,20 @@ the policy is:
      version compatible with Gradle 7.x"*) → **never auto-bump**. Discover the
      latest for the report, but make no edit; list it under **Build script —
      pinned** with the rationale quoted.
-   - **Synced** (the comment says to keep the value in sync with a
-     `io.spine.dependency.*` object) → the source of truth is **that object's
-     `version`**, not an independent latest lookup. Set the build-script value to
-     match it; edit only if they differ. A version that is both synced and pinned
-     is treated as **pinned** (the pin wins).
-   - **Independent** (a URL hint and no pin or sync comment) → discover the
-     latest **released** version (always filter pre-releases; the build script is
-     external scope) and auto-edit, exactly like an external dependency object.
+   - **Synced** (the comment carries an **explicit** sync directive — "keep in
+     sync with", "same version as" — naming a `io.spine.dependency.*` object) →
+     the source of truth is **that object's `version`**, not an independent latest
+     lookup. Align only **upward** (never downgrade), and only after the
+     dependency-object pass has run; if that pass was skipped or the object's
+     value is lower, report under **Build script — synced drift** instead of
+     editing. A bare `@see` to a dependency object is **not** a sync directive —
+     the object may govern a different artifact — so treat it as independent. A
+     version that is both synced and pinned is treated as **pinned** (the pin
+     wins).
+   - **Independent** (a URL hint or coordinate, and no pin or explicit sync
+     directive) → discover the latest **released** version (always filter
+     pre-releases; the build script is external scope) and auto-edit, exactly
+     like an external dependency object.
 3. **Apply the edit in place**, preserving the `val` / `plugins` / inline shape,
    the pin rationale, and the sync comment. Editing a `val` propagates through
    every `$…Version` interpolation and `force(…)` entry automatically — do not
@@ -169,6 +175,10 @@ When the run completes, emit a Markdown report with these sections:
   `io.spine.dependency.*` object it mirrors).
 - **Build script — pinned** — versions left untouched because of an explicit pin,
   with the current value, the newest available value, and the quoted rationale.
+- **Build script — synced drift** — `synced` versions left unedited because the
+  referenced object's value was lower than (or could not be compared to) the
+  current build-script value — e.g. the dependency-object pass was skipped, or
+  the build script is already ahead. Lists both values so the user can reconcile.
 
 End with the suggested next steps:
 
@@ -197,6 +207,11 @@ End with the suggested next steps:
   ceiling, and never silently drop or edit a pin rationale or a "keep in sync"
   comment. When a synced version's referenced `io.spine.dependency.*` object
   cannot be resolved, leave the value and flag it — do not guess.
+- Never **downgrade** a synced build-script version: align it to its object only
+  when the object's value is strictly higher, and only after the dependency-object
+  pass has run. Otherwise report the drift, never edit. A bare `@see` to a
+  dependency object is a cross-reference, not a sync directive — it may name a
+  different artifact, so look such versions up independently.
 - Never auto-resolve a Maven Central query that returns multiple matching
   artifacts with different groups (e.g. a library that exists under both
   `io.netty` and `io.netty.incubator`). Ask the user.
