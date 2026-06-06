@@ -12,7 +12,18 @@
 
 3. Documentation-only changes in Kotlin or Java sources run:
    ```bash
-   ./gradlew dokka
+   ./gradlew dokkaGenerate
    ```
-   
+   Use `dokkaGenerate` — the bare `dokka` task name is ambiguous under the
+   Dokka v2 Gradle plugin (`dokkaGenerate`, `dokkaGenerateHtml`,
+   `dokkaGeneratePublicationHtml`, …) and aborts the build. `dokkaGenerate`
+   runs both the HTML and Javadoc publication tasks, so it surfaces
+   unresolved KDoc/Javadoc links the same way the publish CI job does.
+
 4. Documentation-only changes do not require running tests!
+
+5. When code changes touch KDoc/Javadoc (any `.kt`/`.java` edit can rename or
+   move a type that an existing doc comment links to), run `dokkaGenerate` in
+   addition to `build`. The `build` task does **not** run Dokka — only the
+   publish job does — so a broken doc link passes `./gradlew build` locally and
+   fails CI. Combine them in one invocation, e.g. `./gradlew build dokkaGenerate`.

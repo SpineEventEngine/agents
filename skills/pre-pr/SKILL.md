@@ -3,9 +3,11 @@ name: pre-pr
 description: >
   Run the pre-PR checklist for this repo: apply the version gate only when
   the repository has a root `version.gradle.kts`, run a scope-dependent
-  build/check command per `.agents/guidelines/running-builds.md` (docs-only → `dokka`;
-  code/deps → `build`; proto → `clean build`; no documented command → skipped),
-  and invoke the relevant reviewers (`kotlin-engineer`, `spine-code-review`,
+  build/check command per `.agents/guidelines/running-builds.md` (docs-only →
+  `dokkaGenerate`; code/deps → `build`; proto → `clean build`; no documented
+  command → skipped), additionally running `dokkaGenerate` whenever code or docs
+  changed so unresolved KDoc/Javadoc links fail locally instead of in the
+  publish CI job, and invoke the relevant reviewers (`kotlin-engineer`, `spine-code-review`,
   `review-docs`, `dependency-audit`,
   `check-links`) against the branch diff. On success, write a sentinel file at
   `.git/pre-pr.ok` so the `gh pr create` hook can verify the checklist ran
@@ -99,7 +101,26 @@ Pick the target per `.agents/guidelines/running-builds.md`:
 
 - **proto** changed → `./gradlew clean build`
 - Else **code** or **build** changed → `./gradlew build`
-- Else **docs**-only → `./gradlew dokka`
+- Else **docs**-only → `./gradlew dokkaGenerate`
+
+**Append the Dokka generation whenever `code` or `docs` changed.** The `build`
+task does **not** run Dokka — only the publish CI job does — so an unresolved
+KDoc/Javadoc link (for example a doc comment that links a type living in
+`buildSrc`, or a code rename that breaks an existing link) passes
+`./gradlew build` locally and only fails in the **Publish to Maven
+repositories** job. To catch it early, add `dokkaGenerate` to the build target
+in a single invocation:
+
+- **proto** + (code or docs) → `./gradlew clean build dokkaGenerate`
+- **code** changed → `./gradlew build dokkaGenerate`
+- **build**/**deps**-only (no `.kt`/`.java`/`.proto`, no doc edit) →
+  `./gradlew build` (no Dokka needed)
+- **docs**-only → `./gradlew dokkaGenerate`
+
+Use `dokkaGenerate`, never the bare `dokka` task — the latter is ambiguous
+under the Dokka v2 Gradle plugin and aborts the build. If `dokkaGenerate` is
+not a registered task (the project does not apply Dokka), skip the Dokka run
+with a note rather than failing.
 
 If `./gradlew` is absent, read `.agents/guidelines/running-builds.md` for the
 repository-specific command. If that file is also absent, or if none is
@@ -109,7 +130,8 @@ reason and continue.
 Run the chosen command. On failure, record the first failing task and
 continue to step 4 — do not abort. Pass `build_status=FAIL` in the context
 given to reviewers so they can discount false positives from non-compiling
-code.
+code. A `dokkaGenerate` failure (typically an unresolved-link warning) is a
+Must-fix; record the failing module and link.
 
 ### 4. Reviewers
 

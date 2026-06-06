@@ -30,6 +30,35 @@ KDoc instead of linking to the source. Cross-repository parity notes and
 work-in-progress justifications belong in the task plan under
 `.agents/tasks/`, not in the published API documentation.
 
+### No doc links to `buildSrc` / `config` types
+
+The prohibition above covers *symbol references*, not just textual path
+mentions. Do **not** point a KDoc/Javadoc link at a type that lives in
+`buildSrc` or the `config` repository's `buildSrc`:
+
+- KDoc: `[KoverConfig]`, `[io.spine.gradle.report.coverage.KoverConfig]`, or
+  `[text][io.spine.gradle.report.coverage.KoverConfig]`.
+- Javadoc: `{@link …}`, `{@linkplain …}`, or `@see …` to such a type.
+
+`buildSrc` is a *separate compilation unit* that is not on the classpath Dokka
+sees when it documents a published module. Such a link can never resolve, and
+because Dokka is configured to fail on warnings, the unresolved link breaks the
+`dokkaGenerate` step of the **Publish to Maven repositories** CI job — even
+though `./gradlew build` (which does not run Dokka) passes locally. The fully
+qualified package (e.g. `io.spine.gradle.…`) contains no `buildSrc` substring,
+so grepping for the path will not surface it.
+
+Instead, demote the reference to a plain code span and, if useful, name where it
+lives in prose:
+
+```kotlin
+// Wrong — unresolved Dokka link, fails the publish build:
+ * [io.spine.gradle.report.coverage.KoverConfig] feeds the file into Kover.
+
+// Right — code span, no link to resolve:
+ * `KoverConfig` (in `buildSrc`) feeds the file into Kover.
+```
+
 ## Protobuf file headers
 - In `.proto` files, a multi-paragraph documentation header must end with a
   trailing empty comment line (`//`).

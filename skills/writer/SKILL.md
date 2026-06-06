@@ -82,4 +82,4 @@ description: >
 ## Validate changes
 
 - For code changes, follow `.agents/guidelines/running-builds.md`.
-- For documentation-only changes in Kotlin/Java sources, prefer `./gradlew dokka`.
+- For documentation-only changes in Kotlin/Java sources, prefer `./gradlew dokkaGenerate`.
