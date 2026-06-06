@@ -60,8 +60,10 @@ a hint.
 
 1. Run `git status --short`. If the worktree is dirty in files this skill will
    touch, stop and ask the user. Otherwise preserve unrelated changes.
-2. Confirm `buildSrc/src/main/kotlin/io/spine/dependency/` exists. For the build
-   script pass, confirm `buildSrc/build.gradle.kts` exists; if it is absent, skip
+2. Confirm the directories for the passes actually in scope exist. The
+   dependency-object pass needs `buildSrc/src/main/kotlin/io/spine/dependency/`;
+   require it only when that pass runs (i.e. not for a `buildsrc`-only scope).
+   The build-script pass needs `buildSrc/build.gradle.kts`; if it is absent, skip
    that pass and note it in the report rather than failing.
 3. Note the current branch — every change this skill makes is a candidate for
    a single `chore(deps): refresh external versions` commit at the end; the
@@ -119,7 +121,7 @@ often need to move together; one-off bumps can cause runtime ABI mismatches.
 
 After the per-file pass above, refresh the version declarations for the Gradle
 plugins and `buildSrc` libraries in `buildSrc/build.gradle.kts`. Run this pass
-**last** so that versions which mirror a `io.spine.dependency.*` object can read
+**last** so that versions which mirror an `io.spine.dependency.*` object can read
 the value that pass may have just updated. The full mechanics are in
 [`references/buildsrc-build-script.md`](references/buildsrc-build-script.md);
 the policy is:
@@ -135,15 +137,15 @@ the policy is:
      latest for the report, but make no edit; list it under **Build script —
      pinned** with the rationale quoted.
    - **Synced** (the comment carries an **explicit** sync directive — "keep in
-     sync with", "same version as" — naming a `io.spine.dependency.*` object) →
+     sync with", "same version as" — naming an `io.spine.dependency.*` object) →
      the source of truth is **that object's `version`**, not an independent latest
-     lookup. Align only **upward** (never downgrade), and only after the
-     dependency-object pass has run; if that pass was skipped or the object's
-     value is lower, report under **Build script — synced drift** instead of
-     editing. A bare `@see` to a dependency object is **not** a sync directive —
-     the object may govern a different artifact — so treat it as independent. A
-     version that is both synced and pinned is treated as **pinned** (the pin
-     wins).
+     lookup. Read the object's current on-disk value and align only **upward**
+     (never downgrade) — this works even in a `buildsrc`-only run, so it can fix
+     an out-of-sync declaration. Report under **Build script — synced drift** only
+     when the object's value is lower or incomparable. A bare `@see` to a
+     dependency object is **not** a sync directive — the object may govern a
+     different artifact — so treat it as independent. A version that is both
+     synced and pinned is treated as **pinned** (the pin wins).
    - **Independent** (a URL hint or coordinate, and no pin or explicit sync
      directive) → discover the latest **released** version (always filter
      pre-releases; the build script is external scope) and auto-edit, exactly
@@ -177,8 +179,8 @@ When the run completes, emit a Markdown report with these sections:
   with the current value, the newest available value, and the quoted rationale.
 - **Build script — synced drift** — `synced` versions left unedited because the
   referenced object's value was lower than (or could not be compared to) the
-  current build-script value — e.g. the dependency-object pass was skipped, or
-  the build script is already ahead. Lists both values so the user can reconcile.
+  current build-script value — i.e. the build script is already ahead of, or
+  incomparable to, its object. Lists both values so the user can reconcile.
 
 End with the suggested next steps:
 
@@ -208,8 +210,8 @@ End with the suggested next steps:
   comment. When a synced version's referenced `io.spine.dependency.*` object
   cannot be resolved, leave the value and flag it — do not guess.
 - Never **downgrade** a synced build-script version: align it to its object only
-  when the object's value is strictly higher, and only after the dependency-object
-  pass has run. Otherwise report the drift, never edit. A bare `@see` to a
+  when the object's value is strictly higher; otherwise report the drift, never
+  edit. Aligning upward is safe even in a `buildsrc`-only run. A bare `@see` to a
   dependency object is a cross-reference, not a sync directive — it may name a
   different artifact, so look such versions up independently.
 - Never auto-resolve a Maven Central query that returns multiple matching

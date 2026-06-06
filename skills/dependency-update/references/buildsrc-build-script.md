@@ -17,8 +17,10 @@ comments constrain whether a version may move.
 The build script is always an **external** scope. There is no `local/` exception
 here: always filter pre-releases (`version-discovery.md` step 3).
 
-Run this pass **after** the dependency-object pass, so `synced` versions (below)
-can read the freshly-updated object values.
+When the dependency-object pass also runs, run this pass **after** it, so
+`synced` versions (below) read the freshly-updated object values. A
+`buildsrc`-only run still works: `synced` versions read the object's committed
+value and align upward (never downgrade) — see step 3.
 
 ## Contents
 
@@ -126,15 +128,18 @@ target value comes from.
   pre-releases — always, this is external scope — compare by semver). Update only
   when `latest > current`. No URL and no Maven hit → leave it and list under
   **Skipped (manual review)**.
-- **Synced** → target = the referenced object's current `version`. Update only
-  when the target is **strictly greater** than the build-script value (semver,
-  `version-discovery.md` step 4) — **never downgrade**. A sync edit must run
-  after the dependency-object pass; when that pass is skipped (e.g. a
-  `buildsrc`-only scope) or the object's value is **lower** than the current
-  build-script value, do not edit — report the gap under **Build script — synced
-  drift** so the user can reconcile it. If the referenced object cannot be
-  resolved (renamed/removed), do not guess — list it under
-  **Skipped (manual review)** with a note.
+- **Synced** → target = the referenced object's current `version` as it stands
+  on disk at this point in the run. In a full run the dependency-object pass has
+  already applied any bump; in a `buildsrc`-only run it is the committed value —
+  either way the value is safe to read. Align the build-script value **upward**:
+  update only when the object's value is **strictly greater** (semver,
+  `version-discovery.md` step 4) — **never downgrade**. This upward alignment
+  happens even in a `buildsrc`-only run, so that scope can still fix an
+  out-of-sync declaration. Report under **Build script — synced drift** only when
+  the object's value is **lower** than the current build-script value or is
+  **incomparable** — not merely because the catalogue was not refreshed in the
+  same invocation. If the referenced object cannot be resolved (renamed/removed),
+  do not guess — list it under **Skipped (manual review)** with a note.
 - **Pinned** → never edit; report as above.
 
 Apply the major-bump guard from `SKILL.md` (more than one major ahead → flag,

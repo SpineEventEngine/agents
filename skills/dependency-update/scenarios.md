@@ -100,3 +100,14 @@ reference live in [`references/version-discovery.md`](references/version-discove
 - **Expected:** do **not** downgrade to `4.1.0`. Leave the value and report it
   under **Build script — synced drift** with both values, so the user can
   reconcile.
+
+## Scenario 12 — `buildsrc`-only run aligns a stale synced version upward
+
+- **Trigger:** `buildsrc` (object pass skipped).
+- **State:** `val guavaVersion = "33.4.0-jre"` is synced to
+  `[io.spine.dependency.lib.Guava]`, whose committed `version` is already
+  `33.4.8-jre`.
+- **Expected:** read the object's committed value and align **upward** to
+  `33.4.8-jre`, even though the object pass did not run this invocation. Report
+  under **Build script — updated** tagged `synced`. Do **not** withhold the edit
+  merely because the catalogue was not refreshed in the same run.
