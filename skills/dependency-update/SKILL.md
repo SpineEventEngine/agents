@@ -1,8 +1,8 @@
 ---
 name: dependency-update
 description: >
-  Walk every dependency declaration under
-  `buildSrc/src/main/kotlin/io/spine/dependency/`, discover the latest accepted
+  Walks every dependency declaration under
+  `buildSrc/src/main/kotlin/io/spine/dependency/`, discovers the latest accepted
   version of each artifact from the URL hinted in its file (or from Maven
   metadata if no URL is present), and update the `version` constant in place.
   Also refresh the build script's own dependencies declared in

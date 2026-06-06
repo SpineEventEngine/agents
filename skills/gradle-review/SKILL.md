@@ -1,7 +1,7 @@
 ---
 name: gradle-review
 description: >
-  Review Gradle-related changes in this repo against Spine SDK conventions
+  Reviews Gradle-related changes in this repo against Spine SDK conventions
   and the upstream Gradle best-practices guides ingested under `practices/`.
   Three scopes: (1) `buildSrc/` in the `config` repository only;
   (2) Gradle build files in any project; (3) production code of Gradle

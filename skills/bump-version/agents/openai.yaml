@@ -2,6 +2,7 @@ interface:
   display_name: "Bump Version"
   short_description: "Bump Spine project versions safely"
   default_prompt: >-
-    Use $bump-version to ensure version.gradle.kts is bumped exactly once above
-    base: stop without committing if the branch is already ahead, otherwise bump
-    the version, commit it, rebuild dependency reports, and verify the branch.
+    Use $bump-version to ensure version.gradle.kts is bumped above base — at most
+    once per branch, barring a sanctioned re-bump: stop without committing if the
+    branch is already ahead, otherwise bump the version, commit it, rebuild
+    dependency reports, and verify the branch.

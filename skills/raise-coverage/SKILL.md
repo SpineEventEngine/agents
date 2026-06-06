@@ -1,19 +1,17 @@
 ---
 name: raise-coverage
 description: >
-  Raise JVM test coverage for a Gradle module or source path. Before anything
-  else (outside read-only `--triage`), ensures the repo is on Kover —
-  auto-migrating from vanilla JaCoCo, or installing Kover when absent, without
-  asking for routine cases (manual-review surfaces are still flagged). Then
-  localizes
-  uncovered lines and branches from Kover's JaCoCo-format XML report, and
-  generates policy-compliant unit tests — stubs not mocks; tests are written
-  in **Kotlin** with Kotest assertions, regardless of whether
-  the code under test is Kotlin or Java; class names use the **`Spec`**
-  suffix. Proposes a test-case list and waits for approval before writing any
-  test (pass `--yes` to skip that wait), then re-runs the report to confirm the
-  gap is closed. Use when asked to add missing tests, close coverage gaps, or
-  raise a module's coverage.
+  Raises JVM test coverage for a Gradle module or source path. Outside
+  read-only `--triage`, first ensures the repo is on Kover — auto-migrating
+  from vanilla JaCoCo, or installing Kover when absent (routine cases run
+  without asking; manual-review surfaces are flagged). Then localizes uncovered
+  lines and branches from Kover's JaCoCo-format XML report and generates
+  policy-compliant unit tests: stubs not mocks, written in Kotlin with Kotest
+  assertions even when the code under test is Java, class names suffixed
+  `Spec`. Proposes a test-case list and waits for approval before writing any
+  test (pass `--yes` to skip), then re-runs the report to confirm the gap
+  closed. Use when asked to add missing tests, close coverage gaps, or raise a
+  module's coverage.
 ---
 
 # Raise test coverage
@@ -22,6 +20,19 @@ You localize untested code with **Kover**'s JaCoCo-format XML report and write
 the unit tests that close the gap. Work on one Gradle module or path at a time,
 always propose the test-case list and **wait for approval** before writing,
 and verify the gap is actually closed afterward.
+
+Copy this checklist into your reply and tick each item as you finish it:
+
+```text
+Coverage progress:
+- [ ] Step 0: Ensure Kover (migrate from JaCoCo / install if needed; smoke-check)
+- [ ] 1. Resolve the target module/path (or run `--triage` and stop)
+- [ ] 2. Localize uncovered lines/branches from the Kover XML
+- [ ] 3. Read the code under test and existing tests before writing
+- [ ] 4. Propose the test-case list — and WAIT for approval (unless `--yes`)
+- [ ] 5. Generate tests per `kotlin-jvm-tester`
+- [ ] 6. Verify the gap closed; no `.codecov.yml` target regressed
+```
 
 Before the main flow runs, you ensure the repo is on Kover. If vanilla JaCoCo
 is detected anywhere, you **auto-migrate the repo to Kover** without asking for
