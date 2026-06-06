@@ -120,7 +120,7 @@ metadata, not in GitHub's latest-release redirect.
   hint for next time. Match the existing comment style (one line, no trailing
   punctuation).
 - If all fallback queries have no result, leave the file untouched and add it
-  to the `Manual review` section of the final report.
+  to the **Skipped (manual review)** section of the final report.
 
 ## 3. Filter pre-releases outside `local/`
 

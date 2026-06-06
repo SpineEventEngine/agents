@@ -5,10 +5,13 @@ description: >
   `buildSrc/src/main/kotlin/io/spine/dependency/`, discover the latest accepted
   version of each artifact from the URL hinted in its file (or from Maven
   metadata if no URL is present), and update the `version` constant in place.
-  External dependency scopes accept only released versions; the `local` scope
-  also accepts snapshots and pre-releases published from sibling Spine repos.
-  Use when asked to refresh dependency versions, bump libraries, run a
-  dependency audit, or "see what's stale".
+  Also refresh the build script's own dependencies declared in
+  `buildSrc/build.gradle.kts` (Gradle plugins and `buildSrc` libraries),
+  respecting their pin rationale and "keep in sync with
+  `io.spine.dependency.*`" comments. External dependency scopes accept only
+  released versions; the `local` scope also accepts snapshots and pre-releases
+  published from sibling Spine repos. Use when asked to refresh dependency
+  versions, bump libraries, run a dependency audit, or "see what's stale".
 ---
 
 # Update dependencies
@@ -25,6 +28,15 @@ are **excluded**.
 from sibling Spine repositories, and it may move to newer snapshots or
 pre-releases such as `2.0.0-SNAPSHOT.388` or `2.1.0-RC1`.
 
+Beyond that catalogue, also refresh the **build script's own** dependencies —
+the Gradle plugins and `buildSrc` libraries declared as version constants in
+`buildSrc/build.gradle.kts`. These follow the same released-only rule, but the
+file constrains them with its own comments: some versions are deliberately
+**pinned** below the newest release, and some must be **kept in sync** with a
+`io.spine.dependency.*` object rather than chasing latest independently. The
+mechanics are in
+[`references/buildsrc-build-script.md`](references/buildsrc-build-script.md).
+
 The authoritative version source for each artifact is the web page already
 referenced in its file. When the file has no URL, use the Maven metadata
 fallback described below. For non-`local/` artifacts, a discovered Maven
@@ -33,16 +45,23 @@ a hint.
 
 ## Inputs
 
-- No arguments → scan all of `buildSrc/src/main/kotlin/io/spine/dependency/`.
+- No arguments → scan all of `buildSrc/src/main/kotlin/io/spine/dependency/`
+  **and** `buildSrc/build.gradle.kts`.
 - One or more paths or sub-package names (`lib`, `local`, `test`, `build`,
-  `kotlinx`, `boms`) → restrict the scan to those.
+  `kotlinx`, `boms`) → restrict the scan to those dependency-object scopes; the
+  build script is excluded unless `buildsrc` is also named.
+- `buildsrc` (matched case-insensitively, so `buildSrc` is equivalent) or the
+  path `buildSrc/build.gradle.kts` → restrict the scan to the build script's own
+  dependencies.
 - `--dry-run` → discover and report, but do not edit.
 
 ## Pre-flight
 
 1. Run `git status --short`. If the worktree is dirty in files this skill will
    touch, stop and ask the user. Otherwise preserve unrelated changes.
-2. Confirm `buildSrc/src/main/kotlin/io/spine/dependency/` exists.
+2. Confirm `buildSrc/src/main/kotlin/io/spine/dependency/` exists. For the build
+   script pass, confirm `buildSrc/build.gradle.kts` exists; if it is absent, skip
+   that pass and note it in the report rather than failing.
 3. Note the current branch — every change this skill makes is a candidate for
    a single `chore(deps): refresh external versions` commit at the end; the
    skill itself does NOT commit. The user decides.
@@ -95,6 +114,42 @@ is a release, snapshot, or pre-release. The user can then decide whether to
 bump the SDK in lockstep with the rest of the project. Spine SDK artifacts
 often need to move together; one-off bumps can cause runtime ABI mismatches.
 
+## Build-script dependencies (`buildSrc/build.gradle.kts`)
+
+After the per-file pass above, refresh the Gradle plugins and `buildSrc`
+libraries declared as version constants in `buildSrc/build.gradle.kts`. Run this
+pass **last** so that versions which mirror
+a `io.spine.dependency.*` object can read the value that pass may have just
+updated. The full mechanics are in
+[`references/buildsrc-build-script.md`](references/buildsrc-build-script.md);
+the policy is:
+
+1. **Find each version declaration** — a top-level `val <name>Version = "…"`, a
+   `plugins {}` `id(…).version("…")` literal, or an inline coordinate literal in
+   `dependencies {}`. A version used in both `plugins {}` and a `val` is declared
+   twice; both copies move together.
+2. **Classify it by its comment**:
+   - **Pinned** (the comment gives a reason to stay below the newest release,
+     e.g. *"latest before `2.2.0`, which introduces breaking changes"*, *"last
+     version compatible with Gradle 7.x"*) → **never auto-bump**. Discover the
+     latest for the report, but make no edit; list it under **Build script —
+     pinned** with the rationale quoted.
+   - **Synced** (the comment says to keep the value in sync with a
+     `io.spine.dependency.*` object) → the source of truth is **that object's
+     `version`**, not an independent latest lookup. Set the build-script value to
+     match it; edit only if they differ. A version that is both synced and pinned
+     is treated as **pinned** (the pin wins).
+   - **Independent** (a URL hint and no pin or sync comment) → discover the
+     latest **released** version (always filter pre-releases; the build script is
+     external scope) and auto-edit, exactly like an external dependency object.
+3. **Apply the edit in place**, preserving the `val` / `plugins` / inline shape,
+   the pin rationale, and the sync comment. Editing a `val` propagates through
+   every `$…Version` interpolation and `force(…)` entry automatically — do not
+   rewrite those.
+
+The major-bump guard in **Safety** applies to **independent** build-script
+versions just as it does to dependency objects.
+
 ## Report
 
 When the run completes, emit a Markdown report with these sections:
@@ -102,15 +157,23 @@ When the run completes, emit a Markdown report with these sections:
 - **Updated** — table of `file | objectName | old → new | source URL`.
 - **Already current** — file/object pairs whose version was already the
   newest accepted version.
-- **Skipped (no URL, metadata empty)** — manual review needed.
+- **Skipped (manual review)** — anything left untouched because it could not be
+  resolved: no URL hint and an empty metadata fallback, or a build-script
+  `synced` version whose `io.spine.dependency.*` object could not be located.
 - **Filtered pre-releases** — newer versions found but rejected because they
   were RC/SNAPSHOT/alpha/etc. Applies only outside `local/`.
 - **`local/` bumps to confirm** — every `local/` change called out separately,
   including snapshot and pre-release targets.
+- **Build script — updated** — `buildSrc/build.gradle.kts` versions changed,
+  each tagged `independent` or `synced` with its source (URL or the
+  `io.spine.dependency.*` object it mirrors).
+- **Build script — pinned** — versions left untouched because of an explicit pin,
+  with the current value, the newest available value, and the quoted rationale.
 
 End with the suggested next steps:
 
-1. Review the diff (`git diff buildSrc/src/main/kotlin/io/spine/dependency/`).
+1. Review the diff (`git diff buildSrc/`), covering both the dependency
+   catalogue and `buildSrc/build.gradle.kts`.
 2. Run the `version-bumped` skill. Every feature branch must advance
    `version.gradle.kts` strictly above the base before any
    `./gradlew build` (which may transitively `publishToMavenLocal`). The
@@ -130,6 +193,10 @@ End with the suggested next steps:
   authority.
 - Never edit `version.gradle.kts` — that's the `bump-version` skill's
   responsibility.
+- In `buildSrc/build.gradle.kts`, never bump a **pinned** version past its stated
+  ceiling, and never silently drop or edit a pin rationale or a "keep in sync"
+  comment. When a synced version's referenced `io.spine.dependency.*` object
+  cannot be resolved, leave the value and flag it — do not guess.
 - Never auto-resolve a Maven Central query that returns multiple matching
   artifacts with different groups (e.g. a library that exists under both
   `io.netty` and `io.netty.incubator`). Ask the user.

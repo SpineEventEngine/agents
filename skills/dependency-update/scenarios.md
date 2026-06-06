@@ -34,7 +34,8 @@ reference live in [`references/version-discovery.md`](references/version-discove
 - **State:** an external object has no URL comment or `@see`.
 - **Expected:** use the Maven Central metadata fallback. If found, update and
   back-fill a `// https://search.maven.org/artifact/<group>/<artifact>` hint; if
-  the query is empty, leave the file and list it under **Skipped**.
+  the query is empty, leave the file and list it under **Skipped (manual
+  review)**.
 
 ## Scenario 5 — large major jump
 
@@ -42,3 +43,40 @@ reference live in [`references/version-discovery.md`](references/version-discove
 - **State:** the discovered latest is more than one major ahead (`1.x` → `3.x`).
 - **Expected:** flag it as a major bump in the report and apply only on user
   confirmation (or with `--include-majors` when non-interactive).
+
+## Scenario 6 — build-script independent plugin
+
+- **Trigger:** default full scan (or `buildsrc`).
+- **State:** `buildSrc/build.gradle.kts` declares `val dokkaVersion = "2.1.0"`
+  with a `@see https://github.com/Kotlin/dokka/releases` hint, no pin, no sync
+  comment, and a newer non-prerelease release exists.
+- **Expected:** treat it as independent, bump the `val` in place (interpolations
+  and `force(…)` entries follow automatically), report under **Build script —
+  updated** tagged `independent`.
+
+## Scenario 7 — build-script version synced to a dependency object
+
+- **Trigger:** default full scan.
+- **State:** `val guavaVersion = "…"` carries *"Always use the same version as
+  `[io.spine.dependency.lib.Guava]`"*, and the per-file pass just bumped
+  `Guava.version`.
+- **Expected:** set `guavaVersion` to the object's new value (not an independent
+  latest lookup); report under **Build script — updated** tagged `synced` with
+  the object named. If the values already match, no edit.
+
+## Scenario 8 — build-script pinned version
+
+- **Trigger:** "Bump the build script too."
+- **State:** `val googleAuthToolVersion = "2.1.5"` with *"the latest before
+  `2.2.0`, which introduces breaking changes"*, and `2.2.x` exists.
+- **Expected:** do **not** edit; list under **Build script — pinned** with the
+  current value, the newest available value, and the quoted rationale.
+
+## Scenario 9 — version declared twice (plugins block + `val`)
+
+- **Trigger:** default full scan.
+- **State:** the license-report version appears both as
+  `id("…dependency-license-report").version("…")` in `plugins {}` and as a
+  `val licenseReportVersion = "…"`.
+- **Expected:** move both occurrences to the same new value in one pass; preserve
+  the header comment explaining the dual declaration.
