@@ -17,8 +17,12 @@
    Use `dokkaGenerate` — the bare `dokka` task name is ambiguous under the
    Dokka v2 Gradle plugin (`dokkaGenerate`, `dokkaGenerateHtml`,
    `dokkaGeneratePublicationHtml`, …) and aborts the build. `dokkaGenerate`
-   runs both the HTML and Javadoc publication tasks, so it surfaces
-   unresolved KDoc/Javadoc links the same way the publish CI job does.
+   aggregates every Dokka publication the project registers; because the Spine
+   config applies both the HTML (`org.jetbrains.dokka`) and Javadoc
+   (`org.jetbrains.dokka-javadoc`) plugins, it runs the HTML *and* Javadoc
+   publication tasks here, surfacing unresolved KDoc/Javadoc links the same way
+   the publish CI job does. (In a project that applies only the base Dokka
+   plugin, `dokkaGenerate` produces HTML alone.)
 
 4. Documentation-only changes do not require running tests!
 
