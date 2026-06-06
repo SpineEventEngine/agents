@@ -5,9 +5,9 @@ description: >
   the repository has a root `version.gradle.kts`, runs a scope-dependent
   build/check command per `.agents/guidelines/running-builds.md` (docs-only →
   `dokkaGenerate`; code/deps → `build`; proto → `clean build`; no documented
-  command → skipped), additionally running `dokkaGenerate` whenever code or docs
-  changed so unresolved KDoc/Javadoc links fail locally instead of in the
-  publish CI job, and invokes the relevant reviewers (`kotlin-engineer`, `spine-code-review`,
+  command → skipped), additionally running `dokkaGenerate` whenever a `.kt`/`.java`
+  source or doc changed so unresolved KDoc/Javadoc links fail locally instead of
+  in the publish CI job, and invokes the relevant reviewers (`kotlin-engineer`, `spine-code-review`,
   `review-docs`, `dependency-audit`,
   `check-links`) against the branch diff. On success, writes a sentinel file at
   `.git/pre-pr.ok` so the `gh pr create` hook can verify the checklist ran
@@ -45,7 +45,7 @@ Copy this checklist into your reply and tick each item as you finish it:
 Pre-PR progress:
 - [ ] 1. Scope + repository capabilities; classify the changed files
 - [ ] 2. Version-bump check (auto-fix via `bump-version` when it applies)
-- [ ] 3. Build or check (proto → clean build; code/build → build; docs → dokka)
+- [ ] 3. Build/check per scope; add dokkaGenerate when `.kt`/`.java` source or docs changed
 - [ ] 4. Reviewers dispatched for the changed file types
 - [ ] 5. Aggregate to PASS / FAIL
 - [ ] 6. Write the `.git/pre-pr.ok` sentinel
@@ -115,17 +115,21 @@ Pick the target per `.agents/guidelines/running-builds.md`:
 - Else **code** or **build** changed → `./gradlew build`
 - Else **docs**-only → `./gradlew dokkaGenerate`
 
-**Append the Dokka generation whenever `code` or `docs` changed.** The `build`
-task does **not** run Dokka — only the publish CI job does — so an unresolved
-KDoc/Javadoc link (for example a doc comment that links a type living in
-`buildSrc`, or a code rename that breaks an existing link) passes
-`./gradlew build` locally and only fails in the **Publish to Maven
-repositories** job. To catch it early, add `dokkaGenerate` to the build target
-in a single invocation:
+**Append the Dokka generation whenever a `.kt`/`.java` source file or a doc
+comment changed.** The `build` task does **not** run Dokka — only the publish
+CI job does — so an unresolved KDoc/Javadoc link (for example a doc comment
+that links a type living in `buildSrc`, or a code rename that breaks an
+existing link) passes `./gradlew build` locally and only fails in the
+**Publish to Maven repositories** job. To catch it early, add `dokkaGenerate`
+to the build target in a single invocation.
 
-- **proto** + (code or docs) → `./gradlew clean build dokkaGenerate`
-- **code** changed → `./gradlew build dokkaGenerate`
-- **build**/**deps**-only (no `.kt`/`.java`/`.proto`, no doc edit) →
+KDoc/Javadoc lives only in `.kt`/`.java` **source** files, so gate the Dokka
+run on those (plus doc-only source edits) — **not** on the broader `code`
+class, which also covers `*.kts` build scripts that Dokka never documents:
+
+- **proto** + (`.kt`/`.java` source or docs) → `./gradlew clean build dokkaGenerate`
+- `.kt`/`.java` source changed → `./gradlew build dokkaGenerate`
+- **build**/**deps**/`*.kts`-only (no `.kt`/`.java` source, no doc edit) →
   `./gradlew build` (no Dokka needed)
 - **docs**-only → `./gradlew dokkaGenerate`
 

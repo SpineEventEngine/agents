@@ -48,15 +48,16 @@ though `./gradlew build` (which does not run Dokka) passes locally. The fully
 qualified package (e.g. `io.spine.gradle.…`) contains no `buildSrc` substring,
 so grepping for the path will not surface it.
 
-Instead, demote the reference to a plain code span and, if useful, name where it
-lives in prose:
+Instead, demote the reference to a plain code span. Describe the behaviour in
+prose without naming the internal `buildSrc`/`config` location (per the rule
+above):
 
 ```kotlin
 // Wrong — unresolved Dokka link, fails the publish build:
- * [io.spine.gradle.report.coverage.KoverConfig] feeds the file into Kover.
+/** [io.spine.gradle.report.coverage.KoverConfig] feeds the file into Kover. */
 
-// Right — code span, no link to resolve:
- * `KoverConfig` (in `buildSrc`) feeds the file into Kover.
+// Right — a code span has no link to resolve:
+/** `KoverConfig` feeds the file into Kover. */
 ```
 
 ## Protobuf file headers
