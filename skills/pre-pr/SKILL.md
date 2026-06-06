@@ -3,11 +3,12 @@ name: pre-pr
 description: >
   Runs the pre-PR checklist for this repo: applies the version gate only when
   the repository has a root `version.gradle.kts`, runs a scope-dependent
-  build/check command per `.agents/guidelines/running-builds.md` (docs-only →
-  `dokkaGenerate`; code/deps → `build`; proto → `clean build`; no documented
+  build/check command per `.agents/guidelines/running-builds.md` (code/deps →
+  `build`; proto → `clean build`; Markdown-only → no build; no documented
   command → skipped), additionally running `dokkaGenerate` whenever a `.kt`/`.java`
-  source or doc changed so unresolved KDoc/Javadoc links fail locally instead of
-  in the publish CI job, and invokes the relevant reviewers (`kotlin-engineer`, `spine-code-review`,
+  source file changed (a code or KDoc/Javadoc edit — not Markdown) so unresolved
+  KDoc/Javadoc links fail locally instead of in the publish CI job, and invokes
+  the relevant reviewers (`kotlin-engineer`, `spine-code-review`,
   `review-docs`, `dependency-audit`,
   `check-links`) against the branch diff. On success, writes a sentinel file at
   `.git/pre-pr.ok` so the `gh pr create` hook can verify the checklist ran
@@ -45,7 +46,7 @@ Copy this checklist into your reply and tick each item as you finish it:
 Pre-PR progress:
 - [ ] 1. Scope + repository capabilities; classify the changed files
 - [ ] 2. Version-bump check (auto-fix via `bump-version` when it applies)
-- [ ] 3. Build/check per scope; add dokkaGenerate when `.kt`/`.java` source or docs changed
+- [ ] 3. Build/check per scope; add dokkaGenerate when a `.kt`/`.java` source file changed
 - [ ] 4. Reviewers dispatched for the changed file types
 - [ ] 5. Aggregate to PASS / FAIL
 - [ ] 6. Write the `.git/pre-pr.ok` sentinel
@@ -109,29 +110,32 @@ Pre-PR progress:
 
 ### 3. Build or check
 
-Pick the target per `.agents/guidelines/running-builds.md`:
+Pick the base target per `.agents/guidelines/running-builds.md`:
 
 - **proto** changed → `./gradlew clean build`
 - Else **code** or **build** changed → `./gradlew build`
-- Else **docs**-only → `./gradlew dokkaGenerate`
+- Else **Markdown / non-source docs only** → no Gradle build required; the
+  reviewers (and `check-links` for a Hugo site) cover it. Record
+  `build_status=skipped` with the reason.
 
-**Append the Dokka generation whenever a `.kt`/`.java` source file or a doc
-comment changed.** The `build` task does **not** run Dokka — only the publish
-CI job does — so an unresolved KDoc/Javadoc link (for example a doc comment
-that links a type living in `buildSrc`, or a code rename that breaks an
-existing link) passes `./gradlew build` locally and only fails in the
-**Publish to Maven repositories** job. To catch it early, add `dokkaGenerate`
-to the build target in a single invocation.
+**Append `dokkaGenerate` whenever a `.kt`/`.java` source file changed** — a code
+edit *or* a KDoc/Javadoc-only edit, since either can introduce or break a doc
+link. The `build` task does **not** run Dokka — only the publish CI job does —
+so an unresolved link (for example a doc comment that links a type living in
+`buildSrc`, or a code rename that breaks an existing link) passes
+`./gradlew build` locally and only fails in the **Publish to Maven
+repositories** job. To catch it early, add `dokkaGenerate` to the build target
+in a single invocation.
 
-KDoc/Javadoc lives only in `.kt`/`.java` **source** files, so gate the Dokka
-run on those (plus doc-only source edits) — **not** on the broader `code`
-class, which also covers `*.kts` build scripts that Dokka never documents:
+Gate the Dokka run on `.kt`/`.java` **source** presence in the diff — **not**
+on the broader `code` class (which also covers `*.kts` build scripts Dokka
+never documents) and **not** on `docs` (Markdown is not Dokka input):
 
-- **proto** + (`.kt`/`.java` source or docs) → `./gradlew clean build dokkaGenerate`
+- **proto** + `.kt`/`.java` source → `./gradlew clean build dokkaGenerate`
+- **proto** only (no `.kt`/`.java`) → `./gradlew clean build`
 - `.kt`/`.java` source changed → `./gradlew build dokkaGenerate`
-- **build**/**deps**/`*.kts`-only (no `.kt`/`.java` source, no doc edit) →
-  `./gradlew build` (no Dokka needed)
-- **docs**-only → `./gradlew dokkaGenerate`
+- **build**/**deps**/`*.kts`-only (no `.kt`/`.java`) → `./gradlew build`
+- **Markdown / non-source docs only** → no Dokka, no build
 
 Use `dokkaGenerate`, never the bare `dokka` task — the latter is ambiguous
 under the Dokka v2 Gradle plugin and aborts the build. If `dokkaGenerate` is

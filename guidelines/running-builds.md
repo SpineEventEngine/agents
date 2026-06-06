@@ -31,3 +31,7 @@
    addition to `build`. The `build` task does **not** run Dokka — only the
    publish job does — so a broken doc link passes `./gradlew build` locally and
    fails CI. Combine them in one invocation, e.g. `./gradlew build dokkaGenerate`.
+
+6. Markdown-only or other non-source documentation changes need no Gradle build:
+   Dokka does not process Markdown, so there is nothing to compile or generate.
+   Reviewers and the link checker cover them.
