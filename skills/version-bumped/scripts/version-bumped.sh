@@ -86,8 +86,11 @@ if ! git rev-parse --verify --quiet "$base" >/dev/null; then
 fi
 
 # When we are on the base branch itself, there is nothing to gate.
+# Strip only the leading remote segment (`origin/release/2.0` -> `release/2.0`)
+# rather than every path segment (`${base##*/}` would yield `2.0`), so a
+# checkout of a multi-segment release branch is still recognised as its base.
 current_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
-if [ "$current_branch" = "$base" ] || [ "$current_branch" = "${base##*/}" ]; then
+if [ "$current_branch" = "$base" ] || [ "$current_branch" = "${base#*/}" ]; then
   [ "${VERSION_BUMPED_QUIET:-0}" = "1" ] || echo "version-bumped: on base branch ($current_branch); nothing to gate"
   exit 0
 fi

@@ -1,7 +1,7 @@
 ---
 name: bump-gradle
 description: >
-  Update the Gradle wrapper version used by this repository. Use when asked to
+  Updates the Gradle wrapper version used by this repository. Use when asked to
   upgrade Gradle, bump the Gradle wrapper, move the project to the latest
   Gradle release from the official release notes, run the Gradle build, and
   commit Gradle wrapper and dependency report changes separately.

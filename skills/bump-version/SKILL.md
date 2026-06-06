@@ -1,9 +1,9 @@
 ---
 name: bump-version
 description: >
-  Ensure `version.gradle.kts` is bumped exactly once above the base ref,
-  following the Spine SDK versioning policy. A branch needs only one version
-  bump; this skill is idempotent — it stops without committing when the branch
+  Ensures `version.gradle.kts` is bumped above the base ref — at most once per
+  branch, barring the sanctioned re-bumps below — per the Spine SDK versioning
+  policy. This skill is idempotent: it stops without committing when the branch
   is already ahead of base. For the routine "make sure the branch is bumped"
   check use the `version-bumped` guard, which calls this skill only on a miss.
   Invoke this skill directly to perform the actual bump, or to re-bump only for
@@ -20,6 +20,20 @@ skill's target repository, CI runs the `Version Guard` workflow, which invokes
 `checkVersionIncrement` through `IncrementGuard`. The task fails if the current
 project version already exists in the Maven repository. It does not compare git
 branches or inspect commit subjects; the checks below are agent-side guardrails.
+
+Copy this checklist into your reply and tick each item as you finish it:
+
+```text
+Bump progress:
+- [ ] Idempotency gate — stop if already bumped, on the base branch, or N/A
+- [ ] 1. Confirm `version.gradle.kts` exists; preserve unrelated changes
+- [ ] 2. Locate the value that feeds `versionToPublish`
+- [ ] 3. Choose the increment (snapshot +1, or next multiple of 10 if breaking)
+- [ ] 4. Commit only `version.gradle.kts`
+- [ ] 5. Build to verify and regenerate dependency reports
+- [ ] 6. Commit changed dependency reports separately
+- [ ] 7. Validate: exactly one bump commit on the branch
+```
 
 ## Commit authorization
 
@@ -68,9 +82,27 @@ Read the exit code, and for exit `0` the reason the script prints on stdout —
 not every exit `0` means "already bumped":
 
 - **Exit `0`, reason `OK (… -> …)` or `… newly introduced … treating as
-  bumped`** — the branch version is already strictly greater than base. **Stop:
-  make no edit and no commit.** This is the idempotent case (the skill invoked a
-  second time on a branch — branch start, pre-PR, after another commit).
+  bumped`** — the *working-tree* version is strictly greater than base. The
+  script parses the working tree, so an unstaged (or staged-but-uncommitted)
+  edit to `version.gradle.kts` also reads as "OK". Before stopping, confirm the
+  advance is actually **committed** on the branch:
+
+  ```bash
+  if git diff --quiet "origin/$BASE"...HEAD -- version.gradle.kts; then
+    echo "bump NOT committed — proceed to the Checklist (step 4) to commit it"
+  else
+    echo "bump already committed — stop"
+  fi
+  ```
+
+  - **Committed** (`version.gradle.kts` differs from base in a commit) — **Stop:
+    make no edit and no commit.** This is the idempotent case (the skill invoked
+    a second time on a branch — branch start, pre-PR, after another commit).
+  - **Not committed** (no committed change to `version.gradle.kts` vs base — the
+    bump lives only in the working tree or index) — do **not** stop. Go to the
+    Checklist and commit the staged `version.gradle.kts` (step 4) so the branch
+    carries a real `Bump version ->` commit; otherwise a later head-only pre-PR
+    check still fails.
 - **Exit `0`, reason `no changes vs base`** — the branch is **not** bumped; the
   script only means there is nothing to gate *yet*. A deliberate direct
   `bump-version` call **proceeds to the Checklist** — this is how a bump-only

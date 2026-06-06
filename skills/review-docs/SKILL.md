@@ -1,7 +1,7 @@
 ---
 name: review-docs
 description: >
-  Review documentation changes — KDoc/Javadoc inside Kotlin/Java sources and
+  Reviews documentation changes — KDoc/Javadoc inside Kotlin/Java sources and
   Markdown docs (`README.md`, `docs/**`, `.agents/**`) — against Spine
   documentation conventions. Use when a diff touches doc comments or Markdown,
   before opening a doc-affecting PR, or when asked for a documentation review.

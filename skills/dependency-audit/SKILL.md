@@ -1,7 +1,7 @@
 ---
 name: dependency-audit
 description: >
-  Audit changes to dependency declarations under
+  Audits changes to dependency declarations under
   `buildSrc/src/main/kotlin/io/spine/dependency/` — catches accidental
   version downgrades, BOM mismatches, missing deprecation markers when
   artifacts are renamed or removed, copyright drift, and convention drift.
@@ -65,8 +65,9 @@ Each file declares a Kotlin `object` extending `Dependency` or `DependencyWithBo
    command per symbol. Examples:
    - `rg -n '\b(name1|name2|name3)\b' --type kt` to find callers of any
      removed `const val`.
-   - `rg -L 'Copyright \(c\) 2026' <changed-files>` to flag every stale
-     header in one call.
+   - `rg -L "Copyright \(c\) $(date +%Y)" <changed-files>` to flag every
+     stale header in one call (the current year is resolved at run time, so
+     the recipe does not rot).
    - `rg -L '@Suppress\("unused", "ConstPropertyName"\)' <changed-files>`
      to flag missing object-level suppression in one call.
    - `rg -n '(lib1:oldv1|lib2:oldv2)' --type kt --type gradle` — one
@@ -115,8 +116,8 @@ When an artifact is **renamed or removed**:
 
 ### D. Convention drift
 - **Copyright header year.** Every changed file should have a current-year
-  copyright line. If a file was edited but its copyright says `2024`, flag it
-  (the user can run the `update-copyright` skill to fix).
+  copyright line. If a file was edited but its copyright shows a past year,
+  flag it (the user can run the `update-copyright` skill to fix).
 - **GitHub URL comment.** New `lib/` and `kotlinx/` files conventionally
   start with `// https://github.com/<owner>/<repo>` above the object.
   Recommend it if missing.

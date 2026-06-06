@@ -1,7 +1,7 @@
 ---
 name: writer
 description: >
-  Write, edit, and restructure user-facing and developer-facing documentation.
+  Writes, edits, and restructures user-facing and developer-facing documentation.
   Use when asked to create/update docs such as `README.md`, `docs/**`, and
   other Markdown documentation, including keeping docs navigation data in sync;
   when drafting tutorials, guides, troubleshooting pages, or migration notes; and

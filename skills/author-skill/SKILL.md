@@ -1,7 +1,7 @@
 ---
 name: author-skill
 description: >
-  Create a new skill or edit an existing one in the Spine shared-agents
+  Creates a new skill or edits an existing one in the Spine shared-agents
   repository. Use when asked to add, scaffold, change, or remove a skill here:
   it sets up the `skills/<name>/` directory with a compliant `SKILL.md` and
   `agents/openai.yaml`, follows the repo's naming, format, and size conventions,

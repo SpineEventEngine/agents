@@ -1,8 +1,8 @@
 ---
 name: version-bumped
 description: >
-  Verify the current branch has bumped `version.gradle.kts` strictly above
-  the base ref; run the `bump-version` skill to auto-recover if not. Composable:
+  Verifies the current branch has bumped `version.gradle.kts` strictly above
+  the base ref; runs the `bump-version` skill to auto-recover if not. Composable:
   other modifying skills (`dependency-update`, `bump-gradle`,
   `java-to-kotlin`, `move-files`) call this as their final step so a
   `./gradlew build` or `publishToMavenLocal` can never overwrite a

@@ -1,8 +1,8 @@
 ---
 name: move-files
 description: >
-  Move or rename any files/directories in a repo: preserve history, update all
-  references and build metadata, verify no stale paths remain.
+  Moves or renames any files/directories in a repo: preserves history, updates
+  all references and build metadata, verifies no stale paths remain.
 ---
 
 # Move Files

@@ -1,7 +1,7 @@
 ---
 name: check-links
 description: >
-  Validate the Hugo documentation site under `docs/` or `site/` for broken
+  Validates the Hugo documentation site under `docs/` or `site/` for broken
   links. Builds the site, starts the Hugo server locally, runs Lychee against
   the rendered HTML using the repo's `lychee.toml`, and reports any broken URLs
   grouped by source Markdown page. Use locally before pushing changes that
