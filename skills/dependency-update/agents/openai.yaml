@@ -8,4 +8,8 @@ interface:
     use released non-snapshot versions only; dependency/local/ may use snapshots
     and pre-releases from sibling Spine repos. Use the URL referenced in each
     file as the source of truth; fall back to Maven metadata and back-fill
-    missing hints when useful.
+    missing hints when useful. Then refresh the build script's own dependencies
+    in buildSrc/build.gradle.kts: bump independent versions to the latest
+    release, align "keep in sync" versions upward to their io.spine.dependency.*
+    object (never downgrade; report drift when the object is lower), and leave
+    pinned versions untouched (flag them with the rationale).
