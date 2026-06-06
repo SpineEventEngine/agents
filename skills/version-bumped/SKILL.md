@@ -76,9 +76,12 @@ the version must advance.
 commits, rebuilds, may commit reports). `version-bumped` is the
 **guard** (read-only check, optional auto-recovery). Skills that want to
 say "make sure the branch has a bumped version" should call
-`version-bumped`, not `bump-version`, because the guard is a no-op when
-the bump is already done — calling `bump-version` unconditionally would
-double-bump on every chained skill invocation.
+`version-bumped`, not `bump-version`. `bump-version` now runs its own
+idempotency gate (the same `version-bumped.sh` check) and stops without
+committing when the branch is already ahead of base, so a stray direct
+call no longer double-bumps. Still prefer the guard for the "ensure
+bumped" intent: it expresses that intent directly and skips the action
+entirely when the bump is already done.
 
 ## Relationship to `checkVersionIncrement`
 
