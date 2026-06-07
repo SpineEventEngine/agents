@@ -3,9 +3,13 @@ name: pre-pr
 description: >
   Runs the pre-PR checklist for this repo: applies the version gate only when
   the repository has a root `version.gradle.kts`, runs a scope-dependent
-  build/check command per `.agents/guidelines/running-builds.md` (docs-only → `dokka`;
-  code/deps → `build`; proto → `clean build`; no documented command → skipped),
-  and invokes the relevant reviewers (`kotlin-engineer`, `spine-code-review`,
+  build/check command per `.agents/guidelines/running-builds.md` (proto →
+  `clean build`; code/deps → `build`; doc-only `.kt`/`.java` edit →
+  `dokkaGenerate`; Markdown-only → no build; no documented command → skipped),
+  and running `dokkaGenerate` for any `.kt`/`.java` source change (alongside
+  `build` for code edits, alone for KDoc/Javadoc-only edits) so unresolved
+  KDoc/Javadoc links fail locally instead of in the publish CI job, and invokes
+  the relevant reviewers (`kotlin-engineer`, `spine-code-review`,
   `review-docs`, `dependency-audit`,
   `check-links`) against the branch diff. On success, writes a sentinel file at
   `.git/pre-pr.ok` so the `gh pr create` hook can verify the checklist ran
@@ -43,7 +47,7 @@ Copy this checklist into your reply and tick each item as you finish it:
 Pre-PR progress:
 - [ ] 1. Scope + repository capabilities; classify the changed files
 - [ ] 2. Version-bump check (auto-fix via `bump-version` when it applies)
-- [ ] 3. Build or check (proto → clean build; code/build → build; docs → dokka)
+- [ ] 3. Build/check; dokkaGenerate on any `.kt`/`.java` source change (alone if doc-only)
 - [ ] 4. Reviewers dispatched for the changed file types
 - [ ] 5. Aggregate to PASS / FAIL
 - [ ] 6. Write the `.git/pre-pr.ok` sentinel
@@ -107,11 +111,42 @@ Pre-PR progress:
 
 ### 3. Build or check
 
-Pick the target per `.agents/guidelines/running-builds.md`:
+Pick the base target per `.agents/guidelines/running-builds.md`. A `.kt`/`.java`
+change is either a **code** edit or a **doc-only** edit (only KDoc/Javadoc or
+comment lines changed); inspect the diff to tell them apart, because a doc-only
+source edit needs Dokka but no compile or tests (`.agents/guidelines/running-builds.md`
+item 3):
 
 - **proto** changed → `./gradlew clean build`
-- Else **code** or **build** changed → `./gradlew build`
-- Else **docs**-only → `./gradlew dokka`
+- Else **`.kt`/`.java` code** change, or a **build**/**deps** file → `./gradlew build`
+- Else **doc-only `.kt`/`.java`** edit (no code change) → `./gradlew dokkaGenerate`
+  (no build, no tests)
+- Else **Markdown / non-source docs only** → no Gradle build required; the
+  reviewers (and `check-links` for a Hugo site) cover it. Record
+  `build_status=skipped` with the reason.
+
+**Append `dokkaGenerate` to a *build* target whenever a `.kt`/`.java` source file
+changed** — a code edit can rename or move a type an existing doc comment links
+to, breaking the link. The `build` task does **not** run Dokka — only the publish
+CI job does — so an unresolved link passes `./gradlew build` locally and only
+fails in the **Publish to Maven repositories** job. Combine them in one
+invocation. Do **not** add a second `dokkaGenerate` when it is already the base
+command (the doc-only source path above), and do **not** append it for changes
+with no `.kt`/`.java` source (Markdown, `*.kts` build scripts, deps).
+
+Putting it together:
+
+- **proto** + `.kt`/`.java` source → `./gradlew clean build dokkaGenerate`
+- **proto** only (no `.kt`/`.java`) → `./gradlew clean build`
+- `.kt`/`.java` **code** change → `./gradlew build dokkaGenerate`
+- `.kt`/`.java` **doc-only** edit → `./gradlew dokkaGenerate` (no build, no tests)
+- **build**/**deps**/`*.kts`-only (no `.kt`/`.java`) → `./gradlew build`
+- **Markdown / non-source docs only** → no Dokka, no build
+
+Use `dokkaGenerate`, never the bare `dokka` task — the latter is ambiguous
+under the Dokka v2 Gradle plugin and aborts the build. If `dokkaGenerate` is
+not a registered task (the project does not apply Dokka), skip the Dokka run
+with a note rather than failing.
 
 If `./gradlew` is absent, read `.agents/guidelines/running-builds.md` for the
 repository-specific command. If that file is also absent, or if none is
@@ -121,7 +156,8 @@ reason and continue.
 Run the chosen command. On failure, record the first failing task and
 continue to step 4 — do not abort. Pass `build_status=FAIL` in the context
 given to reviewers so they can discount false positives from non-compiling
-code.
+code. A `dokkaGenerate` failure (typically an unresolved-link warning) is a
+Must-fix; record the failing module and link.
 
 ### 4. Reviewers
 

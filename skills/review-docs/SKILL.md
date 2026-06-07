@@ -26,7 +26,7 @@ The authoritative standards live in `.agents/`:
   reference links for external URLs, typographic quotes only on actual
   page/section titles, sidenav-sync rules under `docs/`).
 - `.agents/guidelines/running-builds.md` — for doc-only Kotlin/Java changes the right
-  build is `./gradlew dokka` (no tests required).
+  build is `./gradlew dokkaGenerate` (no tests required).
 
 ## Review procedure
 
@@ -82,6 +82,23 @@ The authoritative standards live in `.agents/`:
   justifications belong in the team's transient work-tracking, not in the
   API docs. A mention in newly-added or modified KDoc/Javadoc is a
   Should-fix; summarise the *outcome* in the doc instead.
+- **No doc links from published sources to `buildSrc` / `config` types —
+  Must-fix.** This covers *symbol references*, not just path text: a KDoc
+  `[Symbol]` / `[text][Symbol]` or a Javadoc `{@link}` / `{@linkplain}` /
+  `@see` pointing at a type defined under `buildSrc/` or the `config` repo's
+  `buildSrc/` (e.g. `[io.spine.gradle.report.coverage.KoverConfig]`).
+  `buildSrc` is a separate compilation unit Dokka cannot see when it documents
+  a published module, so the link never resolves; since Dokka fails on
+  warnings, it breaks the `dokkaGenerate` step of the publish CI job while
+  `./gradlew build` still passes. Watch for it whenever a changed `.kt`/`.java`
+  doc comment in a **published** source set (e.g. `*/src/main/…`) links a type
+  whose package is `io.spine.gradle.*` (or otherwise lives only in `buildSrc`)
+  — grepping for `buildSrc` will not catch it. **Scope:** only doc comments in
+  published sources. A doc comment that itself lives under `buildSrc/` (or
+  `config/buildSrc/`) and links a sibling `buildSrc` type compiles in the same
+  unit and resolves fine — do not flag it. Fix: demote to a code span
+  (`` `KoverConfig` ``). See the "No doc links to `buildSrc` / `config` types"
+  section of `.agents/guidelines/documentation.md`.
 - **Multi-paragraph Protobuf headers end with an empty comment line.** In
   `.proto` files, if the file-level documentation header has more than one
   paragraph, it must end with a trailing empty comment line (`//`).
