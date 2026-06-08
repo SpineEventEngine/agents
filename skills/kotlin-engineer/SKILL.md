@@ -59,6 +59,7 @@ Kotlin/JDK/tooling baseline is unclear (see the Fast Path above):
 - **`withContext(Dispatchers.IO)` / `Default`** for blocking / CPU work inside suspend. Encapsulate dispatcher choice in the repository / data-source layer — not at call sites.
 - **Immutability by default** — `val` over `var`, `List` over `MutableList` in public API, `copy()` on data classes instead of mutation.
 - **Named arguments for 3+ parameters** — prevents silent argument swaps at call sites.
+- **Deprecated API only on the operator's explicit instruction.** When a human operator directs you to use a deprecated API, confine the call to the narrowest scope and suppress the warning right there — `@Suppress("DEPRECATION")` (`"DEPRECATION_ERROR"` for error-level) with a `// Reason: …` comment that names the sanctioning instruction and the replacement to migrate to.
 
 ## MUST NOT DO
 
@@ -72,6 +73,7 @@ Kotlin/JDK/tooling baseline is unclear (see the Fast Path above):
 - **No platform-type leaks (`String!`)** in public API — annotate Java interop returns with `@NotNull` / `@Nullable` on the Java side, or cast explicitly.
 - **No catching `Throwable`** — you'll catch `OutOfMemoryError`, `StackOverflowError`, and cancellation. Use `Exception` and rethrow cancellation.
 - **No `lateinit var` on primitives or nullable types** — compile error. Use `Delegates.notNull()` for primitives.
+- **No deprecated API in new or changed code** without that explicit instruction — reach for the replacement named in the `@Deprecated` / `ReplaceWith` message or the library's migration notes instead.
 
 ## Reference Guide
 
