@@ -262,6 +262,12 @@ points.
 - **Keep reusable stubs/fixtures out of the spec files.** Use Gradle's
   `java-test-fixtures` plugin (the `testFixtures` source set) to share stub classes
   and test data across suites, so a `Spec` stays focused on its cases.
+- **A Gradle `Task` fixture uses lazy registration.** When a test needs a real
+  `Task` (for example, built from `ProjectBuilder`), obtain it with
+  `project.tasks.register(name).get()`, never the deprecated eager
+  `project.tasks.create(name)`: Gradle deprecated the `create(String): Task`
+  overload, so the eager call makes `compileTestKotlin` emit a deprecation
+  warning. `.get()` realises the provider to the `Task` the assertion needs.
 - Upstream source for these conventions: the Spine *Testing* wiki —
   <https://github.com/SpineEventEngine/documentation/wiki/Testing>.
 
