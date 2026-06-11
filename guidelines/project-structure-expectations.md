@@ -19,3 +19,16 @@ README.md # Project overview
 AGENTS.md # Entry point for LLM agent instructions
 version.gradle.kts # Declares the project version in versioned Gradle Build Tools repos.
 ```
+
+## Shared configuration (the `config` repository)
+
+Many repositories of the Spine SDK share dependencies on third-party
+components, project configuration features, scripts, and _selected_ IntelliJ
+IDEA settings. The sharing saves on manual configuration for new project
+members and speeds up the propagation of modified project standards to all
+the contributors.
+
+The sharing is implemented via the dedicated
+[`config`](https://github.com/SpineEventEngine/config) repository, which is
+"plugged" into the repositories that use it as a Git submodule. Refer to the
+`config` repository and its `README` file for the installation instructions.

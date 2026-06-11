@@ -1,5 +1,9 @@
 # Running builds
 
+Always use the Gradle wrapper instead of a local Gradle distribution: run
+`./gradlew <task>`, not `gradle <task>`. On Unix-based systems, make sure the
+wrapper has the execution rights first (`chmod +x ./gradlew`).
+
 1. When modifying code, run:
    ```bash
    ./gradlew build

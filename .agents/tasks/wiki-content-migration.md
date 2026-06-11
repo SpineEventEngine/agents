@@ -65,7 +65,7 @@ Meta-issue: [SpineEventEngine/agents#7](https://github.com/SpineEventEngine/agen
 - [x] Phase 2 — documentation conventions: add `javadoc.md`, `kdoc.md`,
   `todo-comments.md`; update `documentation.md` (TODO link, sentence-case
   headers rule, pointers); update `_TOC.md`.
-- [ ] Phase 3 — process guidelines: merge the full versioning policy and
+- [x] Phase 3 — process guidelines: merge the full versioning policy and
   publishing rules into `version-policy.md`; expand `testing.md`; add
   `git-workflow.md`, `packages-and-artifacts.md`, `module-to-repository.md`;
   add the Gradle-wrapper rule to `running-builds.md`; add the shared-config
@@ -137,3 +137,9 @@ inter-wiki links keep resolving):
   modernized to `./gradlew dokkaGenerate` (Dokka renders both HTML and
   Javadoc in current builds). The broken regexes in the TODO-comments `grep`
   appendix were repaired (lost `\` escapes, invalid `???` branch).
+- 2026-06-11 — Phase 3 done. `version-policy.md` no longer delegates to the
+  wiki: it carries the full policy, the "no snapshots under Gradle" rationale
+  from the wiki's "Using Gradle" page, and a "Publishing" section. The
+  version-check reference was modernized from the wiki's
+  `io.spine.internal.gradle.publish.CheckVersionIncrement` FQN to the
+  `checkVersionIncrement` task run by CI (per the `bump-version` skill).
