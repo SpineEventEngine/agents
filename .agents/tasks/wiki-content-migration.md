@@ -60,7 +60,7 @@ Meta-issue: [SpineEventEngine/agents#7](https://github.com/SpineEventEngine/agen
 ## Plan
 
 - [x] Survey the wiki and this repository; build the disposition table.
-- [ ] Phase 1 — code styles: add `kotlin-code-style.md` and `java-code-style.md`;
+- [x] Phase 1 — code styles: add `kotlin-code-style.md` and `java-code-style.md`;
   link them from `coding.md`; verify `protobuf.md` parity; update `_TOC.md`.
 - [ ] Phase 2 — documentation conventions: add `javadoc.md`, `kdoc.md`,
   `todo-comments.md`; update `documentation.md` (TODO link, sentence-case
@@ -128,3 +128,8 @@ inter-wiki links keep resolving):
   archived task doc; `CONTRIBUTING.md` links a stale predecessor wiki
   (`SpineEventEngine.github.io/wiki`, now a pointer page about the spine.io
   site).
+- 2026-06-11 — Phase 1 done. The wiki's Kotlin example for "dependency objects"
+  said `io.spine.internal.dependency`; migrated as `io.spine.dependency`
+  matching the current `buildSrc` layout. The non-compiling `data class` +
+  `const val` snippet in the "Consistency" section was repaired while keeping
+  the lesson intact.
