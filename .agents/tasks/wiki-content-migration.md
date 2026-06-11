@@ -62,7 +62,7 @@ Meta-issue: [SpineEventEngine/agents#7](https://github.com/SpineEventEngine/agen
 - [x] Survey the wiki and this repository; build the disposition table.
 - [x] Phase 1 — code styles: add `kotlin-code-style.md` and `java-code-style.md`;
   link them from `coding.md`; verify `protobuf.md` parity; update `_TOC.md`.
-- [ ] Phase 2 — documentation conventions: add `javadoc.md`, `kdoc.md`,
+- [x] Phase 2 — documentation conventions: add `javadoc.md`, `kdoc.md`,
   `todo-comments.md`; update `documentation.md` (TODO link, sentence-case
   headers rule, pointers); update `_TOC.md`.
 - [ ] Phase 3 — process guidelines: merge the full versioning policy and
@@ -133,3 +133,7 @@ inter-wiki links keep resolving):
   matching the current `buildSrc` layout. The non-compiling `data class` +
   `const val` snippet in the "Consistency" section was repaired while keeping
   the lesson intact.
+- 2026-06-11 — Phase 2 done. The wiki's "Using Javadoc tool" advice was
+  modernized to `./gradlew dokkaGenerate` (Dokka renders both HTML and
+  Javadoc in current builds). The broken regexes in the TODO-comments `grep`
+  appendix were repaired (lost `\` escapes, invalid `???` branch).
