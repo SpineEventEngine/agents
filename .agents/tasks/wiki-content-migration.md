@@ -70,7 +70,7 @@ Meta-issue: [SpineEventEngine/agents#7](https://github.com/SpineEventEngine/agen
   `git-workflow.md`, `packages-and-artifacts.md`, `module-to-repository.md`;
   add the Gradle-wrapper rule to `running-builds.md`; add the shared-config
   section to `project-structure-expectations.md`; update `_TOC.md`.
-- [ ] Phase 4 — remove the remaining wiki links: `skills/bump-version/SKILL.md`,
+- [x] Phase 4 — remove the remaining wiki links: `skills/bump-version/SKILL.md`,
   `skills/kotlin-jvm-tester/SKILL.md`, the archived task doc note, and the stale
   wiki pointers in `CONTRIBUTING.md`; verification sweep
   (`grep -r "documentation/wiki"` finds only this file).
@@ -143,3 +143,11 @@ inter-wiki links keep resolving):
   version-check reference was modernized from the wiki's
   `io.spine.internal.gradle.publish.CheckVersionIncrement` FQN to the
   `checkVersionIncrement` task run by CI (per the `bump-version` skill).
+- 2026-06-11 — Phase 4 done. The `bump-version` skill now resolves
+  `[version-policy]` to `guidelines/version-policy.md`; the redundant
+  "upstream wiki" note in `kotlin-jvm-tester` is dropped; the archived task
+  doc names the wiki page without linking it. `CONTRIBUTING.md` pointed to
+  the *predecessor* wiki (`SpineEventEngine.github.io/wiki` — now a stale
+  one-page pointer about the spine.io site); it now points to
+  `guidelines/_TOC.md`. Sweep confirms the only wiki references left in the
+  repo are in this ledger.

@@ -262,8 +262,6 @@ points.
 - **Keep reusable stubs/fixtures out of the spec files.** Use Gradle's
   `java-test-fixtures` plugin (the `testFixtures` source set) to share stub classes
   and test data across suites, so a `Spec` stays focused on its cases.
-- Upstream source for these conventions: the Spine *Testing* wiki —
-  <https://github.com/SpineEventEngine/documentation/wiki/Testing>.
 
 ## Report
 
