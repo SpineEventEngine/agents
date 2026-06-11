@@ -96,8 +96,8 @@ In this case, `documents` will be displayed as plain text.
 
 ## No `{@inheritDoc}` in constructor documentation
 
-It is an invalid Javadoc construction which produces an empty constructor
-documentation.
+It is an invalid Javadoc construction which produces an empty
+constructor documentation.
 
 In this case the `Derived` constructor documentation will be empty:
 

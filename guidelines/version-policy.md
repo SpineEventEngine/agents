@@ -18,9 +18,9 @@ MAJOR.MINOR.PATCH-SNAPSHOT.NUMBER
 ```
 
 where `NUMBER` is the number of a snapshot version incremented in each pull
-request. An increment is usually +1, but may round up to the next dozen to
-signify big code changes. The rounding increment should be used when the
-changes are breaking.
+request. An increment is usually +1; when the changes are breaking, round up
+to the next multiple of ten that is strictly greater than the current value
+(e.g. `.187` → `.190`).
 
 Despite the `SNAPSHOT` word in the format, each such version is published as
 an ordinary immutable release — not as a mutable Maven `-SNAPSHOT` (see
@@ -34,11 +34,11 @@ the current project version already exists in the Maven repository.
 
 The Spine SDK is released using the minor version number (e.g. `1.5.0`).
 
-Each feature or a significant issue fix **must** lead to the bump of the
+Each feature or significant issue fix **must** lead to the bump of the
 minor (second) version component.
 
 The release itself, along with the release notes, is composed by a selected
-team of contributors, and is previously discussed with the project team.
+team of contributors, and is discussed with the project team beforehand.
 Please see the [Projects][spine-projects] page for details on current
 development activities.
 
@@ -47,13 +47,13 @@ development activities.
 Patch versions are _released_ in case of an urgent fix required for an issue
 discovered in a minor version update.
 
-In the rest, patch versions are used internally _instead_ of Maven
+Otherwise, patch versions are used internally _instead_ of Maven
 `-SNAPSHOT` versions: by default, Gradle builds do not support snapshot
 dependencies well, and although it is possible to make Gradle work with
 them, it proved to be troublesome. That is why the framework development is
 based on interim release versions.
 
-On 1.x release lines, every advancement of the code tree **MUST** increment
+On 1.x release lines, every advancement of the code tree **must** increment
 the patch component of the version number (e.g. `1.5.27`), while official
 release versions have the patch component of zero (e.g. `1.5.0`). Under the
 2.x scheme, the `SNAPSHOT.NUMBER` component plays this role.
@@ -84,15 +84,14 @@ bump fail CI.
 
 For the bump procedure — version-number selection, the commit-message
 convention, the rebuild, dependency-report updates, and conflict
-resolution — use the [`bump-version`](../skills/bump-version/SKILL.md)
-skill.
+resolution — use the [`bump-version`](../skills/bump-version/SKILL.md) skill.
 
 ## Publishing
 
 The CI server is configured to publish new artifacts from the `master`
-branch after a pull request is merged. The version of the artifacts is taken
-from the `version.gradle.kts` file located in the root directory of a
-subproject.
+branch after a pull request is merged. The version of the artifacts is
+taken from the `version.gradle.kts` file located in the root directory
+of a subproject.
 
 The artifacts built from feature branches **must not** be published.
 

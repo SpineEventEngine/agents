@@ -72,9 +72,9 @@ public class ProtocPluginArtifact(version: String = "1.0.2") {
 
 The `ProtoData.COORDINATES` property is a constant, while
 `ProtocPluginArtifact.coordinates` is not, even though the two read almost the
-same. Whether a property may be `const` depends on implementation details that
-change easily, and the screaming names broadcast those details at every use
-site.
+same. Whether a property may be `const` depends on implementation details
+that change easily, and the screaming names broadcast those details at
+every use site.
 
 To reduce the mental load of remembering whether a property is a real
 constant or not, we relaxed the constant-name rule.
@@ -100,8 +100,8 @@ be done to reduce the cognitive load on new developers of the SDK.
 
 ### Naming properties of dependency objects
 
-Versions and Maven coordinates of dependencies are defined using
-`lowerCamelCase`.
+Versions and Maven coordinates of dependencies are defined
+using `lowerCamelCase`.
 
 ## Extension functions and properties
 

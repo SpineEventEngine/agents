@@ -25,7 +25,8 @@
   other modules.
 - **Annotate every suite with `@DisplayName`**, backticking the name of the
   test subject: ``@DisplayName("`MyClass` should")``. For nested classes
-  prefer backticked names over `@DisplayName`, and put them on a new line.
+  prefer backticked class names over `@DisplayName`, putting the backticked
+  name on its own line after `@Nested inner class`.
 - **Separate reusable fixtures from specs** using the Gradle
   [Test Fixtures plugin][test-fixtures].
 

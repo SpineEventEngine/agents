@@ -42,8 +42,8 @@ In order to highlight this separation, we have the following conventions:
 
 * **Production code** goes as a sub-package under `io.spine`.
 
-  For example, the User Management library would have the package
-  `io.spine.users`.
+  For example, the User Management library would have the
+  package `io.spine.users`.
 
 * **The code of tools** goes as a sub-package under `io.spine.tools`.
 

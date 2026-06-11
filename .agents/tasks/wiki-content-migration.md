@@ -162,3 +162,12 @@ inter-wiki links keep resolving):
   `skills/review-docs/SKILL.md` (missed by the URL grep) now points to
   `todo-comments.md`; (d) external links in the new pages converted to
   reference style per the `writer` skill convention.
+- 2026-06-11 — Review round 2 (`review-docs`): all round-1 fixes verified to
+  hold; APPROVE WITH CHANGES. Fixed: the wiki's "round up to the next dozen"
+  for breaking changes contradicted the `bump-version` skill — replaced with
+  the skill's "next multiple of ten strictly greater than the current value";
+  ten runt lines reflowed; the sentence-case rule rephrased for the docs
+  context; minor wording nits.
+- 2026-06-11 — Note for the maintainer: all commits on this branch are
+  SSH-signed; the local stop-hook reports them as Unverified only because it
+  cannot verify SSH signatures without `gpg.ssh.allowedSignersFile`.

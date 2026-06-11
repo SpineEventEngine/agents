@@ -50,8 +50,8 @@ Each pull request **must** have a decent description:
 
 In some cases, a PR is used to present an incomplete piece of code and
 discuss it with the team members. The GitHub code review tool is then used
-as a flexible communication tool, keeping the comments right next to the
-codebase.
+as a flexible communication tool, keeping the comments right next to
+the codebase.
 
 If you are in the early stages of the feature, and it is really far from
 being ready for review, please use [draft pull requests][draft-prs].

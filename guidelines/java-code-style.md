@@ -76,8 +76,8 @@ twice on a line.
 
 ### `@ParametersAreNonnullByDefault`
 
-This annotation must be set in `package-info.java` of all the framework
-packages.
+This annotation must be set in `package-info.java` of all the
+framework packages.
 
 ### Use `@Nullable` when required
 
@@ -121,8 +121,8 @@ method `build()` should look like this:
 
 ## Returning immutable collections
 
-If a method returns a collection, it must be immutable. Use those provided by
-Guava.
+If a method returns a collection, it must be immutable. Use those
+provided by Guava.
 
 ## API for tests
 

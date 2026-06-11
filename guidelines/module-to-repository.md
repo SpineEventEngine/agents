@@ -2,8 +2,7 @@
 
 Sometimes, when a project grows bigger, it is practical to extract a module
 into a separate repository. This page is a guide for this process. It
-assumes you have the [`filter-repo` command for `git`][filter-repo]
-installed.
+assumes you have the [`filter-repo` command for `git`][filter-repo] installed.
 
 ## Basic instructions
 

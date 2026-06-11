@@ -71,9 +71,8 @@ above):
 
 ## Capitalisation in headers
 
-As per the [Material 3 design style guide][material3-style], use sentence
-case for titles, headings, labels, menu items, navigation components, app
-bars, and buttons.
+Use sentence case for titles and headings, as recommended by the
+[Material 3 design style guide][material3-style].
 
 ## Avoid widows, runts, orphans, or rivers
 
