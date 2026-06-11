@@ -16,7 +16,7 @@ If code changes are going to be introduced, the issue should also have a link to
 Code contributions should:
   * Be accompanied by tests.
   * Be licensed under the Apache v2.0 license with the appropriate copyright header for each file.
-  * Formatted according to the code style. See the [developer guidelines][guidelines] for
+  * Be formatted according to the code style. See the [developer guidelines][guidelines] for
     the style guides of the programming languages used in the framework.
 
 Contributor License Agreement

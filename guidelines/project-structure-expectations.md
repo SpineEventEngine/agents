@@ -28,7 +28,9 @@ IDEA settings. The sharing saves on manual configuration for new project
 members and speeds up the propagation of modified project standards to all
 the contributors.
 
-The sharing is implemented via the dedicated
-[`config`](https://github.com/SpineEventEngine/config) repository, which is
-"plugged" into the repositories that use it as a Git submodule. Refer to the
-`config` repository and its `README` file for the installation instructions.
+The sharing is implemented via the dedicated [`config`][config-repo]
+repository, which is "plugged" into the repositories that use it as a Git
+submodule. Refer to the `config` repository and its `README` file for the
+installation instructions.
+
+[config-repo]: https://github.com/SpineEventEngine/config

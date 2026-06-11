@@ -49,18 +49,16 @@ Each pull request **must** have a decent description:
 ### Work in progress
 
 In some cases, a PR is used to present an incomplete piece of code and
-discuss it with the team members. The GitHub code review tool is then used as
-a flexible communication tool, allowing to keep the comments right next to
-the codebase.
+discuss it with the team members. The GitHub code review tool is then used
+as a flexible communication tool, keeping the comments right next to the
+codebase.
 
-If you are on the early stages of the feature, and it is really far from
-being ready for review, please use
-[draft pull requests](https://github.blog/2019-02-14-introducing-draft-pull-requests/).
+If you are in the early stages of the feature, and it is really far from
+being ready for review, please use [draft pull requests][draft-prs].
 
 ### Merging vs. rebasing
 
-Quoted from
-[this article](https://www.atlassian.com/git/tutorials/merging-vs-rebasing/workflow-walkthrough):
+Quoted from [this article][merging-vs-rebasing]:
 
 > If you use pull requests as part of your code review process, you need to
 > avoid using `git rebase` after creating the pull request. As soon as you
@@ -73,4 +71,8 @@ Quoted from
 > instead of `git rebase`.
 
 The concepts and a workflow walkthrough are available in
-[the full version of the article](https://www.atlassian.com/git/tutorials/merging-vs-rebasing/conceptual-overview).
+[the full version of the article][merging-vs-rebasing-overview].
+
+[draft-prs]: https://github.blog/2019-02-14-introducing-draft-pull-requests/
+[merging-vs-rebasing]: https://www.atlassian.com/git/tutorials/merging-vs-rebasing/workflow-walkthrough
+[merging-vs-rebasing-overview]: https://www.atlassian.com/git/tutorials/merging-vs-rebasing/conceptual-overview

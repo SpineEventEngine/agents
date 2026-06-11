@@ -151,3 +151,14 @@ inter-wiki links keep resolving):
   one-page pointer about the spine.io site); it now points to
   `guidelines/_TOC.md`. Sweep confirms the only wiki references left in the
   repo are in this ledger.
+- 2026-06-11 — Review round 1 (`review-docs`): APPROVE WITH CHANGES; all
+  findings fixed. Notable decisions: (a) the wiki's "start nested test-class
+  names with a capital letter" detail was **dropped** from `testing.md` —
+  it contradicts the owner-reviewed `kotlin-jvm-tester` examples, which use
+  lowercase sentence names; (b) `version-policy.md` now scopes the
+  "every advancement increments PATCH" mandate to 1.x release lines and
+  explains that `…-SNAPSHOT.NUMBER` versions are immutable releases, not
+  Maven `-SNAPSHOT`s; (c) a stale prose mention of the wiki in
+  `skills/review-docs/SKILL.md` (missed by the URL grep) now points to
+  `todo-comments.md`; (d) external links in the new pages converted to
+  reference style per the `writer` skill convention.

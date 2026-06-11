@@ -1,16 +1,14 @@
 # Java code style
 
-We use [Google Java Style](https://google.github.io/styleguide/javaguide.html)
-conventions with *4 spaces* (instead of 2) for indentation. Other extensions
-and changes are described below. The line-length limit is defined by
-`max-line-length` in the frontmatter of `.agents/guidelines/coding.md`.
+We use [Google Java Style][google-java-style] conventions with *4 spaces*
+(instead of 2) for indentation. Other extensions and changes are described
+below. The line-length limit is defined by `max-line-length` in the
+frontmatter of `.agents/guidelines/coding.md`.
 
 **Table of contents**
 
 * [Javadoc](#javadoc)
 * [Wrapping](#wrapping)
-  * [Ternary operator](#ternary-operator)
-  * [Builder call chain](#builder-call-chain)
 * [Static import for `String.format()`](#static-import-for-stringformat)
 * [Dealing with `null`s](#dealing-with-nulls)
 * [Returning immutable collections](#returning-immutable-collections)
@@ -216,3 +214,5 @@ String text = "This is an important error message." +
 A leading space is easier to spot and understand as a continuation.
 Oftentimes, people miss a space character in concatenated messages; with the
 starting space it happens less often.
+
+[google-java-style]: https://google.github.io/styleguide/javaguide.html

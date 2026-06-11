@@ -1,8 +1,8 @@
 # Kotlin code style
 
 Kotlin code of the Spine SDK follows the standard
-[Kotlin coding conventions](https://kotlinlang.org/docs/coding-conventions.html)
-with the extensions and modifications described below.
+[Kotlin coding conventions][kotlin-conventions] with the extensions and
+modifications described below.
 
 This page covers naming and formatting. General Kotlin idioms are listed in
 `.agents/guidelines/coding.md`; the implementation policy — null-safety,
@@ -21,8 +21,8 @@ The line-length limit is defined by `max-line-length` in the frontmatter of
 
 ## Property names for constants
 
-Kotlin [conventions for property names](https://kotlinlang.org/docs/coding-conventions.html#property-names)
-encourage `SCREAMING_SNAKE_CASE` for constant properties. Unlike the standard
+Kotlin [conventions for property names][kotlin-property-names] encourage
+`SCREAMING_SNAKE_CASE` for constant properties. Unlike the standard
 conventions, we _prefer_ `lowerCamelCase` for naming such properties, for the
 following reasons.
 
@@ -84,8 +84,8 @@ performance optimization.
 
 ## Dependency objects
 
-Instead of [Gradle version catalogs](https://docs.gradle.org/current/userguide/platforms.html#sub:version-catalog)
-we declare dependencies as Kotlin objects under `buildSrc`. See the
+Instead of [Gradle version catalogs][version-catalogs] we declare
+dependencies as Kotlin objects under `buildSrc`. See the
 `io.spine.dependency` package under `buildSrc/src/main/kotlin` of a Spine SDK
 repository for examples.
 
@@ -106,7 +106,7 @@ Versions and Maven coordinates of dependencies are defined using
 ## Extension functions and properties
 
 Kotlin provides a powerful way of
-[teaching existing code new tricks](https://kotlinlang.org/docs/extensions.html).
+[teaching existing code new tricks][kotlin-extensions].
 Here are the basic principles regarding extensions to follow in our code:
 
 1. **Make extensions `internal` or even `private`** if you are not sure they
@@ -137,3 +137,8 @@ const val text = "This is an important error message." +
 A leading space is easier to spot and understand as a continuation.
 Oftentimes, people miss a space character in concatenated messages; with the
 starting space it happens less often.
+
+[kotlin-conventions]: https://kotlinlang.org/docs/coding-conventions.html
+[kotlin-property-names]: https://kotlinlang.org/docs/coding-conventions.html#property-names
+[version-catalogs]: https://docs.gradle.org/current/userguide/platforms.html#sub:version-catalog
+[kotlin-extensions]: https://kotlinlang.org/docs/extensions.html

@@ -10,7 +10,7 @@ artifacts:
   For example, the Validation library provides the classes and interfaces
   that are a part of the Validation runtime. This is the production code.
 
-* **Tools code** — the code which participates at development and build time.
+* **Tools code** — the code which is used at development and build time.
 
   For example, the Validation library has plugins for the Spine Compiler
   which generate the code validating Protobuf types.

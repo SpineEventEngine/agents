@@ -10,9 +10,9 @@ and the language conventions in `.agents/guidelines/java-code-style.md`.
 * [Layout for class description](#layout-for-class-description)
 * [Verifying generated documentation](#verifying-generated-documentation)
 * [Avoiding new imports caused by Javadoc](#avoiding-new-imports-caused-by-javadoc)
-* [Make the proper choice between `@link` and `@linkplain`](#make-the-proper-choice-between-link-and-linkplain)
-* [Do not use `{@inheritDoc}` in a constructor documentation](#do-not-use-inheritdoc-in-a-constructor-documentation)
-* [Do not use `@link` or `@linkplain` with keywords](#do-not-use-link-or-linkplain-with-keywords)
+* [Choosing between `@link` and `@linkplain`](#choosing-between-link-and-linkplain)
+* [No `{@inheritDoc}` in constructor documentation](#no-inheritdoc-in-constructor-documentation)
+* [No `@link` or `@linkplain` with keywords](#no-link-or-linkplain-with-keywords)
 
 ---
 
@@ -74,7 +74,7 @@ class Foo {
 }
 ```
 
-## Make the proper choice between `@link` and `@linkplain`
+## Choosing between `@link` and `@linkplain`
 
 If a link label is a program element name, use `@link`:
 
@@ -94,7 +94,7 @@ Otherwise, if a link label is a plain text, use `@linkplain`:
 
 In this case, `documents` will be displayed as plain text.
 
-## Do not use `{@inheritDoc}` in a constructor documentation
+## No `{@inheritDoc}` in constructor documentation
 
 It is an invalid Javadoc construction which produces an empty constructor
 documentation.
@@ -125,7 +125,7 @@ class Derived extends Base {
 }
 ```
 
-## Do not use `@link` or `@linkplain` with keywords
+## No `@link` or `@linkplain` with keywords
 
 Use `@code` instead. In particular, this relates to primitives and literals
 like `null`, `true`, `false`.

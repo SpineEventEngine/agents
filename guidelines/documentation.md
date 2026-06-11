@@ -71,12 +71,13 @@ above):
 
 ## Capitalisation in headers
 
-As per the
-[Material 3 design style guide](https://m3.material.io/foundations/content-design/style-guide/ux-writing-best-practices),
-use sentence case for titles, headings, labels, menu items, navigation
-components, app bars, and buttons.
+As per the [Material 3 design style guide][material3-style], use sentence
+case for titles, headings, labels, menu items, navigation components, app
+bars, and buttons.
 
 ## Avoid widows, runts, orphans, or rivers
 
-Agents should **AVOID** text flow patters illustrated
+Agents should **AVOID** text flow patterns illustrated
 on [this diagram](widow-runt-orphan.jpg).
+
+[material3-style]: https://m3.material.io/foundations/content-design/style-guide/ux-writing-best-practices

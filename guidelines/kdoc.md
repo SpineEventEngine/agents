@@ -5,9 +5,9 @@ For the language conventions please see
 `.agents/guidelines/kotlin-code-style.md`; for the API-documentation scope
 rules see `.agents/guidelines/documentation.md`.
 
-Use these [KDoc guidelines for Android developers](https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/docs/kdoc_guidelines.md)
-as general rules. Recommendations and requirements specific to the Spine SDK
-are described below.
+Use these [KDoc guidelines for Android developers][android-kdoc] as general
+rules. Recommendations and requirements specific to the Spine SDK are
+described below.
 
 ## Documenting a type
 
@@ -70,4 +70,7 @@ Dokka renders the KDoc. Run `./gradlew dokkaGenerate` to verify it: an
 unresolved link fails the publish CI job even when `./gradlew build` passes.
 See `.agents/guidelines/running-builds.md` for details. The shared Dokka
 configuration comes with the build configuration provided by the
-[`config`](https://github.com/SpineEventEngine/config) repository.
+[`config`][config-repo] repository.
+
+[android-kdoc]: https://android.googlesource.com/platform/frameworks/support/+/refs/heads/androidx-main/docs/kdoc_guidelines.md
+[config-repo]: https://github.com/SpineEventEngine/config
