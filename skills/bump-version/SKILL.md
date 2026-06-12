@@ -15,7 +15,7 @@ description: >
 
 # Bump the project version
 
-The authoritative policy is [Spine SDK Versioning][version-policy]. In this
+The authoritative policy is the [Spine SDK version policy][version-policy]. In this
 skill's target repository, CI runs the `Version Guard` workflow, which invokes
 `checkVersionIncrement` through `IncrementGuard`. The task fails if the current
 project version already exists in the Maven repository. It does not compare git
@@ -254,4 +254,4 @@ Do not require a completely clean worktree if unrelated user changes are
 present. Instead, make sure no uncommitted changes were created by the version
 bump or report regeneration.
 
-[version-policy]: https://github.com/SpineEventEngine/documentation/wiki/Versioning
+[version-policy]: ../../guidelines/version-policy.md

@@ -1,7 +1,8 @@
 How to contribute
 ==================
 Thank you for wanting to contribute to Spine. The following links will help you get started:
- * [Wiki home][wiki-home] — the home of the framework developer's documentation.
+ * [Developer guidelines][guidelines] — the shared coding, testing, documentation, and
+   process conventions of the Spine SDK.
  * [Getting started with Spine in Java][quick-start] — this guide will walk you through
    a minimal client-server “Hello World!” application in Java. 
  * [Introduction][docs-intro] — this section of the Spine Documentation will help you understand
@@ -15,8 +16,8 @@ If code changes are going to be introduced, the issue should also have a link to
 Code contributions should:
   * Be accompanied by tests.
   * Be licensed under the Apache v2.0 license with the appropriate copyright header for each file.
-  * Formatted according to the code style. See [Wiki home][wiki-home] for the links to
-    style guides of the programming languages used in the framework.  
+  * Be formatted according to the code style. See the [developer guidelines][guidelines] for
+    the style guides of the programming languages used in the framework.
 
 Contributor License Agreement
 -----------------------------
@@ -31,7 +32,7 @@ Contributor License Agreement (CLA).
 
 Please [contact us][legal-email] for arranging the paper formalities.
    
-[wiki-home]: https://github.com/SpineEventEngine/SpineEventEngine.github.io/wiki
+[guidelines]: guidelines/_TOC.md
 [quick-start]: https://spine.io/docs/quick-start
 [docs-intro]: https://spine.io/docs/introduction
 [legal-email]: mailto:legal@teamdev.com

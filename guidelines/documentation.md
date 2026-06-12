@@ -1,9 +1,13 @@
 # Documentation & comments
 
+Language-specific API-documentation conventions live on dedicated pages:
+[Javadoc](javadoc.md) and [KDoc](kdoc.md).
+
 ## Commenting guidelines
 - Avoid inline comments in production code unless necessary.
 - Inline comments are helpful in tests.
-- When using TODO comments, follow the format on the [dedicated page][todo-comments].
+- When using TODO comments, follow the format defined in
+  [`todo-comments.md`](todo-comments.md).
 - File and directory names should be formatted as code.
 - Wrap KDoc / Javadoc body lines and Markdown body lines at the limit
   defined in `coding.md` frontmatter (`max-line-length`). See
@@ -65,9 +69,14 @@ above):
   trailing empty comment line (`//`).
 - Single-paragraph headers do not require the trailing empty comment line.
 
+## Capitalisation in headers
+
+Use sentence case for titles and headings, as recommended by the
+[Material 3 design style guide][material3-style].
+
 ## Avoid widows, runts, orphans, or rivers
 
-Agents should **AVOID** text flow patters illustrated
+Agents should **AVOID** text flow patterns illustrated
 on [this diagram](widow-runt-orphan.jpg).
 
-[todo-comments]: https://github.com/SpineEventEngine/documentation/wiki/TODO-comments
+[material3-style]: https://m3.material.io/foundations/content-design/style-guide/ux-writing-best-practices

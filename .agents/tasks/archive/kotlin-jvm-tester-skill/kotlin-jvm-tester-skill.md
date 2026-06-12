@@ -143,7 +143,8 @@ Four kinds of suite, picked by *what kind of test* it is:
 
 ### Testing wiki incorporated (2026-06-03, round 2)
 
-Source: <https://github.com/SpineEventEngine/documentation/wiki/Testing>. Added:
+Source: the Spine *Testing* wiki page (its content has since been migrated to
+`.agents/guidelines/testing.md`). Added:
 - `internal` visibility on Kotlin suites (unless an abstract base) — codebase
   plurality 75/25.
 - `IgTest` integration-test suffix.
