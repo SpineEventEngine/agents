@@ -125,8 +125,8 @@ Here are the basic principles regarding extensions to follow in our code:
 
 ### Concatenated strings
 
-When concatenating a long string, start each continuation line with a space
-character:
+When concatenating a long string, start each continuation line with
+a space character:
 
 ```kotlin
 const val text = "This is an important error message." +

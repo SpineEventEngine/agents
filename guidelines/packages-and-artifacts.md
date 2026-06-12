@@ -2,8 +2,8 @@
 
 ## Production and tool artifacts
 
-As Spine is an SDK, its subprojects may offer the following kinds of
-artifacts:
+As Spine is an SDK, its subprojects may offer the following kinds
+of artifacts:
 
 * **Production code** — the API which is used by end users.
 

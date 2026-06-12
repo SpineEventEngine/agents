@@ -31,9 +31,9 @@ the following order:
 ## Layout of descriptions
 
 Unlike in Java, we cannot put the description of a parameter on the next
-line below its name. Such a layout is not fully "understood" by IntelliJ
-IDEA: it won't recognize links to other types or properties, for example.
-We have to do it like this:
+line below its name. Such a layout is not fully "understood" by
+IntelliJ IDEA: it won't recognize links to other types or properties,
+for example. We have to do it like this:
 
 ```kotlin
 /**

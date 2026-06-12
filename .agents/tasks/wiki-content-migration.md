@@ -2,7 +2,7 @@
 slug: wiki-content-migration
 branch: claude/compassionate-dijkstra-ran4dj
 owner: claude
-status: in-progress
+status: in-review
 started: 2026-06-11
 ---
 
@@ -169,5 +169,10 @@ inter-wiki links keep resolving):
   ten runt lines reflowed; the sentence-case rule rephrased for the docs
   context; minor wording nits.
 - 2026-06-11 — Note for the maintainer: all commits on this branch are
-  SSH-signed; the local stop-hook reports them as Unverified only because it
-  cannot verify SSH signatures without `gpg.ssh.allowedSignersFile`.
+  SSH-signed; the local stop-hook reports them as Unverified only because
+  the environment's signing program is sign-only, so signatures cannot be
+  verified locally.
+- 2026-06-12 — Review round 3 (`review-docs`): **APPROVE** — no blockers, no
+  should-fixes; three cosmetic reflow/wording nits applied. Agents-side work
+  is complete: status flipped to `in-review`. Remaining work is Phase 5
+  (the deferred wiki-side checklist above).

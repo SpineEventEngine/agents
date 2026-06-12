@@ -202,8 +202,8 @@ production class into sections.
 
 ### Concatenated strings
 
-When concatenating a long string, start each continuation line with a space
-character:
+When concatenating a long string, start each continuation line with
+a space character:
 
 ```java
 String text = "This is an important error message." +
