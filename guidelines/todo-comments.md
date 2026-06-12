@@ -87,17 +87,18 @@ To create a live template for the TODO comments, perform the following steps:
 * Sorting all TODOs by date:
 
   ```bash
-  grep -R TODO: * | sort
+  grep -R --exclude-dir=.git "TODO:" . | sort
   ```
 
 * Building a list of TODO owners:
 
   ```bash
-  grep -oRE "TODO:[^:]+:([^:]+)" * | sed -e "s/^.*://" | sort | uniq -c
+  grep -oRE --exclude-dir=.git "TODO:[^:]+:([^:]+)" . | sed -e "s/^.*://" | sort | uniq -c
   ```
 
 * This command will catch most ill-formed TODOs:
 
   ```bash
-  grep -iRE "todo|fixme|bugbug" * | grep -vE "TODO:[0-9]{4}-[0-9]{2}-[0-9]{2}:.{3,}:.{10,}"
+  grep -iRE --exclude-dir=.git "todo|fixme|bugbug" . |
+      grep -vE "TODO:[0-9]{4}-[0-9]{2}-[0-9]{2}:.{3,}:.{10,}"
   ```

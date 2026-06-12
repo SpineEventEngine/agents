@@ -185,4 +185,12 @@ inter-wiki links keep resolving):
   `SNAPSHOT.NUMBER`). Its other suggestion — rewrite the TODO `grep`
   examples with ripgrep because "AGENTS.md forbids `grep -R`" — was
   declined: no such rule exists in this repository, and the examples were
-  deliberately kept portable (see the Copilot round).
+  deliberately kept portable (see the Copilot round). The maintainer
+  resolved the declined thread, accepting the rationale.
+- 2026-06-12 — Copilot round 2: unified "project root / root directory of a
+  subproject" wording in `version-policy.md` to "repository root"; the TODO
+  `grep` recipes now search `.` with `--exclude-dir=.git` for deterministic
+  results. Declined its third suggestion — replacing the repo-rooted
+  `.agents/...` references with relative links — as it contradicts the
+  convention mandated by `AGENTS.md` and the dogfooding symlinks
+  (`docs/project.md`).

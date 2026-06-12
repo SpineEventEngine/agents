@@ -4,8 +4,8 @@ Versions of Spine SDK artifacts are labeled according to the
 [Semantic Versioning 2.0.0][semver] specification with the extensions
 described below.
 
-A repository follows this policy when it has `version.gradle.kts` at the
-project root. Repositories without that file are not versioned Gradle Build
+A repository follows this policy when it has `version.gradle.kts` at its
+root. Repositories without that file are not versioned Gradle Build
 Tools projects; their version check is not applicable, and agents must not
 create `version.gradle.kts` just to satisfy the `pre-pr` skill.
 
@@ -69,9 +69,9 @@ special build of v2 which is made for JDK 8 rather than JDK 11.
 
 ## The `version.gradle.kts` file
 
-The version of a Spine SDK subproject is kept in the file named
-`version.gradle.kts` stored in the root directory of the project. The
-content of the file (sans the copyright header) looks like this:
+The version of a Spine SDK repository is kept in the file named
+`version.gradle.kts` stored in the repository root. The content of the
+file (sans the copyright header) looks like this:
 
 ```kotlin
 val versionToPublish: String by extra("2.0.0-SNAPSHOT.182")
@@ -92,8 +92,7 @@ resolution — use the [`bump-version`](../skills/bump-version/SKILL.md) skill.
 
 The CI server is configured to publish new artifacts from the `master`
 branch after a pull request is merged. The version of the artifacts is
-taken from the `version.gradle.kts` file located in the root directory
-of a subproject.
+taken from the `version.gradle.kts` file located in the repository root.
 
 The artifacts built from feature branches **must not** be published.
 
