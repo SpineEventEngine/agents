@@ -180,3 +180,9 @@ inter-wiki links keep resolving):
   ill-formed-TODO `grep` now uses portable `-E`/`[0-9]` instead of GNU-only
   `-P`/`\d`, and the `review-docs` skill's TODO check names the actual
   `TODO:yyyy-MM-dd:contributor:` prefix instead of "owner/issue reference".
+- 2026-06-12 — Codex review triaged: the unscoped "each feature must bump
+  MINOR" rule is now scoped to releases (day-to-day PRs increment only
+  `SNAPSHOT.NUMBER`). Its other suggestion — rewrite the TODO `grep`
+  examples with ripgrep because "AGENTS.md forbids `grep -R`" — was
+  declined: no such rule exists in this repository, and the examples were
+  deliberately kept portable (see the Copilot round).

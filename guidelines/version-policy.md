@@ -34,8 +34,10 @@ the current project version already exists in the Maven repository.
 
 The Spine SDK is released using the minor version number (e.g. `1.5.0`).
 
-Each feature or significant issue fix **must** lead to the bump of the
-minor (second) version component.
+A release that delivers a feature or a significant issue fix **must** bump
+the minor (second) version component. Day-to-day development PRs do not
+bump it — they increment only the `SNAPSHOT.NUMBER` component, as
+described above.
 
 The release itself, along with the release notes, is composed by a selected
 team of contributors, and is discussed with the project team beforehand.
