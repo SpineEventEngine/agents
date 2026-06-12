@@ -70,8 +70,8 @@ The authoritative standards live in `.agents/`:
   fine in tests; in production source they should explain *why* (a
   constraint, invariant, surprise) and never restate *what* the code does.
 - **TODO comments follow the Spine format** defined in
-  `.agents/guidelines/todo-comments.md`. A bare `// TODO: …` without
-  owner/issue reference is a Should-fix.
+  `.agents/guidelines/todo-comments.md`. A bare `// TODO: …` without the
+  `TODO:yyyy-MM-dd:contributor:` prefix is a Should-fix.
 - **File and directory names rendered as code.** Within KDoc/Javadoc prose,
   `path/to/file.kt` and `module-name` must use backticks.
 - **No repository-internal references in API docs.** KDoc and Javadoc must

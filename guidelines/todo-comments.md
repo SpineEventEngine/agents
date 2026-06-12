@@ -99,5 +99,5 @@ To create a live template for the TODO comments, perform the following steps:
 * This command will catch most ill-formed TODOs:
 
   ```bash
-  grep -iRE "todo|fixme|bugbug" * | grep -vP "TODO:\d{4}-\d{2}-\d{2}:.{3,}:.{10,}"
+  grep -iRE "todo|fixme|bugbug" * | grep -vE "TODO:[0-9]{4}-[0-9]{2}-[0-9]{2}:.{3,}:.{10,}"
   ```

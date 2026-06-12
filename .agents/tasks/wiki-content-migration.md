@@ -176,3 +176,7 @@ inter-wiki links keep resolving):
   should-fixes; three cosmetic reflow/wording nits applied. Agents-side work
   is complete: status flipped to `in-review`. Remaining work is Phase 5
   (the deferred wiki-side checklist above).
+- 2026-06-12 — PR #15 opened (draft); Copilot review addressed: the
+  ill-formed-TODO `grep` now uses portable `-E`/`[0-9]` instead of GNU-only
+  `-P`/`\d`, and the `review-docs` skill's TODO check names the actual
+  `TODO:yyyy-MM-dd:contributor:` prefix instead of "owner/issue reference".
