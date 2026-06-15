@@ -34,7 +34,8 @@ preceded by a comma.
    - Read `.agents/memory/which-fixer-applied.md` if it exists.
    - Absent → **bulk mode**: scan the entire repository.
    - Present → **incremental mode**: scan only files modified on the current
-     branch (`git diff --name-only master...HEAD`; fall back to
+     branch (`git diff --name-only master...HEAD` — three-dot: changes since the
+     branch diverged from `master`, not a plain tip-to-tip diff; fall back to
      `origin/master...HEAD` if `master` does not resolve locally).
 
 2. **Identify target files.**
@@ -54,8 +55,9 @@ preceded by a comma.
    KDoc (`/** … */`), block comments (`/* … */`), and line comments (`//`).
    Do not alter string literals, identifiers, or any executable code token.
 
-   *For `.md` and `.adoc` files:* scan the entire file text, including prose,
-   code fences, and headings.
+   *For `.md` and `.adoc` files:* scan prose and headings only. Skip fenced code
+   blocks and inline code spans, applying the same "do not touch code" discipline
+   used for source files, so that documented code samples are never altered.
 
    Within the scanned text, locate every occurrence of the word "which"
    (case-insensitive). Before replacing, verify **all** of the following:
@@ -64,10 +66,12 @@ preceded by a comma.
      by a comma (allowing for optional whitespace between the comma and "which").
      If a comma precedes it, this is non-restrictive — leave it untouched.
 
-   - **Not a prepositional phrase:** skip "in which", "of which", "with which",
-     "by which", "to which", "at which", "from which", "through which",
-     "on which", "for which", "about which", "after which", "before which".
-     These are always grammatically correct and must not be changed.
+   - **Not a preposition + "which":** skip any "which" immediately preceded by a
+     preposition — for example "in which", "of which", "with which", "by which",
+     "to which", "at which", "from which", "on which", "for which", "into which",
+     "upon which", "under which", "within which", "through which", "against
+     which", "without which". A preposition before "which" is always
+     grammatically correct and must not be changed.
 
    - **Not interrogative:** skip "which" used as a question word or determiner
      in a question ("Which plugin…?", "which of the following…").
@@ -75,7 +79,11 @@ preceded by a comma.
    - **Not sentence-initial:** skip "Which" that opens a sentence (capital W
      following `.`, `?`, `!`, or the start of a paragraph/block).
 
-   Everything that passes all four checks is a misused restrictive "which".
+   - **Not a fixed phrase:** skip the fused relative "that which" (a rewrite
+     would produce the nonsensical "that that") and the idiom "which is which".
+
+   Everything that passes all of the above checks is a misused restrictive
+   "which".
    Replace it with "that", preserving the original capitalisation ("Which" →
    "That", "which" → "that").
 
@@ -113,8 +121,7 @@ preceded by a comma.
    ```
 
 5. **Report.**
-   Summarise: mode used, number of files scanned, number of files changed,
-   total replacements, and any items in `Skipped[]`.
+   Produce the summary specified in the **Report** section below.
 
 ## Repo Notes
 
