@@ -117,7 +117,8 @@ preceded by a comma.
    invocation. When it exists, the skill runs in incremental mode.
    ```
 
-   Add a pointer line to `.agents/memory/MEMORY.md`:
+   Add (or create) a pointer line in `.agents/memory/MEMORY.md` (create the file if it
+   does not exist), then append:
    ```
    - [which-fixer applied](which-fixer-applied.md) — bulk sweep done; skill now runs in incremental mode
    ```
