@@ -34,6 +34,36 @@ be avoided.
    assignee becomes responsible for merging the changes and deleting the
    feature branch. No stale or outdated branches should remain.
 
+### Requesting a Copilot review
+
+The **Request review** button in step 4 covers human reviewers. For the
+Copilot reviewer bot, request — or **re-request** — a review with the GraphQL
+`requestReviews` mutation and its `botIds` field, sent through the GitHub
+GraphQL API (for example, with `gh api graphql`):
+
+```bash
+gh api graphql -f query='
+mutation {
+  requestReviews(input: {
+    pullRequestId: "PR_NODE_ID",
+    botIds: ["BOT_kgDOCnlnWA"]
+  }) {
+    pullRequest { id number }
+  }
+}'
+```
+
+- `PR_NODE_ID` — the pull request node ID, from
+  `gh api repos/<owner>/<repo>/pulls/<number> --jq '.node_id'`.
+- `BOT_kgDOCnlnWA` — the stable node ID of the Copilot pull-request reviewer
+  bot.
+
+Do **not** use the REST `requested_reviewers` endpoint or an `@copilot review`
+comment. The REST endpoint silently no-ops on re-requests — it works only for
+the first request on a PR — and the GraphQL `userIds` field fails because
+Copilot is a Bot, not a User. The `botIds` field is the reliable path for both
+the initial request and every re-request.
+
 ### Providing the description
 
 Each pull request **must** have a decent description:
