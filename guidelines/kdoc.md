@@ -67,7 +67,7 @@ description text better and gives you more freedom of writing as an author.
 ## Generating the documentation
 
 Dokka renders the KDoc. Run `./gradlew dokkaGenerate` to verify it: an
-unresolved link fails the publish CI job even when `./gradlew build` passes.
+unresolved link fails CI's Dokka run even when `./gradlew build` passes.
 See `.agents/guidelines/running-builds.md` for details. The shared Dokka
 configuration comes with the build configuration provided by the
 [`config`][config-repo] repository.

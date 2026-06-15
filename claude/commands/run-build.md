@@ -15,7 +15,7 @@ file changed — a code edit can rename a type an existing doc comment links to 
 e.g. `./gradlew clean build dokkaGenerate` or `./gradlew build dokkaGenerate`.
 Don't double it when `dokkaGenerate` is already the command (the doc-only source
 case). `build` does not run Dokka, so an unresolved KDoc/Javadoc link would
-otherwise only fail the publish CI job. Use `dokkaGenerate`, never the bare
+otherwise surface only in CI's Dokka run. Use `dokkaGenerate`, never the bare
 `dokka` task (ambiguous under the Dokka v2 plugin, aborts). Skip Dokka if the
 project applies none.
 

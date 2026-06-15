@@ -47,8 +47,9 @@ mentions. Do **not** point a KDoc/Javadoc link at a type that lives in
 `buildSrc` is a *separate compilation unit* that is not on the classpath Dokka
 sees when it documents a published module. Such a link can never resolve, and
 because Dokka is configured to fail on warnings, the unresolved link breaks the
-`dokkaGenerate` step of the **Publish to Maven repositories** CI job — even
-though `./gradlew build` (which does not run Dokka) passes locally. The fully
+`dokkaGenerate` step in CI — the PR build runs it, with the **Publish to
+Maven repositories** job as a backstop — even though `./gradlew build` (which
+does not run Dokka) passes locally. The fully
 qualified package (e.g. `io.spine.gradle.…`) contains no `buildSrc` substring,
 so grepping for the path will not surface it.
 
@@ -57,7 +58,7 @@ prose without naming the internal `buildSrc`/`config` location (per the rule
 above):
 
 ```kotlin
-// Wrong — unresolved Dokka link, fails the publish build:
+// Wrong — unresolved Dokka link, fails the Dokka run in CI:
 /** [io.spine.gradle.report.coverage.KoverConfig] feeds the file into Kover. */
 
 // Right — a code span has no link to resolve:

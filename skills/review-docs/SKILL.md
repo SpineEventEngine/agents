@@ -89,8 +89,9 @@ The authoritative standards live in `.agents/`:
   `buildSrc/` (e.g. `[io.spine.gradle.report.coverage.KoverConfig]`).
   `buildSrc` is a separate compilation unit Dokka cannot see when it documents
   a published module, so the link never resolves; since Dokka fails on
-  warnings, it breaks the `dokkaGenerate` step of the publish CI job while
-  `./gradlew build` still passes. Watch for it whenever a changed `.kt`/`.java`
+  warnings, it breaks the `dokkaGenerate` step in CI (the PR build, with the
+  publish job as a backstop) while `./gradlew build` still passes. Watch for
+  it whenever a changed `.kt`/`.java`
   doc comment in a **published** source set (e.g. `*/src/main/…`) links a type
   whose package is `io.spine.gradle.*` (or otherwise lives only in `buildSrc`)
   — grepping for `buildSrc` will not catch it. **Scope:** only doc comments in
