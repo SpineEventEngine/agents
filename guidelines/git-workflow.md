@@ -34,6 +34,62 @@ be avoided.
    assignee becomes responsible for merging the changes and deleting the
    feature branch. No stale or outdated branches should remain.
 
+### Requesting a Copilot review
+
+The **Request review** button in step 4 covers human reviewers. For the
+Copilot reviewer bot, request — or **re-request** — a review with the GraphQL
+`requestReviews` mutation and its `botIds` field, sent through the GitHub
+GraphQL API (for example, with `gh api graphql`):
+
+```bash
+gh api graphql -f query='
+mutation {
+  requestReviews(input: {
+    pullRequestId: "PR_NODE_ID",
+    botIds: ["BOT_kgDOCnlnWA"],
+    union: true
+  }) {
+    pullRequest { id number }
+  }
+}'
+```
+
+- `PR_NODE_ID` — the pull request node ID, from
+  `gh api repos/<owner>/<repo>/pulls/<number> --jq '.node_id'`.
+- `BOT_kgDOCnlnWA` — the node ID of the Copilot pull-request reviewer bot on
+  **GitHub.com**. Node IDs are opaque and instance-specific, so confirm the
+  current value before relying on it — and look it up afresh on GitHub
+  Enterprise Server — with the `suggestedActors` query below.
+- `union: true` — **adds** Copilot to the existing set of requested reviewers
+  instead of replacing it. Without this flag `requestReviews` replaces the set
+  and silently clears any human or team reviewers already requested on the PR.
+
+To confirm or discover the bot's node ID for a given host:
+
+```bash
+gh api graphql -f query='
+query {
+  repository(owner: "<owner>", name: "<repo>") {
+    suggestedActors(capabilities: [CAN_BE_ASSIGNED], first: 100) {
+      nodes {
+        login
+        __typename
+        ... on Bot { id }
+      }
+    }
+  }
+}'
+```
+
+The Copilot reviewer logs in as `copilot-pull-request-reviewer`; use the `id`
+from its `Bot` node.
+
+Do **not** use the REST `requested_reviewers` endpoint or an `@copilot review`
+comment. The REST endpoint silently no-ops on re-requests — it works only for
+the first request on a PR — and the GraphQL `userIds` field fails because
+Copilot is a Bot, not a User. The `botIds` field is the reliable path for both
+the initial request and every re-request.
+
 ### Providing the description
 
 Each pull request **must** have a decent description:
