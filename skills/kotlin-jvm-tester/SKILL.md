@@ -214,6 +214,19 @@ since JUnit calls it reflectively).
 message subjects Kotest matchers cannot express; keep that import isolated to the
 case that needs it.
 
+**Proto stubs — DSL vs. `buildPartial()`.** Build a *complete* message with the
+Kotlin Protobuf DSL (`message { field = value }`) — the default for anything fully
+built. Build a *partial* stub (required fields intentionally left unset) with a plain
+Java builder chain (`Foo.newBuilder().setX(...).buildPartial()`); the DSL is for
+`.build()` only, and never wrap a proto builder in `.apply { }`.
+
+**Annotate `buildPartial()` returns `@NonValidated`.** When a function's return type
+is a message built with `.buildPartial()`, annotate that return type with
+`@NonValidated` (`io.spine.validation.NonValidated`) — e.g.
+`private fun stubEvent(): @NonValidated Event = Event.newBuilder().setId(id).buildPartial()`.
+This holds for every message type. A `.build()` return needs no annotation, nor does a
+function that only delegates to an already-annotated helper.
+
 ## Pick the helper
 
 | Target shape | Use | Source |

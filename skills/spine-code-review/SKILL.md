@@ -65,7 +65,12 @@ The standards live in `.agents/`:
 3. Check the repo-specific guidelines from `.agents/guidelines/coding.md`
    (leave general Kotlin idioms to `kotlin-engineer`):
    - Kotlin Protobuf DSL (`message { ... }`) preferred over Java builders
-     (`newBuilder()`, `toBuilder()`) in Kotlin.
+     (`newBuilder()`, `toBuilder()`) in Kotlin — but only for *complete*
+     (`.build()`) messages. A `buildPartial()` stub stays a plain Java builder
+     chain (never `.apply { }`) and its function's return type is annotated
+     `@NonValidated` (`io.spine.validation.NonValidated`): do not flag the
+     chain, and do flag a missing annotation. Detail:
+     `.agents/skills/kotlin-jvm-tester/SKILL.md`.
    - No type names in variable names.
    - No string duplication — use companion-object constants.
    - No mixing Groovy/Kotlin DSL in build logic.
