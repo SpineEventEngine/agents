@@ -40,7 +40,7 @@ indicates an outdated link or another mistake in the documentation. This is
 why it is important to pay attention to these warnings.
 
 In Spine SDK repositories the documentation is generated with
-`./gradlew dokkaGenerate`; an unresolved link fails the publish CI job.
+`./gradlew dokkaGenerate`; an unresolved link fails CI's Dokka run.
 See `.agents/guidelines/running-builds.md` for when to run it.
 
 ## Avoiding new imports caused by Javadoc

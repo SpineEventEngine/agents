@@ -8,7 +8,7 @@ description: >
   `dokkaGenerate`; Markdown-only → no build; no documented command → skipped),
   and running `dokkaGenerate` for any `.kt`/`.java` source change (alongside
   `build` for code edits, alone for KDoc/Javadoc-only edits) so unresolved
-  KDoc/Javadoc links fail locally instead of in the publish CI job, and invokes
+  KDoc/Javadoc links fail locally instead of in CI's Dokka run, and invokes
   the relevant reviewers (`kotlin-engineer`, `spine-code-review`,
   `review-docs`, `dependency-audit`,
   `check-links`) against the branch diff. On success, writes a sentinel file at
@@ -127,9 +127,10 @@ item 3):
 
 **Append `dokkaGenerate` to a *build* target whenever a `.kt`/`.java` source file
 changed** — a code edit can rename or move a type an existing doc comment links
-to, breaking the link. The `build` task does **not** run Dokka — only the publish
-CI job does — so an unresolved link passes `./gradlew build` locally and only
-fails in the **Publish to Maven repositories** job. Combine them in one
+to, breaking the link. The `build` task does **not** run Dokka, so an unresolved
+link passes `./gradlew build` locally yet fails CI's Dokka run — the PR build
+runs `dokkaGenerate`, with the **Publish to Maven repositories** job as a
+backstop. Combine them in one
 invocation. Do **not** add a second `dokkaGenerate` when it is already the base
 command (the doc-only source path above), and do **not** append it for changes
 with no `.kt`/`.java` source (Markdown, `*.kts` build scripts, deps).
