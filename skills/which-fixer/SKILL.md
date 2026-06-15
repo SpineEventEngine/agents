@@ -73,8 +73,10 @@ preceded by a comma.
      which", "without which". A preposition before "which" is always
      grammatically correct and must not be changed.
 
-   - **Not interrogative:** skip "which" used as a question word or determiner
-     in a question ("Which plugin…?", "which of the following…").
+   - **Not interrogative or determiner:** skip "which" used as a question word
+     or determiner, whether in a direct question ("Which plugin…?") or an
+     embedded one ("decide which plugin to use", "depending on which mode",
+     "no matter which", "which of the following").
 
    - **Not sentence-initial:** skip "Which" that opens a sentence (capital W
      following `.`, `?`, `!`, or the start of a paragraph/block).
@@ -83,17 +85,17 @@ preceded by a comma.
      would produce the nonsensical "that that") and the idiom "which is which".
 
    Everything that passes all of the above checks is a misused restrictive
-   "which".
-   Replace it with "that", preserving the original capitalisation ("Which" →
-   "That", "which" → "that").
+   "which". Replace it with "that", matching the original capitalization
+   (a restrictive "which" is normally lowercase, since it never opens a sentence).
 
    Apply changes with the Edit tool, file by file. When a file has multiple
    occurrences, batch them into one edit per file rather than one edit per
    occurrence.
 
    **When uncertain** whether a given "which" is restrictive, leave it unchanged
-   and add it to the `Skipped[]` list with reason "ambiguous". A missed case is
-   less harmful than incorrectly changing a non-restrictive clause.
+   and add it to the `Skipped[]` list (see **Report**) with reason "ambiguous".
+   A missed case is less harmful than incorrectly changing a non-restrictive
+   clause.
 
 4. **Record completion (bulk mode only).**
    After the sweep finishes, write `.agents/memory/which-fixer-applied.md`:
@@ -126,8 +128,8 @@ preceded by a comma.
 ## Repo Notes
 
 - The rule is standard English grammar: *Merriam-Webster* and *The Elements of
-  Style* (Strunk & White, rule 17) both state that restrictive relative clauses
-  use "that" and non-restrictive ones use "which".
+  Style* (Strunk & White) both state that restrictive relative clauses use
+  "that" and non-restrictive ones use "which".
 - Prefer a missed case over a wrong fix. If a sentence is ambiguous, note it in
   `Skipped[]` and let a human decide.
 - For large repositories, process files directory by directory to stay within
