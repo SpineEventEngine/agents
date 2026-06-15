@@ -98,8 +98,8 @@ preceded by a comma.
    clause.
 
 4. **Record completion (bulk mode only).**
-   After the sweep finishes, write `.agents/memory/which-fixer-applied.md`:
-
+   After the sweep finishes, ensure `.agents/memory/` exists (create it if needed),
+   then write `.agents/memory/which-fixer-applied.md`:
    ```markdown
    ---
    name: which-fixer-applied
