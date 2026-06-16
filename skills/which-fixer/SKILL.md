@@ -87,24 +87,38 @@ preceded by a comma.
      `config` (its `.gitmodules` declares the `config` submodule), `config`'s
      `migrate` step copies shared files *out of* the submodule into the project
      tree, where they become ordinary tracked files — so `git ls-files` and
-     `git diff` surface them even though the project does not own them. Skip these
-     config-distributed paths:
+     `git diff` surface them even though the project does not own them.
+
+     `config` **overwrites** these on every `./config/pull`, so they are always
+     config-owned — skip them:
      - `buildSrc/` — the entire Gradle build-logic tree (hundreds of Kotlin
        files with KDoc); by far the largest source of false edits.
-     - `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` — the
-       org-wide root docs `config` overwrites.
+       **Exception:** `buildSrc/src/main/kotlin/module.gradle.kts` is
+       project-owned — `migrate` saves and restores it, so `./config/pull` never
+       overwrites it; scan it. Only that exact file: its `*-module.gradle.kts`
+       siblings (e.g. `jvm-module.gradle.kts`) *are* overwritten, so they stay
+       skipped.
+     - `AGENTS.md`, `CLAUDE.md`, `CODE_OF_CONDUCT.md` — org-wide root docs.
      - `.junie/guidelines.md`, `.github/copilot-instructions.md`, and `.idea/` —
-       other docs and IDE settings `config` distributes.
+       other docs and IDE settings.
 
-     Apply this **only** to repos that consume `config`. The `config` and
-     `agents` source repositories declare no `config` submodule, so this rule is
+     `config` writes `CONTRIBUTING.md` **only into a repo that lacks one** (an
+     "initialize if absent" step), so a repo shipping its own contributor guide
+     owns it and `./config/pull` will not overwrite it. Skip `CONTRIBUTING.md`
+     only when it is the unmodified org-wide copy — byte-for-byte identical to the
+     submodule's `config/CONTRIBUTING.md`. If it differs (or the `config`
+     submodule is not checked out, so you cannot confirm), scan it as
+     project-owned.
+
+     Apply all of this **only** to repos that consume `config`. The `config` and
+     `agents` source repositories declare no `config` submodule, so the rule is
      inert there and their own `AGENTS.md`, `buildSrc/`, etc. are fixed normally
-     — which is correct, since a fix must originate at the source that floats to
-     every consumer. This list mirrors what `config`'s `migrate` script copies;
-     if that script changes which files it distributes, update the list to match.
-     (Do **not** instead skip any path that merely exists under the `config/`
-     submodule — `config` carries files it does *not* distribute, e.g. its own
-     `README.md`, and that would wrongly skip a project's own `README.md`.)
+     — correct, since a fix must originate at the source that floats to every
+     consumer. The set mirrors what `config`'s `migrate` script copies; if that
+     script changes what it distributes, update this step to match. (Do **not**
+     instead skip any path that merely exists under the `config/` submodule —
+     `config` carries files it does *not* distribute, e.g. its own `README.md`,
+     and that would wrongly skip a project's own `README.md`.)
 
 3. **Scan and fix each file.**
 
