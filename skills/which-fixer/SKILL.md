@@ -4,8 +4,10 @@ description: >
   Fixes the "which/that" grammar error in source-code comments and documentation.
   Replaces restrictive "which" clauses (no preceding comma) with "that", leaving
   non-restrictive ", which" clauses untouched. Touches *project-owned* sources
-  only — never submodule contents or files distributed by the `config` repository
-  (such as `buildSrc/` and the org-wide root docs). Runs in two modes: bulk (first
+  only — it skips submodule contents, and in repositories that consume the shared
+  `config` submodule it also skips the files `config` distributes into them (such
+  as `buildSrc/` and the org-wide root docs; in the `config`/`agents` source repos
+  those files are project-owned and stay in scope). Runs in two modes: bulk (first
   run, all project-owned files) and incremental (subsequent runs, modified files
   on the current branch only). Records completion in `.agents/memory/` so the next
   invocation switches to incremental mode automatically. Use once per repo for the
