@@ -60,10 +60,13 @@ preceded by a comma.
    - `**/*.adoc` — AsciiDoc (if present)
 
    Scan **git-tracked files only** — in bulk mode, enumerate candidates with
-   `git ls-files` rather than walking the filesystem. That automatically skips
-   `.gitignore`d paths, build output, and other generated sources; also exclude
-   `build/` and `.gradle/` explicitly. In incremental mode, intersect the
-   changed-file list with the filter above.
+   `git ls-files` rather than walking the filesystem. Because it lists only
+   tracked files, untracked build output, generated sources, and ignored
+   artifacts stay out of the set automatically (`git ls-files` filters by
+   tracked status, not by `.gitignore`, so a *tracked* generated file is not
+   excluded this way); as a safeguard, also drop any `build/` and `.gradle/`
+   paths explicitly. In incremental mode, intersect the changed-file list with
+   the filter above.
 
    **Then drop everything the project does not own.** `which-fixer` fixes
    *project-owned* sources only. Editing an upstream file here is worse than a
