@@ -33,16 +33,17 @@ preceded by a comma.
 1. **Detect mode.**
    - Read `.agents/memory/which-fixer-applied.md` if it exists.
    - Absent → **bulk mode**: scan the entire repository.
-   - Present → **incremental mode**: scan only files modified on the current
-     branch (`git diff --name-only master...HEAD` — three-dot: changes since the
-     branch diverged from `master`, not a plain tip-to-tip diff; fall back to
-     `origin/master...HEAD` if `master` does not resolve locally).
+   - Present → **incremental mode**: scan only the files changed on the current
+     branch — `git diff --name-only origin/master...HEAD` (three-dot: changes
+     since the branch diverged from `origin/master`). `origin/master` is the base
+     ref used across this repo's skills and resolves in fresh clones and CI,
+     where a local `master` branch may be absent.
 
 2. **Identify target files.**
    Apply this file-type filter in both modes:
    - `**/*.kt`, `**/*.kts`, `**/*.java` — Kotlin and Java sources
    - `**/*.md` — Markdown documentation
-   - `**/*.adoc` — AsciiDoc (if present)
+   - `**/*.proto` — Protobuf file-level documentation headers
 
    Exclude always: paths under `build/`, `.gradle/`, generated sources, and
    anything matched by `.gitignore`.
@@ -98,8 +99,9 @@ preceded by a comma.
    clause.
 
 4. **Record completion (bulk mode only).**
-   After the sweep finishes, ensure `.agents/memory/` exists (create it if needed),
-   then write `.agents/memory/which-fixer-applied.md`:
+   Ensure the `.agents/memory/` directory exists (create it if the repo does not
+   have one yet), then write `.agents/memory/which-fixer-applied.md`:
+
    ```markdown
    ---
    name: which-fixer-applied
@@ -117,8 +119,9 @@ preceded by a comma.
    invocation. When it exists, the skill runs in incremental mode.
    ```
 
-   Add (or create) a pointer line in `.agents/memory/MEMORY.md` (create the file if it
-   does not exist), then append:
+   Then update `.agents/memory/MEMORY.md` with this pointer line — append it if
+   the file exists, or create the file with an `# Memory index` heading above the
+   pointer if it does not:
    ```
    - [which-fixer applied](which-fixer-applied.md) — bulk sweep done; skill now runs in incremental mode
    ```
