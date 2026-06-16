@@ -1,0 +1,6 @@
+interface:
+  display_name: "Which Fixer"
+  short_description: "Fix restrictive 'which' → 'that' in comments and docs"
+  default_prompt: >-
+    Use $which-fixer to fix the "which/that" grammar error in comments and
+    documentation throughout this repository.
