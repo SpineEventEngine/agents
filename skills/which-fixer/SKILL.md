@@ -124,7 +124,7 @@ preceded by a comma.
    "which". Replace it with "that", matching the original capitalization
    (a restrictive "which" is normally lowercase, since it never opens a sentence).
 
-   Apply changes with the Edit tool, file by file. When a file has multiple
+   Apply the edits in place, file by file. When a file has multiple
    occurrences, batch them into one edit per file rather than one edit per
    occurrence.
 
