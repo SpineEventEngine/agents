@@ -3,11 +3,15 @@ name: which-fixer
 description: >
   Fixes the "which/that" grammar error in source-code comments and documentation.
   Replaces restrictive "which" clauses (no preceding comma) with "that", leaving
-  non-restrictive ", which" clauses untouched. Runs in two modes: bulk (first run,
-  whole codebase) and incremental (subsequent runs, modified files on the current
-  branch only). Records completion in `.agents/memory/` so the next invocation
-  switches to incremental mode automatically. Use once per repo for the initial
-  sweep, then run it on each branch afterward to catch new occurrences in
+  non-restrictive ", which" clauses untouched. Touches *project-owned* sources
+  only — it skips submodule contents, and in repositories that consume the shared
+  `config` submodule it also skips the files `config` distributes into them (such
+  as `buildSrc/` and the org-wide root docs; in the `config`/`agents` source repos
+  those files are project-owned and stay in scope). Runs in two modes: bulk (first
+  run, all project-owned files) and incremental (subsequent runs, modified files
+  on the current branch only). Records completion in `.agents/memory/` so the next
+  invocation switches to incremental mode automatically. Use once per repo for the
+  initial sweep, then run it on each branch afterward to catch new occurrences in
   changed comments and docs.
 ---
 
@@ -33,7 +37,8 @@ preceded by a comma.
 
 1. **Detect mode.**
    - Read `.agents/memory/which-fixer-applied.md` if it exists.
-   - Absent → **bulk mode**: scan the entire repository.
+   - Absent → **bulk mode**: scan every project-owned file in the repository
+     (step 2 defines what "project-owned" excludes).
    - Present → **incremental mode**: scan only the files changed on the current
      branch, *including uncommitted edits* — agents in this repo often work
      before an explicit commit, so a committed-only diff would miss the very
@@ -57,14 +62,65 @@ preceded by a comma.
    - `**/*.adoc` — AsciiDoc (if present)
 
    Scan **git-tracked files only** — in bulk mode, enumerate candidates with
-   `git ls-files` rather than walking the filesystem. That automatically skips
-   `.gitignore`d paths, build output, and the contents of any submodule (a
-   submodule appears to the parent repo as a single gitlink, not as its files).
-   In particular it leaves the shared agent submodule mounted at `.agents/shared`
-   untouched, so a sweep fixes the consumer project without dirtying shared
-   assets. Also exclude `build/`, `.gradle/`, and other generated sources.
+   `git ls-files` rather than walking the filesystem. Because it lists only
+   tracked files, untracked build output, generated sources, and ignored
+   artifacts stay out of the set automatically (`git ls-files` filters by
+   tracked status, not by `.gitignore`, so a *tracked* generated file is not
+   excluded this way); as a safeguard, also drop any `build/` and `.gradle/`
+   paths explicitly. In incremental mode, intersect the changed-file list with
+   the filter above.
 
-   In incremental mode, intersect the changed-file list with the filter above.
+   **Then drop everything the project does not own.** `which-fixer` fixes
+   *project-owned* sources only. Editing an upstream file here is worse than a
+   no-op: the next `./config/pull` (or submodule update) overwrites the change or
+   turns it into a merge conflict, and the same fix is needed again. Skip these
+   two kinds of upstream-owned paths in **both** modes:
+
+   - **Submodule contents.** Skip every path declared as a submodule in
+     `.gitmodules`, and everything beneath it — the `config` submodule (usually
+     `config/`), the shared-agents submodule at `.agents/shared`, and any others
+     a repo adds (e.g. `BuildSpeed/`, or example projects mounted under `docs/`).
+     In bulk mode `git ls-files` already does this — a submodule appears to the
+     parent repo as a single gitlink, not as its files — but apply it explicitly
+     so incremental mode, which lists changed *paths*, drops a submodule entry
+     the same way.
+
+   - **Files distributed by the `config` repository.** When a repo consumes
+     `config` (its `.gitmodules` declares the `config` submodule), `config`'s
+     `migrate` step copies shared files *out of* the submodule into the project
+     tree, where they become ordinary tracked files — so `git ls-files` and
+     `git diff` surface them even though the project does not own them.
+
+     `config` **overwrites** these on every `./config/pull`, so they are always
+     config-owned — skip them:
+     - `buildSrc/` — the entire Gradle build-logic tree (hundreds of Kotlin
+       files with KDoc); by far the largest source of false edits.
+       **Exception:** `buildSrc/src/main/kotlin/module.gradle.kts` is
+       project-owned — `migrate` saves and restores it, so `./config/pull` never
+       overwrites it; scan it. Only that exact file: its `*-module.gradle.kts`
+       siblings (e.g. `jvm-module.gradle.kts`) *are* overwritten, so they stay
+       skipped.
+     - `AGENTS.md`, `CLAUDE.md`, `CODE_OF_CONDUCT.md` — org-wide root docs.
+     - `.junie/guidelines.md`, `.github/copilot-instructions.md`, and `.idea/` —
+       other docs and IDE settings.
+
+     `config` writes `CONTRIBUTING.md` **only into a repo that lacks one** (an
+     "initialize if absent" step), so a repo shipping its own contributor guide
+     owns it and `./config/pull` will not overwrite it. Skip `CONTRIBUTING.md`
+     only when it is the unmodified org-wide copy — byte-for-byte identical to the
+     submodule's `config/CONTRIBUTING.md`. If it differs (or the `config`
+     submodule is not checked out, so you cannot confirm), scan it as
+     project-owned.
+
+     Apply all of this **only** to repos that consume `config`. The `config` and
+     `agents` source repositories declare no `config` submodule, so the rule is
+     inert there and their own `AGENTS.md`, `buildSrc/`, etc. are fixed normally
+     — correct, since a fix must originate at the source that floats to every
+     consumer. The set mirrors what `config`'s `migrate` script copies; if that
+     script changes what it distributes, update this step to match. (Do **not**
+     instead skip any path that merely exists under the `config/` submodule —
+     `config` carries files it does *not* distribute, e.g. its own `README.md`,
+     and that would wrongly skip a project's own `README.md`.)
 
 3. **Scan and fix each file.**
 
