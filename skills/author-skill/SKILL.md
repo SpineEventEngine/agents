@@ -11,6 +11,10 @@ description: >
 
 A skill for creating new skills and iteratively improving them.
 
+This skill provides the general authoring workflow; when authoring a skill **in this repository**, also
+follow the Spine-specific conventions in `docs/authoring-skills.md` (the source of truth for naming,
+structure, required files, and validation).
+
 At a high level, the process of creating a skill goes like this:
 
 - Decide what you want the skill to do and roughly how it should do it
@@ -45,10 +49,8 @@ Cool? Cool.
 
 ## Communicating with the user
 
-The skill creator is liable to be used by people across a wide range of familiarity with coding jargon. If you haven't
-heard (and how could you, it's only very recently that it started), there's a trend now where the power of these AI tools is
-inspiring plumbers to open up their terminals, parents and grandparents to google "how to install npm". On the other
-hand, the bulk of users are probably fairly computer-literate.
+This skill is used by people across a wide range of familiarity with coding jargon — from non-developers new to the
+terminal to seasoned engineers. Most users are fairly computer-literate, but don't assume it.
 
 So please pay attention to context cues to understand how to phrase your communication! In the default case, just to
 give you some idea:
