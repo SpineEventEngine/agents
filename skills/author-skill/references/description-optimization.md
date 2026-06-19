@@ -55,7 +55,11 @@ Present the eval set to the user for review using the HTML template:
 
 1. Read the template from `assets/eval_review.html`
 2. Replace the placeholders:
-    - `__EVAL_DATA_PLACEHOLDER__` → the JSON array of eval items (no quotes around it — it's a JS variable assignment)
+    - `__EVAL_DATA_PLACEHOLDER__` → the JSON array of eval items (no quotes around it — it's a JS variable assignment).
+      The JSON is inlined inside a `<script>` tag, so it **must** be script-safe-escaped first: replace the characters
+      `&`, `<`, and `>` with their JSON `\uXXXX` unicode escapes — the exact transformation in `_embed_json` in
+      `eval-viewer/generate_review.py`. The escapes stay valid JSON and `JSON.parse` restores the originals; without them
+      a query containing `</script>` closes the tag early and can run injected markup.
     - `__SKILL_NAME_PLACEHOLDER__` → the skill's name
     - `__SKILL_DESCRIPTION_PLACEHOLDER__` → the skill's current description
 3. Write it to a temp file (e.g. `eval_review_<skill-name>.html`) and open it in a browser.

@@ -12,12 +12,22 @@ import select
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 from scripts.utils import parse_skill_md
+
+
+class AgentInvocationError(RuntimeError):
+    """Raised when the headless agent CLI exits non-zero.
+
+    Distinguishes an infrastructure failure (auth error, unsupported model,
+    bad flag) from a legitimate "the skill did not trigger" result, so the
+    description optimizer aborts instead of scoring the failure as a miss.
+    """
 
 
 def resolve_agent_cmd() -> str:
@@ -79,6 +89,7 @@ def run_single_query(
     project_commands_dir = Path(project_root) / ".claude" / "commands"
     command_file = project_commands_dir / f"{clean_name}.md"
 
+    stderr_file = None
     try:
         project_commands_dir.mkdir(parents=True, exist_ok=True)
         # Use YAML block scalar to avoid breaking on quotes in description
@@ -108,10 +119,18 @@ def run_single_query(
         # programmatic subprocess usage is safe.
         env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
 
+        # Capture stderr to a temp file rather than DEVNULL so we can surface
+        # it if the CLI exits non-zero. Do NOT merge stderr into the
+        # stream-json stdout: stdout is consumed via select/os.read and
+        # interleaving stderr there would both corrupt JSON parsing and risk a
+        # pipe-buffer deadlock. A file sink avoids both — it never blocks the
+        # child, and we read it after the process exits.
+        stderr_file = tempfile.TemporaryFile()
+
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
+            stderr=stderr_file,
             cwd=project_root,
             env=env,
         )
@@ -230,9 +249,26 @@ def run_single_query(
                 process.kill()
                 process.wait()
 
+        # We get here only when the stream ended (no skill reference) or timed
+        # out. Distinguish a clean "did not trigger" from an infrastructure
+        # failure: if the CLI exited non-zero on its own (auth error,
+        # unsupported model, bad flag), surface it instead of scoring it as a
+        # not-triggered result. A timeout-kill (negative returncode from our
+        # SIGKILL) is not an invocation error, so guard on returncode > 0.
+        returncode = process.returncode
+        if returncode is not None and returncode > 0:
+            stderr_file.seek(0)
+            captured = stderr_file.read().decode("utf-8", errors="replace").strip()
+            detail = f": {captured}" if captured else ""
+            raise AgentInvocationError(
+                f"Headless agent CLI exited with code {returncode}{detail}"
+            )
+
         # Reached only when the stream ended or timed out with no skill reference.
         return False
     finally:
+        if stderr_file is not None:
+            stderr_file.close()
         if command_file.exists():
             command_file.unlink()
 
@@ -277,6 +313,14 @@ def run_eval(
             triggers_list = idx_triggers.setdefault(idx, [])
             try:
                 triggers_list.append(future.result())
+            except AgentInvocationError as e:
+                # The headless CLI failed to run (auth error, unsupported
+                # model, bad flag). This is an infrastructure failure, not a
+                # "skill did not trigger" signal — abort the eval rather than
+                # corrupting the optimizer's scores with a false negative.
+                raise AgentInvocationError(
+                    f"Aborting eval: headless agent invocation failed. {e}"
+                ) from e
             except Exception as e:
                 print(f"Warning: query failed: {e}", file=sys.stderr)
                 triggers_list.append(False)

@@ -60,6 +60,10 @@
   <p class="summary" id="summary"></p>
 
   <script>
+    // __EVAL_DATA_PLACEHOLDER__ must be replaced with script-safe-escaped JSON:
+    // escape the characters & < > as their JSON \uXXXX unicode escapes, exactly
+    // as eval-viewer/generate_review.py does (still valid JSON, restored by
+    // JSON.parse). Otherwise a value like "</script>" breaks out of this tag.
     const EVAL_DATA = __EVAL_DATA_PLACEHOLDER__;
 
     let evalItems = [...EVAL_DATA];
@@ -87,7 +91,7 @@
         const idx = item.origIdx;
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td><textarea class="query-input" onchange="updateQuery(${idx}, this.value)">${escapeHtml(item.query)}</textarea></td>
+          <td><textarea class="query-input" data-idx="${idx}" onchange="updateQuery(${idx}, this.value)">${escapeHtml(item.query)}</textarea></td>
           <td>
             <label class="toggle">
               <input type="checkbox" ${item.should_trigger ? 'checked' : ''} onchange="updateTrigger(${idx}, this.checked)">
@@ -113,10 +117,12 @@
     function deleteRow(idx) { evalItems.splice(idx, 1); render(); }
 
     function addRow() {
-      evalItems.push({ query: '', should_trigger: true });
+      const newIdx = evalItems.push({ query: '', should_trigger: true }) - 1;
       render();
-      const inputs = document.querySelectorAll('.query-input');
-      inputs[inputs.length - 1].focus();
+      // Focus the new row specifically — render() sorts should-trigger rows
+      // above should-not-trigger ones, so the new row is not necessarily last.
+      const input = document.querySelector(`.query-input[data-idx="${newIdx}"]`);
+      if (input) input.focus();
     }
 
     function updateSummary() {

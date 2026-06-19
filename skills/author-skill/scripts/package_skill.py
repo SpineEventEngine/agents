@@ -85,6 +85,7 @@ def package_skill(skill_path, output_dir=None):
         output_path = Path.cwd()
 
     skill_filename = output_path / f"{skill_name}.skill"
+    skill_filename_resolved = skill_filename.resolve()
 
     # Create the .skill file (zip format)
     try:
@@ -92,6 +93,10 @@ def package_skill(skill_path, output_dir=None):
             # Walk through the skill directory, excluding build artifacts
             for file_path in skill_path.rglob('*'):
                 if not file_path.is_file():
+                    continue
+                # Never package the output archive into itself (can happen
+                # when the output location is inside the skill directory).
+                if file_path.resolve() == skill_filename_resolved:
                     continue
                 arcname = file_path.relative_to(skill_path.parent)
                 if should_exclude(arcname):
