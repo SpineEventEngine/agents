@@ -141,6 +141,12 @@ def validate_skill(skill_path):
         if len(compatibility) > 500:
             return False, f"Compatibility is too long ({len(compatibility)} characters). Maximum is 500 characters."
 
+    # agents/openai.yaml is required for every skill in this repo
+    # (docs/authoring-skills.md) so Codex/OpenAI consumers can advertise and
+    # invoke the packaged skill.
+    if not (skill_path / "agents" / "openai.yaml").exists():
+        return False, "Missing required agents/openai.yaml"
+
     return True, "Skill is valid!"
 
 if __name__ == "__main__":

@@ -35,15 +35,16 @@ def resolve_agent_cmd() -> str:
 
     Reads the command from the ``AUTHOR_SKILL_AGENT_CMD`` env var (default
     ``claude``). This trigger-eval harness depends on Claude Code-compatible
-    behavior — it registers a command file under ``.claude/commands/`` and uses
+    behavior — it registers a candidate skill under ``.claude/skills/`` and uses
     ``--output-format stream-json`` / ``--include-partial-messages`` — so the
     override must point at a Claude Code-compatible CLI, not an arbitrary
-    runtime. Fails loudly with actionable guidance when the executable is not on
-    ``PATH``, instead of letting ``subprocess`` raise a bare ``FileNotFoundError``.
+    runtime. Raises ``AgentInvocationError`` (which aborts the eval) when the
+    executable is not on ``PATH``, so a missing CLI is surfaced as a setup error
+    rather than silently scored as a non-trigger.
     """
     executable = os.environ.get("AUTHOR_SKILL_AGENT_CMD", "claude")
     if shutil.which(executable) is None:
-        raise RuntimeError(
+        raise AgentInvocationError(
             f"Headless agent CLI {executable!r} not found on PATH. "
             "The description-optimization loop needs a headless agent CLI; "
             "install Claude Code or set AUTHOR_SKILL_AGENT_CMD to a "
@@ -55,7 +56,7 @@ def resolve_agent_cmd() -> str:
 def find_project_root() -> Path:
     """Find the project root by walking up from cwd looking for .claude/.
 
-    Mimics how Claude Code discovers its project root, so the command file
+    Mimics how Claude Code discovers its project root, so the candidate skill
     we create ends up where claude -p will look for it.
     """
     current = Path.cwd()
@@ -75,36 +76,40 @@ def run_single_query(
 ) -> bool:
     """Run a single query and return whether the skill was triggered.
 
-    Creates a command file in .claude/commands/ so it appears in Claude's
-    available_skills list, then runs `claude -p` with the raw query.
-    Uses --include-partial-messages to detect triggering early from
-    stream events (content_block_start) rather than waiting for the
-    full assistant message, which only arrives after tool execution.
+    Registers the candidate as an auto-triggered skill at
+    .claude/skills/<name>/SKILL.md so `claude -p` can consult it autonomously
+    from its description — slash commands under .claude/commands/ are
+    user-invoked and would not auto-trigger. Then runs `claude -p` with the raw
+    query, using --include-partial-messages to detect triggering early from
+    stream events (content_block_start) rather than waiting for the full
+    assistant message, which only arrives after tool execution.
     """
     unique_id = uuid.uuid4().hex[:8]
     clean_name = f"{skill_name}-skill-{unique_id}"
     # Match the per-skill prefix (not the unique id) when detecting a trigger:
-    # parallel runs share one .claude/commands/ dir, so a run may invoke a
-    # sibling run's command file for the SAME skill — that still counts as a
-    # trigger of this skill. The unique id only keeps the on-disk files distinct.
+    # parallel runs share one .claude/skills/ dir, so a run may consult a sibling
+    # run's skill for the SAME skill — that still counts as a trigger of this
+    # skill. The unique id only keeps the on-disk skill dirs distinct.
     trigger_marker = f"{skill_name}-skill-"
-    project_commands_dir = Path(project_root) / ".claude" / "commands"
-    command_file = project_commands_dir / f"{clean_name}.md"
+    project_skills_dir = Path(project_root) / ".claude" / "skills"
+    skill_dir = project_skills_dir / clean_name
+    skill_md = skill_dir / "SKILL.md"
 
     stderr_file = None
     try:
-        project_commands_dir.mkdir(parents=True, exist_ok=True)
-        # Use YAML block scalar to avoid breaking on quotes in description
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        # Use a YAML block scalar for the description to avoid breaking on quotes.
         indented_desc = "\n  ".join(skill_description.split("\n"))
-        command_content = (
+        skill_md_content = (
             f"---\n"
+            f"name: {clean_name}\n"
             f"description: |\n"
             f"  {indented_desc}\n"
             f"---\n\n"
             f"# {skill_name}\n\n"
             f"This skill handles: {skill_description}\n"
         )
-        command_file.write_text(command_content)
+        skill_md.write_text(skill_md_content)
 
         cmd = [
             resolve_agent_cmd(),
@@ -271,8 +276,7 @@ def run_single_query(
     finally:
         if stderr_file is not None:
             stderr_file.close()
-        if command_file.exists():
-            command_file.unlink()
+        shutil.rmtree(skill_dir, ignore_errors=True)
 
 
 def run_eval(
