@@ -66,6 +66,26 @@ def find_project_root() -> Path:
     return current
 
 
+def _wait_for_exit(process: subprocess.Popen, start_time: float, timeout: int) -> None:
+    """Wait for ``process`` to exit on its own within the remaining timeout.
+
+    Used after the stream emits a terminal event (message_stop/result) so the
+    process's real exit code is observed before the returncode check, letting an
+    auth/model/flag failure that exits non-zero after the terminal event be
+    surfaced rather than mis-scored as a non-trigger. If the process does not
+    exit within the budget it is left running for the caller's finally to kill.
+    """
+    if process.poll() is not None:
+        return
+    remaining = timeout - (time.time() - start_time)
+    if remaining <= 0:
+        return
+    try:
+        process.wait(timeout=remaining)
+    except subprocess.TimeoutExpired:
+        pass
+
+
 def run_single_query(
     query: str,
     skill_name: str,
@@ -83,16 +103,28 @@ def run_single_query(
     query, using --include-partial-messages to detect triggering early from
     stream events (content_block_start) rather than waiting for the full
     assistant message, which only arrives after tool execution.
+
+    Each invocation gets its own temporary project directory (created with
+    tempfile.mkdtemp) into which the single candidate skill is written, and
+    `claude -p` runs with cwd set to that dir. Parallel workers therefore never
+    share a .claude/skills/ dir, so a trigger test can never see sibling copies
+    of the same candidate skill, which would otherwise bias the measured trigger
+    rate. The shared ``project_root`` argument is intentionally no longer used
+    for skill placement. Auth and config still come from the user's home
+    (~/.claude); only the project-level skills are isolated here. NOTE: the
+    end-to-end loop should be validated against a live Claude Code run.
     """
     unique_id = uuid.uuid4().hex[:8]
     clean_name = f"{skill_name}-skill-{unique_id}"
-    # Match the per-skill prefix (not the unique id) when detecting a trigger:
-    # parallel runs share one .claude/skills/ dir, so a run may consult a sibling
-    # run's skill for the SAME skill — that still counts as a trigger of this
-    # skill. The unique id only keeps the on-disk skill dirs distinct.
+    # Match the per-skill prefix (not the unique id) when detecting a trigger.
+    # Each run is isolated in its own temp dir with exactly one candidate skill,
+    # so the prefix match only ever resolves to this run's skill; the unique id
+    # keeps the on-disk skill name distinct from the real skill being optimized.
     trigger_marker = f"{skill_name}-skill-"
-    project_skills_dir = Path(project_root) / ".claude" / "skills"
-    skill_dir = project_skills_dir / clean_name
+    # Per-invocation isolation: a fresh temp dir is this run's project root, so
+    # the agent sees ONLY this run's single candidate skill (no sibling copies).
+    run_root = tempfile.mkdtemp(prefix="author-skill-eval-")
+    skill_dir = Path(run_root) / ".claude" / "skills" / clean_name
     skill_md = skill_dir / "SKILL.md"
 
     stderr_file = None
@@ -138,7 +170,7 @@ def run_single_query(
             cmd,
             stdout=subprocess.PIPE,
             stderr=stderr_file,
-            cwd=project_root,
+            cwd=run_root,
             env=env,
         )
 
@@ -224,16 +256,22 @@ def run_single_query(
                     if remaining:
                         buffer += remaining.decode("utf-8", errors="replace")
                     # Parse any remaining buffered stdout BEFORE deciding, so a
-                    # skill read in the stream's tail isn't missed.
+                    # skill read in the stream's tail isn't missed. A True verdict
+                    # (skill triggered) can return immediately, but a False
+                    # verdict (message_stop/result) must NOT — break so the
+                    # post-loop returncode check can turn a non-zero exit into an
+                    # AgentInvocationError instead of a false non-trigger.
                     while "\n" in buffer:
                         line, buffer = buffer.split("\n", 1)
                         verdict = scan_line(line)
-                        if verdict is not None:
-                            return verdict
+                        if verdict is True:
+                            return True
+                        if verdict is False:
+                            break
                     if buffer.strip():
                         verdict = scan_line(buffer)
-                        if verdict is not None:
-                            return verdict
+                        if verdict is True:
+                            return True
                     break
 
                 ready, _, _ = select.select([process.stdout], [], [], 1.0)
@@ -245,11 +283,25 @@ def run_single_query(
                     break
                 buffer += chunk.decode("utf-8", errors="replace")
 
+                # A True verdict (skill triggered) returns immediately. A False
+                # verdict (message_stop/result) must keep the verdict pending
+                # until the process exits and its status is checked: an infra
+                # failure can emit a terminal event and THEN exit non-zero, so we
+                # wait for the real exit code and let the post-loop check raise
+                # AgentInvocationError on a non-zero exit instead of mis-scoring
+                # it as a legitimate non-trigger. A clean exit still yields False.
+                stream_ended = False
                 while "\n" in buffer:
                     line, buffer = buffer.split("\n", 1)
                     verdict = scan_line(line)
-                    if verdict is not None:
-                        return verdict
+                    if verdict is True:
+                        return True
+                    if verdict is False:
+                        stream_ended = True
+                        break
+                if stream_ended:
+                    _wait_for_exit(process, start_time, timeout)
+                    break
         finally:
             # Clean up process on any exit path (return, exception, timeout)
             if process.poll() is None:
@@ -276,7 +328,8 @@ def run_single_query(
     finally:
         if stderr_file is not None:
             stderr_file.close()
-        shutil.rmtree(skill_dir, ignore_errors=True)
+        # Remove this run's entire isolated project dir, not just the skill dir.
+        shutil.rmtree(run_root, ignore_errors=True)
 
 
 def run_eval(

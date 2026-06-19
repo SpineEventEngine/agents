@@ -1054,17 +1054,10 @@
         reviews.push({ run_id: r.id, feedback: feedbackMap[r.id] || "", timestamp: ts });
       }
       const payload = JSON.stringify({ reviews, status: "complete" }, null, 2);
-      fetch("/api/feedback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: payload,
-      }).then(() => {
-        // Mark as submitted so later autosaves can't downgrade "complete".
-        submitted = true;
-        document.getElementById("done-overlay").classList.add("visible");
-      }).catch(() => {
-        // Server not available (static mode) — download as file
-        submitted = true;
+
+      // Download the payload as a file. Used both as the static-mode path
+      // (no server) and as a fallback when the server fails to write feedback.
+      function downloadPayload() {
         const blob = new Blob([payload], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -1072,6 +1065,30 @@
         a.download = "feedback.json";
         a.click();
         URL.revokeObjectURL(url);
+      }
+
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      }).then((response) => {
+        // fetch() resolves even for HTTP error responses, so a 500 (read-only
+        // workspace, disk error) must NOT be treated as a successful save.
+        if (!response.ok) {
+          // The server received the request but failed to persist feedback.json.
+          // Don't mark submitted; fall back to a download so the review isn't
+          // lost, and tell the user the server save failed.
+          downloadPayload();
+          showToast("Save failed (server error) — feedback downloaded instead");
+          return;
+        }
+        // Mark as submitted so later autosaves can't downgrade "complete".
+        submitted = true;
+        document.getElementById("done-overlay").classList.add("visible");
+      }).catch(() => {
+        // Server not available (static mode) — download as file
+        submitted = true;
+        downloadPayload();
         document.getElementById("done-overlay").classList.add("visible");
       });
     }
@@ -1175,10 +1192,29 @@
         return "";
       }
 
-      // Discover config names dynamically (everything except "delta")
+      // Discover config names dynamically (everything except "delta"). Order the
+      // pair to match the primary/baseline pairing aggregate_benchmark uses for
+      // the delta (delta = primary − baseline), so the table's primary column
+      // matches the delta direction regardless of dict/key order. Prefer known
+      // pairs; fall back to positional order only when no known pair is present.
       const configs = Object.keys(summary).filter(k => k !== "delta");
-      const configA = configs[0] || "config_a";
-      const configB = configs[1] || "config_b";
+      const knownPairs = [
+        ["with_skill", "without_skill"],
+        ["with_skill", "old_skill"],
+        ["new_skill", "old_skill"],
+      ];
+      let configA = null, configB = null;
+      for (const [primaryName, baselineName] of knownPairs) {
+        if (primaryName in summary && baselineName in summary) {
+          configA = primaryName;
+          configB = baselineName;
+          break;
+        }
+      }
+      if (configA === null) {
+        configA = configs[0] || "config_a";
+        configB = configs[1] || "config_b";
+      }
       const labelA = configA.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
       const labelB = configB.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
       const a = summary[configA] || {};
