@@ -53,19 +53,6 @@ def resolve_agent_cmd() -> str:
     return executable
 
 
-def find_project_root() -> Path:
-    """Find the project root by walking up from cwd looking for .claude/.
-
-    Mimics how Claude Code discovers its project root, so the candidate skill
-    we create ends up where claude -p will look for it.
-    """
-    current = Path.cwd()
-    for parent in [current, *current.parents]:
-        if (parent / ".claude").is_dir():
-            return parent
-    return current
-
-
 def _wait_for_exit(process: subprocess.Popen, start_time: float, timeout: int) -> None:
     """Wait for ``process`` to exit on its own within the remaining timeout.
 
@@ -91,7 +78,6 @@ def run_single_query(
     skill_name: str,
     skill_description: str,
     timeout: int,
-    project_root: str,
     model: str | None = None,
 ) -> bool:
     """Run a single query and return whether the skill was triggered.
@@ -109,10 +95,9 @@ def run_single_query(
     `claude -p` runs with cwd set to that dir. Parallel workers therefore never
     share a .claude/skills/ dir, so a trigger test can never see sibling copies
     of the same candidate skill, which would otherwise bias the measured trigger
-    rate. The shared ``project_root`` argument is intentionally no longer used
-    for skill placement. Auth and config still come from the user's home
-    (~/.claude); only the project-level skills are isolated here. NOTE: the
-    end-to-end loop should be validated against a live Claude Code run.
+    rate. Auth and config still come from the user's home (~/.claude); only the
+    project-level skills are isolated here. NOTE: the end-to-end loop should be
+    validated against a live Claude Code run.
     """
     unique_id = uuid.uuid4().hex[:8]
     clean_name = f"{skill_name}-skill-{unique_id}"
@@ -338,7 +323,6 @@ def run_eval(
     description: str,
     num_workers: int,
     timeout: int,
-    project_root: Path,
     runs_per_query: int = 1,
     trigger_threshold: float = 0.5,
     model: str | None = None,
@@ -356,7 +340,6 @@ def run_eval(
                     skill_name,
                     description,
                     timeout,
-                    str(project_root),
                     model,
                 )
                 future_to_info[future] = (idx, item, run_idx)
@@ -439,7 +422,6 @@ def main():
 
     name, original_description, content = parse_skill_md(skill_path)
     description = args.description or original_description
-    project_root = find_project_root()
 
     if args.verbose:
         print(f"Evaluating: {description}", file=sys.stderr)
@@ -450,7 +432,6 @@ def main():
         description=description,
         num_workers=args.num_workers,
         timeout=args.timeout,
-        project_root=project_root,
         runs_per_query=args.runs_per_query,
         trigger_threshold=args.trigger_threshold,
         model=args.model,
