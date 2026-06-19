@@ -337,10 +337,23 @@ def generate_markdown(benchmark: dict) -> str:
     metadata = benchmark["metadata"]
     run_summary = benchmark["run_summary"]
 
-    # Determine config names (excluding "delta")
+    # Determine config names (excluding "delta"). Order the pair to match the
+    # same primary/baseline pairing aggregate_results uses for the delta, so the
+    # table's primary column matches the delta direction regardless of dict order.
     configs = [k for k in run_summary if k != "delta"]
-    config_a = configs[0] if len(configs) >= 1 else "config_a"
-    config_b = configs[1] if len(configs) >= 2 else "config_b"
+    known_pairs = [
+        ("with_skill", "without_skill"),
+        ("with_skill", "old_skill"),
+        ("new_skill", "old_skill"),
+    ]
+    config_a = config_b = None
+    for primary_name, baseline_name in known_pairs:
+        if primary_name in run_summary and baseline_name in run_summary:
+            config_a, config_b = primary_name, baseline_name
+            break
+    if config_a is None:
+        config_a = configs[0] if len(configs) >= 1 else "config_a"
+        config_b = configs[1] if len(configs) >= 2 else "config_b"
     label_a = config_a.replace("_", " ").title()
     label_b = config_b.replace("_", " ").title()
 

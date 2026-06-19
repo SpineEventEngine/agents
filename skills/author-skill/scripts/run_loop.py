@@ -285,6 +285,7 @@ def main():
         else:
             live_report_path = Path(args.report)
         # Open the report immediately so the user can watch
+        live_report_path.parent.mkdir(parents=True, exist_ok=True)
         live_report_path.write_text("<html><body><h1>Starting optimization loop...</h1><meta http-equiv='refresh' content='5'></body></html>")
         try:
             webbrowser.open(str(live_report_path))

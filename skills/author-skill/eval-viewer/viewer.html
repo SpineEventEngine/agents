@@ -854,6 +854,16 @@
     }
 
     // ---- Grades ----
+    // Maps a numeric pass_rate (0..1) to its badge CSS class. A missing or
+    // non-numeric pass_rate yields the neutral badge (no modifier class)
+    // rather than a misleading "fail" red.
+    function gradeBadgeClass(passRate) {
+      if (typeof passRate !== "number" || Number.isNaN(passRate)) return "";
+      if (passRate >= 0.8) return "grade-pass";
+      if (passRate >= 0.5) return "";
+      return "grade-fail";
+    }
+
     function renderGrades(run) {
       const section = document.getElementById("grades-section");
       const content = document.getElementById("grades-content");
@@ -878,7 +888,7 @@
       const passRate = summary.pass_rate != null
         ? Math.round(summary.pass_rate * 100) + "%"
         : "?";
-      const badgeClass = summary.pass_rate >= 0.8 ? "grade-pass" : summary.pass_rate >= 0.5 ? "" : "grade-fail";
+      const badgeClass = gradeBadgeClass(summary.pass_rate);
       html += '<div class="grades-summary">';
       html += '<span class="grade-badge ' + badgeClass + '">' + passRate + '</span>';
       html += '<span>' + (summary.passed || 0) + ' passed, ' + (summary.failed || 0) + ' failed of ' + (summary.total || 0) + '</span>';
