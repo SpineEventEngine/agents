@@ -78,11 +78,8 @@ Keep `default_prompt` short and aligned with the `SKILL.md` description.
 Put a skill's own helpers in `skills/<name>/scripts/`; promote a helper to the
 top-level `scripts/` only when more than one skill (or an agent hook) uses it.
 Make scripts executable and POSIX `bash`. Source files that carry code get the
-standard Apache/TeamDev copyright header.
-
-Some bundled skills ship Python helpers with their own dependencies — for example
-the imported `author-skill`'s `quick_validate.py` validator requires `PyYAML`.
-Install a skill's Python dependencies before running its scripts.
+standard Apache/TeamDev copyright header. Python helpers should rely only on the
+standard library so they run without extra installs.
 
 ## Validate before opening a PR
 

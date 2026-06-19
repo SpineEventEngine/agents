@@ -116,7 +116,6 @@ def run_single_query(
             env=env,
         )
 
-        triggered = False
         start_time = time.time()
         buffer = ""
         # Track state for stream event detection. We keep scanning ALL events
@@ -231,7 +230,8 @@ def run_single_query(
                 process.kill()
                 process.wait()
 
-        return triggered
+        # Reached only when the stream ended or timed out with no skill reference.
+        return False
     finally:
         if command_file.exists():
             command_file.unlink()
@@ -253,7 +253,7 @@ def run_eval(
 
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         future_to_info = {}
-        for item in eval_set:
+        for idx, item in enumerate(eval_set):
             for run_idx in range(runs_per_query):
                 future = executor.submit(
                     run_single_query,
@@ -264,24 +264,26 @@ def run_eval(
                     str(project_root),
                     model,
                 )
-                future_to_info[future] = (item, run_idx)
+                future_to_info[future] = (idx, item, run_idx)
 
-        query_triggers: dict[str, list[bool]] = {}
-        query_items: dict[str, dict] = {}
+        # Key by the eval entry's index, not its query text, so a duplicated
+        # query in the eval set is kept as a separate entry rather than being
+        # silently collapsed into one.
+        idx_triggers: dict[int, list[bool]] = {}
+        idx_items: dict[int, dict] = {}
         for future in as_completed(future_to_info):
-            item, _ = future_to_info[future]
-            query = item["query"]
-            query_items[query] = item
-            if query not in query_triggers:
-                query_triggers[query] = []
+            idx, item, _ = future_to_info[future]
+            idx_items[idx] = item
+            triggers_list = idx_triggers.setdefault(idx, [])
             try:
-                query_triggers[query].append(future.result())
+                triggers_list.append(future.result())
             except Exception as e:
                 print(f"Warning: query failed: {e}", file=sys.stderr)
-                query_triggers[query].append(False)
+                triggers_list.append(False)
 
-    for query, triggers in query_triggers.items():
-        item = query_items[query]
+    for idx in sorted(idx_triggers):
+        item = idx_items[idx]
+        triggers = idx_triggers[idx]
         trigger_rate = sum(triggers) / len(triggers)
         should_trigger = item["should_trigger"]
         if should_trigger:
@@ -289,7 +291,7 @@ def run_eval(
         else:
             did_pass = trigger_rate < trigger_threshold
         results.append({
-            "query": query,
+            "query": item["query"],
             "should_trigger": should_trigger,
             "trigger_rate": trigger_rate,
             "triggers": sum(triggers),
