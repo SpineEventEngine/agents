@@ -36,7 +36,8 @@ accept, start Stage 1.
 **Goal:** close the gap between what the user knows and what the agent knows, so
 later guidance is well-informed.
 
-1. **Meta-context.** Ask the essentials, noting they can answer in shorthand:
+1. **Meta-context.** Invite the user to share the essentials in one orienting list
+   they fill in at their own pace (shorthand is fine) — not a volley of questions:
    - What type of document is this? (spec, decision doc, proposal, README, …)
    - Who is the primary audience?
    - What is the desired impact when someone reads it?
@@ -57,10 +58,12 @@ later guidance is well-informed.
    shared docs) and use any available context source to pull it in. If they mention
    something unknown, ask before searching connected tools for it.
 
-3. **Clarifying questions.** Once the initial dump is done, ask 5–10 numbered
-   questions targeting the gaps. Let them answer in shorthand (e.g. "1: yes,
-   2: see the thread, 3: no — backward compatibility"), link to more, or keep
-   dumping — whatever is most efficient for them.
+3. **Clarifying questions.** Once the initial dump is done, surface the gaps that
+   remain, following the host's interaction norms (see Repo Notes). Where the host
+   caps clarifications at one question per message, lead with the highest-impact gap
+   and iterate; where batching is welcome, present the gaps as one checklist the user
+   fills in (shorthand is fine, e.g. "1: yes, 2: see the thread, 3: no — backward
+   compatibility"), by link, or by more dumping.
 
 4. **Exit.** Move on when the questions show real understanding — when edge cases
    and trade-offs can be discussed without re-explaining basics. Ask whether there
@@ -81,7 +84,9 @@ Create the document as a Markdown file in the working tree (typically under
 `docs/`, or its eventual home such as `README.md`), with every section header and
 brief placeholder text like `[To be written]`. Then fill in one section at a time:
 
-1. **Clarifying questions.** Ask 5–10 questions about what the section should cover.
+1. **Clarifying questions.** Surface what you still need to know about the section,
+   following the host's interaction norms — one prioritized question at a time where
+   required (see Repo Notes), otherwise a short checklist the user fills in.
 2. **Brainstorm.** Offer 5–20 options for what it might include, surfacing angles
    not yet mentioned and context that may have been forgotten. Offer to brainstorm
    more if they want.
@@ -108,13 +113,16 @@ do one final coherence pass, then ask whether to move to reader testing.
 **Goal:** verify the document works for someone with no prior context — this catches
 blind spots, content that is clear to the author but confusing to others.
 
-1. **Predict reader questions.** Generate 5–10 questions a reader would realistically
-   ask of this document.
-2. **Test against a fresh reader.** If the host can spawn sub-agents (fresh, isolated
-   contexts), give a fresh *reader agent* only the document text plus one question,
-   and record what it gets right or wrong. Have it also check for ambiguity, false
-   assumptions, and contradictions. If the host cannot spawn sub-agents, hand the
-   questions to the user to run in a separate, context-free session.
+1. **Predict reader questions.** Draft 5–10 questions a reader would realistically
+   ask of this document, plus checks for ambiguity, false assumptions, and
+   contradictions. (These go to a fresh reader, not the user, so they need not be
+   asked one at a time.)
+2. **Test against a fresh reader.** By default, hand the user a ready-to-paste prompt
+   — the document text plus the questions — to run in a separate, context-free session
+   and report back. Only spawn a *reader agent* automatically when the host supports
+   sub-agents *and* the user has opted into delegation; never spin one up unprompted.
+   Either way, give the reader only the document text plus one question and record
+   what it gets right or wrong.
 3. **Fix.** Loop any gaps the reader surfaces back into Stage 2 for the affected
    sections.
 
@@ -142,11 +150,17 @@ the doc as real readers give feedback.
 - **Land docs as files.** Spine docs live in the working tree (`README.md`, `docs/**`,
   `.agents/**`) and ship via reviewed PR. Always draft into a Markdown file and apply
   surgical, single-section edits — do not rely on any chat-only document surface.
+- **Respect the host's interaction norms.** This is an interview-style workflow, but
+  some hosts cap clarifications at one question per message (e.g. `AGENTS.md § Asking
+  questions`). Prefer inviting an info-dump against a checklist over firing a volley
+  of questions, and where the host enforces one-question-per-turn, ask discrete
+  clarifications one prioritized question at a time. Likewise, only delegate to
+  sub-agents (the reader test) when the host and user have opted into it.
 - **Follow the doc conventions** while drafting: `.agents/guidelines/documentation.md`
-  (sentence-case headings; wrap body lines at the `max-line-length` from
-  `.agents/guidelines/coding.md`, currently 100; avoid widows/runts/orphans/rivers).
-  The `writer` skill carries the full Markdown rules for the final pass. The
-  guidelines index is at `.agents/guidelines/_TOC.md`.
+  (sentence-case headings; wrap body lines at the `max-line-length` set in
+  `.agents/guidelines/coding.md`; avoid widows/runts/orphans/rivers). The `writer`
+  skill carries the full Markdown rules for the final pass. The guidelines index is
+  at `.agents/guidelines/_TOC.md`.
 - **Don't commit or push** the drafted doc unless asked; hand off for a PR. See
   `.agents/guidelines/git-workflow.md` and `.agents/guidelines/safety-rules.md`.
 
