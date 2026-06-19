@@ -46,14 +46,16 @@ Each run directory (`<workspace>/iteration-<N>/eval-<ID>/<config>/`) therefore h
   `old_skill/outputs/`.
 
 Write an `eval_metadata.json` for each test case (assertions can be empty for now). Give each eval a descriptive name
-based on what it's testing — not just "eval-0". Use this name for the directory too. If this iteration uses new or
-modified eval prompts, create these files for each new eval directory — don't assume they carry over from previous
-iterations.
+based on what it's testing — not just "eval-0". Keep the `eval-<ID>` prefix on the directory and append the descriptive
+name to it (e.g. `eval-0-pdf-formatting/`); the Step 4 aggregation only discovers directories matching `eval-*`, so a
+directory that drops the prefix is silently skipped. Put the human-readable name in the `eval_name` field of
+`eval_metadata.json` — that is what the aggregator and viewer display. If this iteration uses new or modified eval
+prompts, create these files for each new eval directory — don't assume they carry over from previous iterations.
 
 ```json
 {
   "eval_id": 0,
-  "eval_name": "descriptive-name-here",
+  "eval_name": "pdf-formatting",
   "prompt": "The user's task prompt",
   "assertions": []
 }

@@ -145,8 +145,23 @@ def validate_skill(skill_path):
     # agents/openai.yaml is required for every skill in this repo
     # (docs/authoring-skills.md) so Codex/OpenAI consumers can advertise and
     # invoke the packaged skill.
-    if not (skill_path / "agents" / "openai.yaml").exists():
+    openai_yaml = skill_path / "agents" / "openai.yaml"
+    if not openai_yaml.exists():
         return False, "Missing required agents/openai.yaml"
+
+    # The skill's directory name must match the frontmatter name so the
+    # packaged bundle is self-consistent. resolve() turns a "." path into the
+    # real directory name.
+    dir_name = Path(skill_path).resolve().name
+    if dir_name != name:
+        return False, f"Directory name '{dir_name}' does not match frontmatter name '{name}'"
+
+    # agents/openai.yaml must reference the skill as $<name>, the convention used
+    # by its default_prompt (e.g. default_prompt: "Use $author-skill ..."). Read
+    # it as text to stay stdlib-only.
+    openai_yaml_text = openai_yaml.read_text()
+    if f"${name}" not in openai_yaml_text:
+        return False, f"agents/openai.yaml must reference the skill as ${name} (in its default_prompt)"
 
     return True, "Skill is valid!"
 

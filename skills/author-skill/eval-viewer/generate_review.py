@@ -80,7 +80,11 @@ def find_runs(workspace: Path) -> list[dict]:
     """Recursively find directories that contain an outputs/ subdirectory."""
     runs: list[dict] = []
     _find_runs_recursive(workspace, workspace, runs)
-    runs.sort(key=lambda r: (r.get("eval_id", float("inf")), r["id"]))
+    def _sort_key(r: dict) -> tuple:
+        eid = r.get("eval_id")
+        return (eid if eid is not None else float("inf"), r["id"])
+
+    runs.sort(key=_sort_key)
     return runs
 
 
@@ -137,13 +141,34 @@ def build_run(root: Path, run_dir: Path) -> dict | None:
 
     run_id = str(run_dir.relative_to(root)).replace("/", "-").replace("\\", "-")
 
-    # Collect output files
+    # Collect output files, including those in nested output directories.
     outputs_dir = run_dir / "outputs"
     output_files: list[dict] = []
     if outputs_dir.is_dir():
-        for f in sorted(outputs_dir.iterdir()):
-            if f.is_file() and f.name not in METADATA_FILES:
-                output_files.append(embed_file(f))
+        all_files = sorted(
+            f for f in outputs_dir.rglob("*")
+            if f.is_file() and f.name not in METADATA_FILES
+        )
+        # Cap embedded files to avoid pathological HTML bloat from a large
+        # generated tree (e.g. a built site under outputs/).
+        max_embedded = 100
+        for f in all_files[:max_embedded]:
+            embedded = embed_file(f)
+            # Label by path relative to outputs/ so nested files are
+            # distinguishable (embed_file only knows the bare file name).
+            embedded["name"] = str(f.relative_to(outputs_dir)).replace("\\", "/")
+            output_files.append(embedded)
+        omitted = len(all_files) - max_embedded
+        if omitted > 0:
+            output_files.append({
+                "name": f"({omitted} more file(s) omitted)",
+                "type": "text",
+                "content": (
+                    f"{omitted} additional output file(s) under outputs/ were "
+                    f"omitted to keep the viewer responsive "
+                    f"(showing the first {max_embedded} of {len(all_files)})."
+                ),
+            })
 
     # Load grading if present
     grading = None
