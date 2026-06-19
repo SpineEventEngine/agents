@@ -71,6 +71,11 @@ def run_single_query(
     """
     unique_id = uuid.uuid4().hex[:8]
     clean_name = f"{skill_name}-skill-{unique_id}"
+    # Match the per-skill prefix (not the unique id) when detecting a trigger:
+    # parallel runs share one .claude/commands/ dir, so a run may invoke a
+    # sibling run's command file for the SAME skill — that still counts as a
+    # trigger of this skill. The unique id only keeps the on-disk files distinct.
+    trigger_marker = f"{skill_name}-skill-"
     project_commands_dir = Path(project_root) / ".claude" / "commands"
     command_file = project_commands_dir / f"{clean_name}.md"
 
@@ -157,7 +162,7 @@ def run_single_query(
                     delta = se.get("delta", {})
                     if delta.get("type") == "input_json_delta":
                         accumulated_json += delta.get("partial_json", "")
-                        if clean_name in accumulated_json:
+                        if trigger_marker in accumulated_json:
                             return True
 
                 elif se_type == "content_block_stop":
@@ -177,9 +182,9 @@ def run_single_query(
                         continue
                     tool_name = content_item.get("name", "")
                     tool_input = content_item.get("input", {})
-                    if tool_name == "Skill" and clean_name in tool_input.get("skill", ""):
+                    if tool_name == "Skill" and trigger_marker in tool_input.get("skill", ""):
                         return True
-                    if tool_name == "Read" and clean_name in tool_input.get("file_path", ""):
+                    if tool_name == "Read" and trigger_marker in tool_input.get("file_path", ""):
                         return True
 
             elif event.get("type") == "result":

@@ -86,10 +86,13 @@ def load_run_results(benchmark_dir: Path) -> dict:
 
     for eval_idx, eval_dir in enumerate(sorted(search_dir.glob("eval-*"))):
         metadata_path = eval_dir / "eval_metadata.json"
+        eval_name = ""
         if metadata_path.exists():
             try:
                 with open(metadata_path) as mf:
-                    eval_id = json.load(mf).get("eval_id", eval_idx)
+                    meta = json.load(mf)
+                eval_id = meta.get("eval_id", eval_idx)
+                eval_name = meta.get("eval_name", "")
             except (json.JSONDecodeError, OSError):
                 eval_id = eval_idx
         else:
@@ -139,6 +142,7 @@ def load_run_results(benchmark_dir: Path) -> dict:
                 # Extract metrics
                 result = {
                     "eval_id": eval_id,
+                    "eval_name": eval_name,
                     "run_number": run_number,
                     "pass_rate": grading.get("summary", {}).get("pass_rate", 0.0),
                     "passed": grading.get("summary", {}).get("passed", 0),
@@ -261,6 +265,7 @@ def generate_benchmark(benchmark_dir: Path, skill_name: str = "", skill_path: st
         for result in results[config]:
             runs.append({
                 "eval_id": result["eval_id"],
+                "eval_name": result.get("eval_name", ""),
                 "configuration": config,
                 "run_number": result["run_number"],
                 "result": {
@@ -284,6 +289,14 @@ def generate_benchmark(benchmark_dir: Path, skill_name: str = "", skill_path: st
         for r in config
     ))
 
+    # Runs per (config, eval) — the max observed, rather than a hardcoded value
+    group_counts: dict[tuple, int] = {}
+    for config, config_runs in results.items():
+        for r in config_runs:
+            key = (config, r["eval_id"])
+            group_counts[key] = group_counts.get(key, 0) + 1
+    runs_per_config = max(group_counts.values()) if group_counts else 0
+
     benchmark = {
         "metadata": {
             "skill_name": skill_name or "<skill-name>",
@@ -292,7 +305,7 @@ def generate_benchmark(benchmark_dir: Path, skill_name: str = "", skill_path: st
             "analyzer_model": "<model-name>",
             "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "evals_run": eval_ids,
-            "runs_per_configuration": 3
+            "runs_per_configuration": runs_per_config
         },
         "runs": runs,
         "run_summary": run_summary,

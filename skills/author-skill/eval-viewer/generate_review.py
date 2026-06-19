@@ -2,7 +2,7 @@
 """Generate and serve a review page for eval results.
 
 Reads the workspace directory, discovers runs (directories with outputs/),
-embeds all output data into a self-contained HTML page, and serves it via
+embeds all output data into an HTML page, and serves it via
 a tiny HTTP server. Feedback auto-saves to feedback.json in the workspace.
 
 Usage:
