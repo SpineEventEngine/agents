@@ -110,7 +110,15 @@ def load_run_results(benchmark_dir: Path) -> dict:
             # directly in the config dir (grading.json/timing.json/outputs/).
             run_dirs = sorted(config_dir.glob("run-*"))
             if run_dirs:
-                run_specs = [(int(d.name.split("-")[1]), d) for d in run_dirs]
+                # Parse run numbers defensively: skip dirs like run-final/run-debug
+                # (matching run-* but not run-<number>) instead of crashing.
+                run_specs = []
+                for d in run_dirs:
+                    parts = d.name.split("-", 1)
+                    if len(parts) == 2 and parts[1].isdigit():
+                        run_specs.append((int(parts[1]), d))
+                    else:
+                        print(f"Warning: skipping run dir with non-numeric suffix: {d.name}")
             elif (
                 (config_dir / "grading.json").exists()
                 or (config_dir / "timing.json").exists()
