@@ -36,7 +36,7 @@ Frontmatter followed by the body:
 
     ---
     name: <kebab-case-name>          # == directory name
-    description: >                   # one folded paragraph, < 1024 characters.
+    description: >                   # one folded paragraph, < 1024 chars, no angle brackets
       What the skill does AND when to use it — this is the text an agent matches
       a request against, so make the trigger conditions explicit.
     ---

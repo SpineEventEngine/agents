@@ -286,7 +286,10 @@ def main():
             live_report_path = Path(args.report)
         # Open the report immediately so the user can watch
         live_report_path.write_text("<html><body><h1>Starting optimization loop...</h1><meta http-equiv='refresh' content='5'></body></html>")
-        webbrowser.open(str(live_report_path))
+        try:
+            webbrowser.open(str(live_report_path))
+        except Exception:
+            pass  # best-effort: headless/browser-less environments still get the report file
     else:
         live_report_path = None
 
