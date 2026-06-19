@@ -5,7 +5,7 @@ Full procedure for the "Description Optimization" summary in `SKILL.md`. Paths a
 The description field in SKILL.md frontmatter is the primary mechanism that determines whether an agent invokes a skill.
 After creating or improving a skill, offer to optimize the description for better triggering accuracy.
 
-### Step 1: Generate trigger eval queries
+## Step 1: Generate trigger eval queries
 
 Create 20 eval queries — a mix of should-trigger and should-not-trigger. Save as JSON:
 
@@ -45,7 +45,11 @@ context where another tool is more appropriate.
 The key thing to avoid: don't make should-not-trigger queries obviously irrelevant. "Write a fibonacci function" as a
 negative test for a PDF skill is too easy — it doesn't test anything. The negative cases should be genuinely tricky.
 
-### Step 2: Review with user
+## Step 2: Review with user
+
+> Needs a browser/display (the review template is the bundled `assets/eval_review.html`). Where none is available,
+> present the eval set inline instead — show each query with its should-trigger flag and collect the user's edits in
+> the conversation.
 
 Present the eval set to the user for review using the HTML template:
 
@@ -56,12 +60,12 @@ Present the eval set to the user for review using the HTML template:
     - `__SKILL_DESCRIPTION_PLACEHOLDER__` → the skill's current description
 3. Write it to a temp file (e.g. `eval_review_<skill-name>.html`) and open it in a browser.
 4. The user can edit queries, toggle should-trigger, add/remove entries, then click "Export Eval Set"
-5. The file downloads to `~/Downloads/eval_set.json` — check the Downloads folder for the most recent version in case
-   there are multiple (e.g., `eval_set (1).json`)
+5. The file downloads to your browser's downloads location (often `~/Downloads/eval_set.json`) — check it for the most
+   recent version in case there are multiple (e.g., `eval_set (1).json`)
 
 This step matters — bad eval queries lead to bad descriptions.
 
-### Step 3: Run the optimization loop
+## Step 3: Run the optimization loop
 
 > This step needs a runtime that can invoke the agent headlessly — the bundled `run_loop.py` does so in a subprocess to
 > measure triggering. Where that isn't available, skip the automated loop and refine the description by hand from the
@@ -93,7 +97,7 @@ propose improvements based on what failed. It re-evaluates each new description 
 5 times. When it's done, it opens an HTML report in the browser showing the results per iteration and returns JSON with
 `best_description` — selected by test score rather than train score to avoid overfitting.
 
-### How skill triggering works
+## How skill triggering works
 
 Understanding the triggering mechanism helps design better eval queries. Skills appear in the agent's available-skills
 list with their name + description, and the agent decides whether to consult a skill based on that description. The
@@ -105,7 +109,7 @@ the description matches.
 This means your eval queries should be substantive enough that the agent would actually benefit from consulting a skill.
 Simple queries like "read file X" are poor test cases — they won't trigger skills regardless of description quality.
 
-### Step 4: Apply the result
+## Step 4: Apply the result
 
 Take `best_description` from the JSON output and update the skill's SKILL.md frontmatter. Show the user before/after and
 report the scores.

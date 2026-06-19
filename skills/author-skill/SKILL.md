@@ -21,7 +21,7 @@ At a high level, the process of creating a skill goes like this:
     - Then explain them to the user (or if they already existed, explain the ones that already exist)
     - Use the `eval-viewer/generate_review.py` script to show the user the results for them to look at, and also let
       them look at the quantitative metrics
-- Rewrite the skill based on feedback from the user's evaluation of the results 
+- Rewrite the skill based on feedback from the user's evaluation of the results
   (and also if there are any glaring flaws that become apparent from the quantitative benchmarks)
 - Repeat until you're satisfied
 - Expand the test set and try again at larger scale

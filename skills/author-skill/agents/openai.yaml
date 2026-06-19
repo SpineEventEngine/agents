@@ -4,4 +4,7 @@ interface:
   default_prompt: >-
     Use $author-skill to create a new skill from scratch, edit or improve an
     existing one, run evals to test it, benchmark its performance, or optimize
-    its description for better triggering.
+    its description for better triggering. The workflow is general; when authoring
+    in this repository, also follow its skill conventions in
+    `docs/authoring-skills.md`, which hold the repo-specific rules the skill does
+    not itself enforce.

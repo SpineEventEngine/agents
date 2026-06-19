@@ -5,12 +5,13 @@ the general authoring workflow (draft → test → review → improve); this doc
 the Spine-specific layer of conventions that workflow does not itself enforce, so
 follow both.
 
-> **Heads-up:** `author-skill` is Anthropic's `skill-creator` imported and hosted
-> here under a non-colliding name (see `skills/author-skill/LICENSE.txt`) and
-> adapted to these conventions (agent-neutral, ≤500-line body). Its `SKILL.md`
-> keeps the imported guide's structure rather than the `Workflow` / `Repo Notes` /
-> `Report` shape, so treat it as a tool, not a structural template; author *new*
-> skills to the rules here.
+> **Heads-up:** `author-skill` is derived from Anthropic's `skill-creator`
+> (Apache-2.0; license text in `skills/author-skill/LICENSE.txt`) and is being
+> adapted and extended for this repository's needs, so expect it to diverge from
+> the upstream over time. It doesn't yet match every convention here — notably,
+> its `SKILL.md` keeps the upstream guide's structure rather than the `Workflow` /
+> `Repo Notes` / `Report` shape — so when authoring a *new* skill, treat this
+> document (not `author-skill`'s current form) as the source of truth.
 
 ## Anatomy of a skill
 
