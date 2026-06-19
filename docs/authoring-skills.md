@@ -1,7 +1,15 @@
 # Authoring skills
 
-How to create or edit a skill in this repository. For a guided, scaffolded
-workflow, use the `author-skill` skill — this document is its reference.
+How to create or edit a skill in this repository. Use the `author-skill` skill for
+the general authoring workflow (draft → test → review → improve); this document is
+the Spine-specific layer of conventions that workflow does not itself enforce, so
+follow both.
+
+> **Heads-up:** `author-skill` is Anthropic's `skill-creator` imported and hosted
+> here under a non-colliding name (see `skills/author-skill/LICENSE.txt`). It is a
+> deliberate exception to the conventions below — its `SKILL.md` body is not the
+> `Workflow` / `Repo Notes` / `Report` shape and is not fully agent-neutral. Treat
+> it as a tool, not a structural template; author *new* skills to the rules here.
 
 ## Anatomy of a skill
 
@@ -69,6 +77,10 @@ Put a skill's own helpers in `skills/<name>/scripts/`; promote a helper to the
 top-level `scripts/` only when more than one skill (or an agent hook) uses it.
 Make scripts executable and POSIX `bash`. Source files that carry code get the
 standard Apache/TeamDev copyright header.
+
+Some bundled skills ship Python helpers with their own dependencies — for example
+the imported `author-skill`'s `quick_validate.py` validator requires `PyYAML`.
+Install a skill's Python dependencies before running its scripts.
 
 ## Validate before opening a PR
 
