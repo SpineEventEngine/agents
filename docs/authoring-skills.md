@@ -6,10 +6,11 @@ the Spine-specific layer of conventions that workflow does not itself enforce, s
 follow both.
 
 > **Heads-up:** `author-skill` is Anthropic's `skill-creator` imported and hosted
-> here under a non-colliding name (see `skills/author-skill/LICENSE.txt`). It is a
-> deliberate exception to the conventions below — its `SKILL.md` body is not the
-> `Workflow` / `Repo Notes` / `Report` shape and is not fully agent-neutral. Treat
-> it as a tool, not a structural template; author *new* skills to the rules here.
+> here under a non-colliding name (see `skills/author-skill/LICENSE.txt`) and
+> adapted to these conventions (agent-neutral, ≤500-line body). Its `SKILL.md`
+> keeps the imported guide's structure rather than the `Workflow` / `Repo Notes` /
+> `Report` shape, so treat it as a tool, not a structural template; author *new*
+> skills to the rules here.
 
 ## Anatomy of a skill
 

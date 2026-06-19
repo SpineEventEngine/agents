@@ -1,86 +1,76 @@
-# Environment-specific notes and packaging
+# Environment, capability, and packaging notes
 
-The core loop (draft → test → review → improve) is the same everywhere; only the mechanics below change by runtime,
-plus how to package a finished skill. `SKILL.md` links here.
+The core loop — draft → test → review → improve — is the same everywhere. What
+changes between runtimes is which capabilities are available, so adapt along the
+axes below. `SKILL.md` links here. (Reasoning, file I/O, and running the bundled
+Python helpers are assumed available; the rest are capability-gated.)
 
-## Claude.ai-specific instructions
+## If subagents aren't available
 
-In Claude.ai, the core workflow is the same (draft → test → review → improve → repeat), but because Claude.ai doesn't
-have subagents, some mechanics change. Here's what to adapt:
+Without subagents there's no parallel execution, so run each test case yourself:
+read the skill's `SKILL.md`, then follow its instructions to accomplish the test
+prompt, one at a time. This is less rigorous than independent subagents (you wrote
+the skill and you're also running it, so you have full context), but it's a useful
+sanity check — and the human review step compensates.
 
-**Running test cases**: No subagents means no parallel execution. For each test case, read the skill's SKILL.md, then
-follow its instructions to accomplish the test prompt yourself. Do them one at a time. This is less rigorous than
-independent subagents (you wrote the skill and you're also running it, so you have full context), but it's a useful
-sanity check — and the human review step compensates. Skip the baseline runs — just use the skill to complete the task
-as requested.
+- **Skip the baseline runs** — just use the skill to complete each task as requested.
+- **Skip the quantitative benchmarking** — it relies on baseline comparisons that
+  aren't meaningful without independent runs. Focus on qualitative feedback.
+- **Skip blind comparison** — it needs independent subagents.
 
-**Reviewing results**: If you can't open a browser (e.g., Claude.ai's VM has no display, or you're on a remote server),
-skip the browser reviewer entirely. Instead, present results directly in the conversation. For each test case, show the
-prompt and the output. If the output is a file the user needs to see (like a .docx or .xlsx), save it to the filesystem
-and tell them where it is so they can download and inspect it. Ask for feedback inline: "How does this look? Anything
-you'd change?"
+The iteration loop is otherwise unchanged: improve the skill, rerun the test
+cases, ask for feedback.
 
-**Benchmarking**: Skip the quantitative benchmarking — it relies on baseline comparisons that aren't meaningful without
-subagents. Focus on qualitative feedback from the user.
+## If there's no browser or display
 
-**The iteration loop**: Same as before — improve the skill, rerun the test cases, ask for feedback — just without the
-browser reviewer in the middle. You can still organize results into iteration directories on the filesystem if you have
-one.
+The eval viewer needs somewhere to render. When `webbrowser.open()` isn't
+available or the environment has no display:
 
-**Description optimization**: This section requires the `claude` CLI tool (specifically `claude -p`) which is only
-available in Claude Code. Skip it if you're on Claude.ai.
+- **Prefer `--static <output_path>`** so `generate_review.py` writes a standalone
+  HTML file instead of starting a server, then give the user a link they can open.
+  Feedback then works by download: the viewer's "Submit All Reviews" button saves
+  `feedback.json` as a file, which you read back (you may have to request access
+  first), then copy into the workspace for the next iteration to pick up.
+- **If you can't surface an HTML file at all**, skip the viewer and present results
+  directly in the conversation — for each test case show the prompt and output,
+  save any file the user needs to inspect (e.g. a `.docx`/`.xlsx`) to the
+  filesystem and tell them where it is, and ask for feedback inline ("How does
+  this look? Anything you'd change?").
 
-**Blind comparison**: Requires subagents. Skip it.
+Whichever path you take, **generate the review for the human *before* you start
+evaluating outputs yourself** — getting examples in front of the user early is the
+whole point. Use `generate_review.py` rather than hand-rolling HTML.
 
-**Packaging**: The `package_skill.py` script works anywhere with Python and a filesystem. On Claude.ai, you can run it
-and the user can download the resulting `.skill` file.
+## If the agent can't be invoked headlessly
 
-**Updating an existing skill**: The user might be asking you to update an existing skill, not create a new one. In this
-case:
+The automated description-optimization loop (`scripts/run_loop.py` /
+`scripts/run_eval.py`) works by invoking the agent in a subprocess to measure
+triggering, so it needs a headless agent CLI; the bundled scripts use one. Where no
+such CLI exists, skip the automated loop and optimize the description by hand
+instead (see `references/description-optimization.md`). Where it does exist, save
+it until the skill itself is in good shape.
 
-- **Preserve the original name.** Note the skill's directory name and `name` frontmatter field -- use them unchanged.
-  E.g., if the installed skill is `research-helper`, output `research-helper.skill` (not `research-helper-v2`).
-- **Copy to a writeable location before editing.** The installed skill path may be read-only. Copy to`/tmp/skill-name/`,
-  edit there, and package from the copy.
-- **If packaging manually, stage in `/tmp/` first**, then copy to the output directory -- direct writes may fail due to
-  permissions.
+## Packaging
 
----
-
-## Cowork-Specific Instructions
-
-If you're in Cowork, the main things to know are:
-
-- You have subagents, so the main workflow (spawn test cases in parallel, run baselines, grade, etc.) all works. (
-  However, if you run into severe problems with timeouts, it's OK to run the test prompts in series rather than
-  parallel.)
-- You don't have a browser or display, so when generating the eval viewer, use `--static <output_path>` to write a
-  standalone HTML file instead of starting a server. Then proffer a link that the user can click to open the HTML in
-  their browser.
-- For whatever reason, the Cowork setup seems to disincline Claude from generating the eval viewer after running the
-  tests, so just to reiterate: whether you're in Cowork or in Claude Code, after running tests, you should always
-  generate the eval viewer for the human to look at examples before revising the skill yourself and trying to make
-  corrections, using `generate_review.py` (not writing your own boutique html code). Sorry in advance but I'm gonna go
-  all caps here: GENERATE THE EVAL VIEWER *BEFORE* evaluating inputs yourself. You want to get them in front of the
-  human ASAP!
-- Feedback works differently: since there's no running server, the viewer's "Submit All Reviews" button will download
-  `feedback.json` as a file. You can then read it from there (you may have to request access first).
-- Packaging works — `package_skill.py` just needs Python and a filesystem.
-- Description optimization (`run_loop.py` / `run_eval.py`) should work in Cowork just fine since it uses `claude -p` via
-  subprocess, not a browser, but please save it until you've fully finished making the skill and the user agrees it's in
-  good shape.
-- **Updating an existing skill**: The user might be asking you to update an existing skill, not create a new one. Follow
-  the update guidance in the claude.ai section above.
-
----
-
-## Package and Present (only if `present_files` tool is available)
-
-Check whether you have access to the `present_files` tool. If you don't, skip this step. If you do, package the skill
-and present the .skill file to the user:
+Packaging is independent of the above — `scripts/package_skill.py` needs only
+Python and a filesystem:
 
 ```bash
 python -m scripts.package_skill <path/to/skill-folder>
 ```
 
-After packaging, direct the user to the resulting `.skill` file path so they can install it.
+Then point the user at the resulting `.skill` file so they can install it. If your
+runtime has a file-presentation capability (e.g. a `present_files` tool), present
+the `.skill` file directly; otherwise just give its path.
+
+## Updating an existing skill
+
+The user may be asking you to update an existing skill rather than create a new one:
+
+- **Preserve the original name.** Use the skill's directory name and `name`
+  frontmatter field unchanged — e.g. if the installed skill is `research-helper`,
+  output `research-helper.skill` (not `research-helper-v2`).
+- **Copy to a writeable location before editing.** The installed path may be
+  read-only; copy to a temp dir, edit there, and package from the copy.
+- **If packaging manually, stage in a temp dir first**, then copy to the output
+  directory — direct writes may fail due to permissions.

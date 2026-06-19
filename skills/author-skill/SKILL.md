@@ -14,7 +14,7 @@ At a high level, the process of creating a skill goes like this:
 
 - Decide what you want the skill to do and roughly how it should do it
 - Write a draft of the skill
-- Create a few test prompts and run claude-with-access-to-the-skill on them
+- Create a few test prompts and run the agent (with the skill loaded) on them
 - Help the user evaluate the results both qualitatively and quantitatively
     - While the runs happen in the background, draft some quantitative evals if there aren't any
       (if there are some, you can either use as is or modify if you feel something needs to change about them).
@@ -45,7 +45,7 @@ Cool? Cool.
 ## Communicating with the user
 
 The skill creator is liable to be used by people across a wide range of familiarity with coding jargon. If you haven't
-heard (and how could you, it's only very recently that it started), there's a trend now where the power of Claude is
+heard (and how could you, it's only very recently that it started), there's a trend now where the power of these AI tools is
 inspiring plumbers to open up their terminals, parents and grandparents to google "how to install npm". On the other
 hand, the bulk of users are probably fairly computer-literate.
 
@@ -70,7 +70,7 @@ capture (e.g., they say "turn this into a skill"). If so, extract answers from t
 tools used, the sequence of steps, corrections the user made, input/output formats observed. The user may need to fill
 the gaps, and should confirm before proceeding to the next step.
 
-1. What should this skill enable Claude to do?
+1. What should this skill enable the agent to do?
 2. When should this skill trigger? (what user phrases/contexts)
 3. What's the expected output format?
 4. Should we set up test cases to verify the skill works? Skills with objectively verifiable outputs (file transforms,
@@ -94,9 +94,9 @@ Based on the user interview, fill in these components:
 - **name**: Skill identifier
 - **description**: When to trigger, what it does. This is the primary triggering mechanism - include both what the skill
   does AND specific contexts for when to use it. All "when to use" info goes here, not in the body. Note: currently
-  Claude has a tendency to "undertrigger" skills -- to not use them when they'd be useful. To combat this, please make
+  agents have a tendency to "undertrigger" skills -- to not use them when they'd be useful. To combat this, please make
   the skill descriptions a little bit "pushy". So for instance, instead of "How to build a simple fast dashboard to
-  display internal Anthropic data.", you might write "How to build a simple fast dashboard to display internal Anthropic
+  display internal company data.", you might write "How to build a simple fast dashboard to display internal company
   data. Make sure to use this skill whenever the user mentions dashboards, data visualization, internal metrics, or
   wants to display any kind of company data, even if they don't explicitly ask for a 'dashboard.'"
 - **compatibility**: Required tools, dependencies (optional, rarely needed)
@@ -145,7 +145,7 @@ cloud-deploy/
     └── azure.md
 ```
 
-Claude reads only the relevant reference file.
+The agent reads only the relevant reference file.
 
 #### Principle of Lack of Surprise
 
@@ -220,7 +220,7 @@ See `references/schemas.md` for the full schema (including the `assertions` fiel
 
 With a draft and test prompts in hand, run the skill against them and review the
 results with the user. Treat this as **one continuous sequence — don't stop
-partway**, and **don't reach for `/skill-test` or any other testing skill**.
+partway**, and **don't reach for a separate skill-testing command or skill**.
 
 The shape of it:
 
@@ -239,7 +239,7 @@ The shape of it:
 
 The full procedure — exact subagent prompts, the JSON shapes for
 `eval_metadata.json` / `timing.json` / `feedback.json`, viewer flags, what the user
-sees, and headless/Cowork handling — is in
+sees, and headless-environment handling — is in
 [`references/running-evals.md`](references/running-evals.md). Read it before running evals.
 
 ---
@@ -334,14 +334,14 @@ flags, and how triggering actually works — is in
 
 ## Environment-specific notes and packaging
 
-The core loop is the same everywhere, but the mechanics differ by runtime:
-Claude.ai has no subagents (run test cases inline, skip baselines/benchmarking),
-and Cowork has no browser/display (generate the viewer with `--static`, and always
-generate it *before* reviewing outputs yourself). Packaging a finished skill uses
-`python -m scripts.package_skill` and depends on whether the `present_files` tool
-is available. When you're in one of those environments — or packaging, or updating
-an existing skill (preserve its name; edit a writeable copy) — read
-[`references/environments.md`](references/environments.md) for the adaptations.
+The core loop is the same everywhere, but the mechanics differ by runtime
+capability: some runtimes have no subagents (run test cases inline, skip baselines
+and benchmarking), others have no browser or display (generate the viewer with
+`--static`, and always generate it *before* reviewing outputs yourself). Packaging
+a finished skill uses `python -m scripts.package_skill` and depends on whether a
+file-presentation capability is available. When any of these apply — or you're
+packaging, or updating an existing skill (preserve its name; edit a writeable
+copy) — read [`references/environments.md`](references/environments.md) for the adaptations.
 
 ---
 
@@ -353,7 +353,7 @@ The `references/` directory:
 
 - `references/running-evals.md` — the full run / grade / benchmark / review procedure
 - `references/description-optimization.md` — optimizing the `description` for triggering
-- `references/environments.md` — Claude.ai / Cowork adaptations and packaging
+- `references/environments.md` — runtime-capability adaptations and packaging
 - `references/schemas.md` — JSON structures for evals.json, grading.json, etc.
 
 The `agents/` directory has instructions for specialized subagents — read the
@@ -369,15 +369,15 @@ Repeating one more time the core loop here for emphasis:
 
 - Figure out what the skill is about
 - Draft or edit the skill
-- Run claude-with-access-to-the-skill on test prompts
+- Run the agent (with the skill loaded) on test prompts
 - With the user, evaluate the outputs:
     - Create benchmark.json and run `eval-viewer/generate_review.py` to help the user review them
     - Run quantitative evals
 - Repeat until you and the user are satisfied
 - Package the final skill and return it to the user.
 
-Please add steps to your TodoList, if you have such a thing, to make sure you don't forget. If you're in Cowork, please
-specifically put "Create evals JSON and run `eval-viewer/generate_review.py` so human can review test cases" in your
-TodoList to make sure it happens.
+Please add steps to your TodoList, if you have such a thing, to make sure you don't forget. In headless or browser-less
+environments, specifically put "Create evals JSON and run `eval-viewer/generate_review.py` so human can review test
+cases" in your TodoList to make sure it happens.
 
 Good luck!

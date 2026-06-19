@@ -3,8 +3,11 @@
 This is the full procedure that `SKILL.md` summarizes under "Running and evaluating test cases".
 Paths (`scripts/`, `agents/`, `eval-viewer/`, `references/`) are relative to the skill root.
 
-This section is one continuous sequence — don't stop partway through. Do NOT use `/skill-test` or any other testing
-skill.
+This section is one continuous sequence — don't stop partway through. Do NOT use a separate skill-testing tool or any
+other testing skill.
+
+> This procedure assumes your runtime can spawn subagents (Step 1 launches them in parallel) and show the user an HTML
+> page (Step 4). Where those capabilities are absent, adapt per `references/environments.md`.
 
 Put results in `<skill-name>-workspace/` as a sibling to the skill directory. Within the workspace, organize results by
 iteration (`iteration-1/`, `iteration-2/`, etc.) and within that, each test case gets a directory (`eval-0/`, `eval-1/`,
@@ -111,7 +114,7 @@ Once all runs are done:
    ```
    For iteration 2+, also pass `--previous-workspace <workspace>/iteration-<N-1>`.
 
-   **Cowork / headless environments:** If `webbrowser.open()` is not available or the environment has no display, use
+   **Headless environments (no browser/display):** If `webbrowser.open()` is not available or the environment has no display, use
    `--static <output_path>` to write a standalone HTML file instead of starting a server. Feedback will be downloaded as
    a `feedback.json` file when the user clicks "Submit All Reviews". After download, copy `feedback.json` into the
    workspace directory for the next iteration to pick up.
