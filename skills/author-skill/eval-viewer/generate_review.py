@@ -7,21 +7,22 @@ a tiny HTTP server. Feedback auto-saves to feedback.json in the workspace.
 
 Usage:
     python generate_review.py <workspace-path> [--port PORT] [--skill-name NAME]
-    python generate_review.py <workspace-path> --previous-feedback /path/to/old/feedback.json
+    python generate_review.py <workspace-path> --previous-workspace /path/to/old/workspace
+    python generate_review.py <workspace-path> --benchmark /path/to/benchmark.json
 
 No dependencies beyond the Python stdlib are required.
+
+Note: viewer.html pulls optional assets (web fonts, the SheetJS library) from
+CDNs, so XLSX previews and custom fonts degrade gracefully in offline
+environments.
 """
 
 import argparse
 import base64
 import json
 import mimetypes
-import os
 import re
-import signal
-import subprocess
 import sys
-import time
 import webbrowser
 from functools import partial
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -47,6 +48,24 @@ MIME_OVERRIDES = {
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 }
+
+
+def _embed_json(obj: object) -> str:
+    """Serialize ``obj`` to JSON safe for inlining inside an HTML ``<script>``.
+
+    Eval outputs are model-generated and may contain arbitrary text, including
+    sequences such as ``</script>``. Escaping the script-sensitive characters
+    keeps the payload valid JSON (``JSON.parse`` restores the originals) while
+    preventing the browser from breaking out of the script tag.
+    """
+    return (
+        json.dumps(obj)
+        .replace("&", "\\u0026")
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("\u2028", "\\u2028")
+        .replace("\u2029", "\\u2029")
+    )
 
 
 def get_mime_type(path: Path) -> str:
@@ -276,7 +295,7 @@ def generate_html(
     if benchmark:
         embedded["benchmark"] = benchmark
 
-    data_json = json.dumps(embedded)
+    data_json = _embed_json(embedded)
 
     return template.replace("/*__EMBEDDED_DATA__*/", f"const EMBEDDED_DATA = {data_json};")
 
@@ -284,26 +303,6 @@ def generate_html(
 # ---------------------------------------------------------------------------
 # HTTP server (stdlib only, zero dependencies)
 # ---------------------------------------------------------------------------
-
-def _kill_port(port: int) -> None:
-    """Kill any process listening on the given port."""
-    try:
-        result = subprocess.run(
-            ["lsof", "-ti", f":{port}"],
-            capture_output=True, text=True, timeout=5,
-        )
-        for pid_str in result.stdout.strip().split("\n"):
-            if pid_str.strip():
-                try:
-                    os.kill(int(pid_str.strip()), signal.SIGTERM)
-                except (ProcessLookupError, ValueError):
-                    pass
-        if result.stdout.strip():
-            time.sleep(0.5)
-    except subprocess.TimeoutExpired:
-        pass
-    except FileNotFoundError:
-        print("Note: lsof not found, cannot check if port is in use", file=sys.stderr)
 
 class ReviewHandler(BaseHTTPRequestHandler):
     """Serves the review HTML and handles feedback saves.
@@ -358,6 +357,16 @@ class ReviewHandler(BaseHTTPRequestHandler):
         else:
             self.send_error(404)
 
+    def _is_complete_on_disk(self) -> bool:
+        """Whether the saved feedback.json already has status "complete"."""
+        if not self.feedback_path.exists():
+            return False
+        try:
+            existing = json.loads(self.feedback_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            return False
+        return isinstance(existing, dict) and existing.get("status") == "complete"
+
     def do_POST(self) -> None:
         if self.path == "/api/feedback":
             length = int(self.headers.get("Content-Length", 0))
@@ -366,9 +375,15 @@ class ReviewHandler(BaseHTTPRequestHandler):
                 data = json.loads(body)
                 if not isinstance(data, dict) or "reviews" not in data:
                     raise ValueError("Expected JSON object with 'reviews' key")
-                self.feedback_path.write_text(json.dumps(data, indent=2) + "\n")
-                resp = b'{"ok":true}'
-                self.send_response(200)
+                # Never let an in-progress autosave downgrade a completed
+                # submission (which would also drop empty approvals).
+                if data.get("status") != "complete" and self._is_complete_on_disk():
+                    resp = b'{"ok":true,"skipped":"complete already saved"}'
+                    self.send_response(200)
+                else:
+                    self.feedback_path.write_text(json.dumps(data, indent=2) + "\n")
+                    resp = b'{"ok":true}'
+                    self.send_response(200)
             except (json.JSONDecodeError, OSError, ValueError) as e:
                 resp = json.dumps({"error": str(e)}).encode()
                 self.send_response(500)
@@ -435,14 +450,12 @@ def main() -> None:
         print(f"\n  Static viewer written to: {args.static}\n")
         sys.exit(0)
 
-    # Kill any existing process on the target port
     port = args.port
-    _kill_port(port)
     handler = partial(ReviewHandler, workspace, skill_name, feedback_path, previous, benchmark_path)
     try:
         server = HTTPServer(("127.0.0.1", port), handler)
     except OSError:
-        # Port still in use after kill attempt — find a free one
+        # Port already in use — fall back to an ephemeral free port
         server = HTTPServer(("127.0.0.1", 0), handler)
         port = server.server_address[1]
 

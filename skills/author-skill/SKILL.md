@@ -111,6 +111,7 @@ skill-name/
 ├── SKILL.md (required)
 │   ├── YAML frontmatter (name, description required)
 │   └── Markdown instructions
+├── agents/openai.yaml (required)
 └── Bundled Resources (optional)
     ├── scripts/    - Executable code for deterministic/repetitive tasks
     ├── references/ - Docs loaded into context as needed

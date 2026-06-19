@@ -12,26 +12,27 @@ Usage:
 Example:
     python aggregate_benchmark.py benchmarks/2026-01-15T10-30-00/
 
-The script supports two directory layouts:
+The script supports these directory layouts:
 
-    Workspace layout (from author-skill iterations):
+    Workspace layout (from author-skill iterations) — one run per config:
     <benchmark_dir>/
     └── eval-N/
         ├── with_skill/
-        │   ├── run-1/grading.json
-        │   └── run-2/grading.json
+        │   ├── outputs/
+        │   ├── transcript.md
+        │   ├── grading.json
+        │   └── timing.json
         └── without_skill/
+            └── grading.json
+
+    Repeated-runs layout — multiple run-* dirs per config:
+    <benchmark_dir>/
+    └── eval-N/
+        └── with_skill/
             ├── run-1/grading.json
             └── run-2/grading.json
 
-    Legacy layout (with runs/ subdirectory):
-    <benchmark_dir>/
-    └── runs/
-        └── eval-N/
-            ├── with_skill/
-            │   └── run-1/grading.json
-            └── without_skill/
-                └── run-1/grading.json
+    Legacy layout: either of the above nested under a runs/ subdirectory.
 """
 
 import argparse
@@ -101,15 +102,27 @@ def load_run_results(benchmark_dir: Path) -> dict:
         for config_dir in sorted(eval_dir.iterdir()):
             if not config_dir.is_dir():
                 continue
-            # Skip non-config directories (inputs, outputs, etc.)
-            if not list(config_dir.glob("run-*")):
+
+            # Determine layout: nested run-* dirs, or a single run stored
+            # directly in the config dir (grading.json/timing.json/outputs/).
+            run_dirs = sorted(config_dir.glob("run-*"))
+            if run_dirs:
+                run_specs = [(int(d.name.split("-")[1]), d) for d in run_dirs]
+            elif (
+                (config_dir / "grading.json").exists()
+                or (config_dir / "timing.json").exists()
+                or (config_dir / "outputs").is_dir()
+            ):
+                run_specs = [(1, config_dir)]
+            else:
+                # Skip non-config directories (inputs, outputs, etc.)
                 continue
+
             config = config_dir.name
             if config not in results:
                 results[config] = []
 
-            for run_dir in sorted(config_dir.glob("run-*")):
-                run_number = int(run_dir.name.split("-")[1])
+            for run_number, run_dir in run_specs:
                 grading_file = run_dir / "grading.json"
 
                 if not grading_file.exists():
@@ -203,13 +216,24 @@ def aggregate_results(results: dict) -> dict:
             "tokens": calculate_stats(tokens)
         }
 
-    # Calculate delta between the first two configs (if two exist)
-    if len(configs) >= 2:
-        primary = run_summary.get(configs[0], {})
-        baseline = run_summary.get(configs[1], {})
-    else:
-        primary = run_summary.get(configs[0], {}) if configs else {}
-        baseline = {}
+    # Choose the primary/baseline pair explicitly so the delta direction does
+    # not depend on dict ordering. Prefer known pairs; fall back to positional
+    # order only when no known pair is present.
+    known_pairs = [("with_skill", "without_skill"), ("new_skill", "old_skill")]
+    primary_config = baseline_config = None
+    for primary_name, baseline_name in known_pairs:
+        if primary_name in run_summary and baseline_name in run_summary:
+            primary_config, baseline_config = primary_name, baseline_name
+            break
+    if primary_config is None:
+        if len(configs) >= 2:
+            primary_config, baseline_config = configs[0], configs[1]
+        elif configs:
+            primary_config = configs[0]
+
+    # Compute delta as primary − baseline consistently.
+    primary = run_summary.get(primary_config, {}) if primary_config else {}
+    baseline = run_summary.get(baseline_config, {}) if baseline_config else {}
 
     delta_pass_rate = primary.get("pass_rate", {}).get("mean", 0) - baseline.get("pass_rate", {}).get("mean", 0)
     delta_time = primary.get("time_seconds", {}).get("mean", 0) - baseline.get("time_seconds", {}).get("mean", 0)

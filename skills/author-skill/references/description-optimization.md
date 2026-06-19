@@ -68,8 +68,9 @@ This step matters — bad eval queries lead to bad descriptions.
 ## Step 3: Run the optimization loop
 
 > This step needs a runtime that can invoke the agent headlessly — the bundled `run_loop.py` does so in a subprocess to
-> measure triggering. Where that isn't available, skip the automated loop and refine the description by hand from the
-> Step 1 queries (see `references/environments.md`).
+> measure triggering. It defaults to the Claude Code CLI; point it at another runtime's headless CLI with the
+> `AUTHOR_SKILL_AGENT_CMD` environment variable. Where no such CLI is available, skip the automated loop and refine the
+> description by hand from the Step 1 queries (see `references/environments.md`).
 
 Tell the user: "This will take some time — I'll run the optimization loop in the background and check on it
 periodically."

@@ -10,6 +10,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -17,13 +18,34 @@ from pathlib import Path
 from scripts.utils import parse_skill_md
 
 
+def resolve_agent_cmd() -> str:
+    """Resolve the headless agent CLI executable.
+
+    Reads the command from the ``AUTHOR_SKILL_AGENT_CMD`` env var (default
+    ``claude``) so this workflow can run under non-Claude runtimes (Codex,
+    Junie). Fails loudly with actionable guidance when the executable is not
+    on ``PATH``, instead of letting ``subprocess`` raise a bare
+    ``FileNotFoundError``. Kept identical to run_eval.py's resolver so both
+    entry points behave consistently.
+    """
+    executable = os.environ.get("AUTHOR_SKILL_AGENT_CMD", "claude")
+    if shutil.which(executable) is None:
+        raise RuntimeError(
+            f"Headless agent CLI {executable!r} not found on PATH. "
+            "The description-optimization loop needs a headless agent CLI; "
+            "install Claude Code or set AUTHOR_SKILL_AGENT_CMD to your "
+            "runtime's headless invocation."
+        )
+    return executable
+
+
 def _call_claude(prompt: str, model: str | None, timeout: int = 300) -> str:
-    """Run `claude -p` with the prompt on stdin and return the text response.
+    """Run the headless agent with the prompt on stdin and return the text.
 
     Prompt goes over stdin (not argv) because it embeds the full SKILL.md
     body and can easily exceed comfortable argv length.
     """
-    cmd = ["claude", "-p", "--output-format", "text"]
+    cmd = [resolve_agent_cmd(), "-p", "--output-format", "text"]
     if model:
         cmd.extend(["--model", model])
 

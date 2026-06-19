@@ -28,7 +28,15 @@ Execute this task:
 - Input files: <eval files if any, or "none">
 - Save outputs to: <workspace>/iteration-<N>/eval-<ID>/with_skill/outputs/
 - Outputs to save: <what the user cares about — e.g., "the .docx file", "the final CSV">
+- Also save a run transcript as `transcript.md` in the run directory
+  (`<workspace>/iteration-<N>/eval-<ID>/with_skill/`, alongside `outputs/`),
+  recording the eval prompt, the steps and tools/scripts used, and the final
+  result. Graders read this transcript (as `transcript_path`) to verify process
+  and timing assertions.
 ```
+
+Each run directory (`<workspace>/iteration-<N>/eval-<ID>/<config>/`) therefore holds
+`outputs/` and `transcript.md`, with `grading.json` and `timing.json` added later.
 
 **Baseline run** (same prompt, but the baseline depends on context):
 

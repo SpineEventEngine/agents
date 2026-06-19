@@ -9,6 +9,7 @@ import argparse
 import json
 import os
 import select
+import shutil
 import subprocess
 import sys
 import time
@@ -17,6 +18,26 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 from scripts.utils import parse_skill_md
+
+
+def resolve_agent_cmd() -> str:
+    """Resolve the headless agent CLI executable.
+
+    Reads the command from the ``AUTHOR_SKILL_AGENT_CMD`` env var (default
+    ``claude``) so this workflow can run under non-Claude runtimes (Codex,
+    Junie). Fails loudly with actionable guidance when the executable is not
+    on ``PATH``, instead of letting ``subprocess`` raise a bare
+    ``FileNotFoundError``.
+    """
+    executable = os.environ.get("AUTHOR_SKILL_AGENT_CMD", "claude")
+    if shutil.which(executable) is None:
+        raise RuntimeError(
+            f"Headless agent CLI {executable!r} not found on PATH. "
+            "The description-optimization loop needs a headless agent CLI; "
+            "install Claude Code or set AUTHOR_SKILL_AGENT_CMD to your "
+            "runtime's headless invocation."
+        )
+    return executable
 
 
 def find_project_root() -> Path:
@@ -68,7 +89,7 @@ def run_single_query(
         command_file.write_text(command_content)
 
         cmd = [
-            "claude",
+            resolve_agent_cmd(),
             "-p", query,
             "--output-format", "stream-json",
             "--verbose",
@@ -93,9 +114,78 @@ def run_single_query(
         triggered = False
         start_time = time.time()
         buffer = ""
-        # Track state for stream event detection
+        # Track state for stream event detection. We keep scanning ALL events
+        # rather than early-returning on the first non-skill tool use: a
+        # realistic prompt may Read the user's input file (or make some other
+        # tool call) and only consult the skill afterwards. We conclude
+        # triggered=True as soon as any tool use references the temporary
+        # skill (its command file / temp skill name), and return False only on
+        # message_stop, the final result event, timeout, or process exit with
+        # no match.
         pending_tool_name = None
         accumulated_json = ""
+
+        def scan_line(line: str) -> bool | None:
+            """Parse one JSON event line; return True if the skill was
+            referenced, False if the stream signalled a definite end with no
+            match, or None to keep scanning."""
+            nonlocal pending_tool_name, accumulated_json
+            line = line.strip()
+            if not line:
+                return None
+
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                return None
+
+            # Early detection via stream events
+            if event.get("type") == "stream_event":
+                se = event.get("event", {})
+                se_type = se.get("type", "")
+
+                if se_type == "content_block_start":
+                    cb = se.get("content_block", {})
+                    if cb.get("type") == "tool_use":
+                        # Begin accumulating this tool's input. Do NOT
+                        # early-return for non-Skill/Read tools — the skill
+                        # may be consulted in a later block.
+                        pending_tool_name = cb.get("name", "")
+                        accumulated_json = ""
+
+                elif se_type == "content_block_delta" and pending_tool_name:
+                    delta = se.get("delta", {})
+                    if delta.get("type") == "input_json_delta":
+                        accumulated_json += delta.get("partial_json", "")
+                        if clean_name in accumulated_json:
+                            return True
+
+                elif se_type == "content_block_stop":
+                    # Block finished without referencing the skill; reset and
+                    # keep scanning subsequent blocks.
+                    pending_tool_name = None
+                    accumulated_json = ""
+
+                elif se_type == "message_stop":
+                    return False
+
+            # Fallback: full assistant message
+            elif event.get("type") == "assistant":
+                message = event.get("message", {})
+                for content_item in message.get("content", []):
+                    if content_item.get("type") != "tool_use":
+                        continue
+                    tool_name = content_item.get("name", "")
+                    tool_input = content_item.get("input", {})
+                    if tool_name == "Skill" and clean_name in tool_input.get("skill", ""):
+                        return True
+                    if tool_name == "Read" and clean_name in tool_input.get("file_path", ""):
+                        return True
+
+            elif event.get("type") == "result":
+                return False
+
+            return None
 
         try:
             while time.time() - start_time < timeout:
@@ -103,6 +193,17 @@ def run_single_query(
                     remaining = process.stdout.read()
                     if remaining:
                         buffer += remaining.decode("utf-8", errors="replace")
+                    # Parse any remaining buffered stdout BEFORE deciding, so a
+                    # skill read in the stream's tail isn't missed.
+                    while "\n" in buffer:
+                        line, buffer = buffer.split("\n", 1)
+                        verdict = scan_line(line)
+                        if verdict is not None:
+                            return verdict
+                    if buffer.strip():
+                        verdict = scan_line(buffer)
+                        if verdict is not None:
+                            return verdict
                     break
 
                 ready, _, _ = select.select([process.stdout], [], [], 1.0)
@@ -116,59 +217,9 @@ def run_single_query(
 
                 while "\n" in buffer:
                     line, buffer = buffer.split("\n", 1)
-                    line = line.strip()
-                    if not line:
-                        continue
-
-                    try:
-                        event = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
-
-                    # Early detection via stream events
-                    if event.get("type") == "stream_event":
-                        se = event.get("event", {})
-                        se_type = se.get("type", "")
-
-                        if se_type == "content_block_start":
-                            cb = se.get("content_block", {})
-                            if cb.get("type") == "tool_use":
-                                tool_name = cb.get("name", "")
-                                if tool_name in ("Skill", "Read"):
-                                    pending_tool_name = tool_name
-                                    accumulated_json = ""
-                                else:
-                                    return False
-
-                        elif se_type == "content_block_delta" and pending_tool_name:
-                            delta = se.get("delta", {})
-                            if delta.get("type") == "input_json_delta":
-                                accumulated_json += delta.get("partial_json", "")
-                                if clean_name in accumulated_json:
-                                    return True
-
-                        elif se_type in ("content_block_stop", "message_stop"):
-                            if pending_tool_name:
-                                return clean_name in accumulated_json
-                            if se_type == "message_stop":
-                                return False
-
-                    # Fallback: full assistant message
-                    elif event.get("type") == "assistant":
-                        message = event.get("message", {})
-                        for content_item in message.get("content", []):
-                            if content_item.get("type") != "tool_use":
-                                continue
-                            tool_name = content_item.get("name", "")
-                            tool_input = content_item.get("input", {})
-                            if tool_name == "Skill" and clean_name in tool_input.get("skill", ""):
-                                triggered = True
-                            elif tool_name == "Read" and clean_name in tool_input.get("file_path", ""):
-                                triggered = True
-                            return triggered
-
-                    elif event.get("type") == "result":
-                        return triggered
+                    verdict = scan_line(line)
+                    if verdict is not None:
+                        return verdict
         finally:
             # Clean up process on any exit path (return, exception, timeout)
             if process.poll() is None:

@@ -652,6 +652,7 @@
     let feedbackMap = {};  // run_id -> feedback text
     let currentIndex = 0;
     let visitedRuns = new Set();
+    let submitted = false;  // true once a status:"complete" submit has succeeded
 
     // ---- Init ----
     async function init() {
@@ -992,6 +993,10 @@
 
     // ---- Feedback (saved to server -> feedback.json) ----
     function saveCurrentFeedback() {
+      // Once a "complete" submit has succeeded, never downgrade it back to
+      // "in_progress" (which would also drop empty approvals). Stop autosaving.
+      if (submitted) return;
+
       const run = EMBEDDED_DATA.runs[currentIndex];
       const text = document.getElementById("feedback").value;
 
@@ -1046,9 +1051,12 @@
         headers: { "Content-Type": "application/json" },
         body: payload,
       }).then(() => {
+        // Mark as submitted so later autosaves can't downgrade "complete".
+        submitted = true;
         document.getElementById("done-overlay").classList.add("visible");
       }).catch(() => {
         // Server not available (static mode) — download as file
+        submitted = true;
         const blob = new Blob([payload], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -1061,8 +1069,8 @@
     }
 
     function closeDoneDialog() {
-      // Reset status back to in_progress
-      saveCurrentFeedback();
+      // Do NOT re-save here: the "complete" submit is the canonical state and
+      // an "in_progress" autosave would downgrade it and drop empty approvals.
       document.getElementById("done-overlay").classList.remove("visible");
     }
 

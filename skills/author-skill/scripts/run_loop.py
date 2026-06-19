@@ -33,9 +33,16 @@ def split_eval_set(eval_set: list[dict], holdout: float, seed: int = 42) -> tupl
     random.shuffle(trigger)
     random.shuffle(no_trigger)
 
-    # Calculate split points
-    n_trigger_test = max(1, int(len(trigger) * holdout))
-    n_no_trigger_test = max(1, int(len(no_trigger) * holdout))
+    # Calculate split points. Clamp the test size so each non-empty class keeps
+    # at least one training example (test = N-1 at most for N>=1); an empty class
+    # contributes 0/0 and must not produce a negative slice index.
+    def test_count(n: int) -> int:
+        if n == 0:
+            return 0
+        return min(int(n * holdout), n - 1)
+
+    n_trigger_test = test_count(len(trigger))
+    n_no_trigger_test = test_count(len(no_trigger))
 
     # Split
     test_set = trigger[:n_trigger_test] + no_trigger[:n_no_trigger_test]

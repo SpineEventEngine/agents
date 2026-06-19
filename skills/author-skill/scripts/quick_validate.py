@@ -6,8 +6,60 @@ Quick validation script for skills - minimal version
 import sys
 import os
 import re
-import yaml
 from pathlib import Path
+
+
+def parse_frontmatter(frontmatter_text):
+    """Parse the limited frontmatter subset into a dict of top-level keys.
+
+    Supports the small YAML subset used by SKILL.md frontmatter:
+    - plain scalars (``key: value``), with surrounding quotes stripped;
+    - block scalars (``key: >``/``|``/``>-``/``|-``) whose following indented
+      lines are folded into one space-joined string;
+    - nested mappings (``key:`` followed by indented ``child: value`` lines),
+      recognized by their presence as a key (child keys are not top-level).
+    """
+    result = {}
+    lines = frontmatter_text.split("\n")
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        # Skip blank lines and indented (child) lines at the top level.
+        if not line.strip() or line.startswith((" ", "\t")):
+            i += 1
+            continue
+
+        match = re.match(r'^([^:\s][^:]*):(.*)$', line)
+        if not match:
+            i += 1
+            continue
+
+        key = match.group(1).strip()
+        value = match.group(2).strip()
+
+        if value in (">", "|", ">-", "|-"):
+            # Block scalar: fold following indented lines into one string.
+            continuation = []
+            i += 1
+            while i < len(lines) and (lines[i].startswith(" ") or lines[i].startswith("\t")):
+                continuation.append(lines[i].strip())
+                i += 1
+            result[key] = " ".join(continuation)
+            continue
+
+        if value == "":
+            # Empty value: either a nested mapping (indented child lines
+            # follow) or simply an empty scalar. Either way the key is present.
+            result[key] = ""
+            i += 1
+            continue
+
+        # Plain scalar: strip surrounding quotes.
+        result[key] = value.strip('"').strip("'")
+        i += 1
+
+    return result
+
 
 def validate_skill(skill_path):
     """Basic validation of a skill"""
@@ -30,13 +82,10 @@ def validate_skill(skill_path):
 
     frontmatter_text = match.group(1)
 
-    # Parse YAML frontmatter
-    try:
-        frontmatter = yaml.safe_load(frontmatter_text)
-        if not isinstance(frontmatter, dict):
-            return False, "Frontmatter must be a YAML dictionary"
-    except yaml.YAMLError as e:
-        return False, f"Invalid YAML in frontmatter: {e}"
+    # Parse the limited frontmatter subset with stdlib code.
+    frontmatter = parse_frontmatter(frontmatter_text)
+    if not isinstance(frontmatter, dict):
+        return False, "Frontmatter must be a YAML dictionary"
 
     # Define allowed properties
     ALLOWED_PROPERTIES = {'name', 'description', 'license', 'allowed-tools', 'metadata', 'compatibility'}
