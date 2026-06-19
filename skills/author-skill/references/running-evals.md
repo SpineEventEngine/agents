@@ -13,7 +13,7 @@ Put results in `<skill-name>-workspace/` as a sibling to the skill directory. Wi
 iteration (`iteration-1/`, `iteration-2/`, etc.) and within that, each test case gets a directory (`eval-0/`, `eval-1/`,
 etc.). Don't create all of this upfront — just create directories as you go.
 
-### Step 1: Spawn all runs (with-skill AND baseline) in the same turn
+## Step 1: Spawn all runs (with-skill AND baseline) in the same turn
 
 For each test case, spawn two subagents in the same turn — one with the skill, one without. This is important: don't
 spawn the with-skill runs first and then come back for baselines later. Launch everything at once so it all finishes
@@ -51,7 +51,7 @@ iterations.
 }
 ```
 
-### Step 2: While runs are in progress, draft assertions
+## Step 2: While runs are in progress, draft assertions
 
 Don't just wait for the runs to finish — you can use this time productively. Draft quantitative assertions for each test
 case and explain them to the user. If assertions already exist in `evals/evals.json`, review them and explain what they
@@ -64,7 +64,7 @@ design quality) are better evaluated qualitatively — don't force assertions on
 Update the `eval_metadata.json` files and `evals/evals.json` with the assertions once drafted. Also explain to the user
 what they'll see in the viewer — both the qualitative outputs and the quantitative benchmark.
 
-### Step 3: As runs complete, capture timing data
+## Step 3: As runs complete, capture timing data
 
 When each subagent task completes, you receive a notification containing `total_tokens` and `duration_ms`. Save this
 data immediately to `timing.json` in the run directory:
@@ -80,7 +80,7 @@ data immediately to `timing.json` in the run directory:
 This is the only opportunity to capture this data — it comes through the task notification and isn't persisted
 elsewhere. Process each notification as it arrives rather than trying to batch them.
 
-### Step 4: Grade, aggregate, and launch the viewer
+## Step 4: Grade, aggregate, and launch the viewer
 
 Once all runs are done:
 
@@ -125,7 +125,7 @@ Note: please use generate_review.py to create the viewer; there's no need to wri
    click through each test case and leave feedback, 'Benchmark' shows the quantitative comparison. When you're done,
    come back here and let me know."
 
-### What the user sees in the viewer
+## What the user sees in the viewer
 
 The "Outputs" tab shows one test case at a time:
 
@@ -142,7 +142,7 @@ breakdowns and analyst observations.
 Navigation is via prev/next buttons or arrow keys. When done, they click "Submit All Reviews" which saves all feedback
 to `feedback.json`.
 
-### Step 5: Read the feedback
+## Step 5: Read the feedback
 
 When the user tells you they're done, read `feedback.json`:
 
