@@ -1,0 +1,11 @@
+interface:
+  display_name: "Doc Co-authoring"
+  short_description: "Co-author a doc through context, drafting, and reader-testing"
+  default_prompt: >-
+    Use $doc-coauthoring to collaboratively co-author a document (proposal,
+    spec, decision doc, README, or design doc) section by section: gather
+    context, draft and refine each section, then reader-test the result against
+    a fresh, context-free agent before finishing. Trigger when the user wants to
+    write a doc through an interactive workflow. For directly writing or editing
+    existing docs without the interview loop, use $writer; hand the finished
+    Markdown to $writer for final polish and $review-docs before a PR.
