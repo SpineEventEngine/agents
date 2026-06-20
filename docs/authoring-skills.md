@@ -1,7 +1,17 @@
 # Authoring skills
 
-How to create or edit a skill in this repository. For a guided, scaffolded
-workflow, use the `author-skill` skill — this document is its reference.
+How to create or edit a skill in this repository. Use the `author-skill` skill for
+the general authoring workflow (draft → test → review → improve); this document is
+the Spine-specific layer of conventions that workflow does not itself enforce, so
+follow both.
+
+> **Heads-up:** `author-skill` is derived from Anthropic's `skill-creator`
+> (Apache-2.0; license text in `skills/author-skill/LICENSE.txt`) and is being
+> adapted and extended for this repository's needs, so expect it to diverge from
+> the upstream over time. It doesn't yet match every convention here — notably,
+> its `SKILL.md` keeps the upstream guide's structure rather than the `Workflow` /
+> `Repo Notes` / `Report` shape — so when authoring a *new* skill, treat this
+> document (not `author-skill`'s current form) as the source of truth.
 
 ## Anatomy of a skill
 
@@ -26,7 +36,7 @@ Frontmatter followed by the body:
 
     ---
     name: <kebab-case-name>          # == directory name
-    description: >                   # one folded paragraph, < 1024 characters.
+    description: >                   # one folded paragraph, < 1024 chars, no angle brackets
       What the skill does AND when to use it — this is the text an agent matches
       a request against, so make the trigger conditions explicit.
     ---
@@ -67,8 +77,9 @@ Keep `default_prompt` short and aligned with the `SKILL.md` description.
 
 Put a skill's own helpers in `skills/<name>/scripts/`; promote a helper to the
 top-level `scripts/` only when more than one skill (or an agent hook) uses it.
-Make scripts executable and POSIX `bash`. Source files that carry code get the
-standard Apache/TeamDev copyright header.
+Make scripts executable; write them as POSIX `bash` or Python. Source files that
+carry code get the standard Apache/TeamDev copyright header. Python helpers should
+rely only on the standard library so they run without extra installs.
 
 ## Validate before opening a PR
 
@@ -80,7 +91,8 @@ standard Apache/TeamDev copyright header.
   `grep -rnE '(^|[^[:alnum:]])(\.agents/)?tasks/' skills/<name>/` returns nothing
   that links to or cites `.agents/tasks/` or `tasks/` (the boundary guard avoids
   matching unrelated words like `subtasks/`).
-- Any shipped script parses (`bash -n`) and, where practical, has a test.
+- Any shipped script parses — shell scripts with `bash -n`, Python helpers with
+  `python -m py_compile` — and, where practical, has a test.
 
 ## Remember: this is production
 
