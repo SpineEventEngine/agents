@@ -213,8 +213,10 @@ def generate_html(data: dict, auto_refresh: bool = False, skill_name: str = "") 
         test_passed = h.get("test_passed")
         test_total = h.get("test_total")
         description = h.get("description", "")
-        train_results = h.get("train_results", h.get("results", []))
-        test_results = h.get("test_results", [])
+        # Coalesce to [] so a disabled/empty holdout (test_results stored as
+        # None) never reaches aggregate_runs(), which iterates the list.
+        train_results = h.get("train_results", h.get("results", [])) or []
+        test_results = h.get("test_results") or []
 
         # Compute aggregate correct/total runs across all retries
         def aggregate_runs(results: list[dict]) -> tuple[int, int]:

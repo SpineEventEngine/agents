@@ -68,6 +68,16 @@ def _embed_json(obj: object) -> str:
     )
 
 
+def _human_size(num_bytes: int) -> str:
+    """Render a byte count as a short human-readable string (e.g. "3.4 MiB")."""
+    size = float(num_bytes)
+    for unit in ("B", "KiB", "MiB", "GiB"):
+        if size < 1024 or unit == "GiB":
+            return f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{size:.1f} GiB"
+
+
 def get_mime_type(path: Path) -> str:
     ext = path.suffix.lower()
     if ext in MIME_OVERRIDES:
@@ -156,11 +166,37 @@ def build_run(root: Path, run_dir: Path) -> dict | None:
         # Cap embedded files to avoid pathological HTML bloat from a large
         # generated tree (e.g. a built site under outputs/).
         max_embedded = 100
+        # Byte caps so a few large artifacts (PDFs, XLSX, binaries) can't
+        # exhaust memory or produce an unusably huge page. Oversized files —
+        # individually over the per-file cap, or once the running total is hit —
+        # are not base64-inlined; we emit a lightweight "too large" note (the
+        # viewer renders type "error" as a message and still shows a Download
+        # header button) and skip reading their contents.
+        max_file_bytes = 2 * 1024 * 1024       # 2 MiB per file
+        max_total_bytes = 20 * 1024 * 1024     # 20 MiB cumulative
+        embedded_total = 0
         for f in all_files[:max_embedded]:
+            rel_name = str(f.relative_to(outputs_dir)).replace("\\", "/")
+            # Decide from the file size on disk (stat) before reading bytes.
+            try:
+                size = f.stat().st_size
+            except OSError:
+                size = 0
+            if size > max_file_bytes or embedded_total + size > max_total_bytes:
+                output_files.append({
+                    "name": rel_name,
+                    "type": "error",
+                    "content": (
+                        f"({_human_size(size)}) too large to preview inline; "
+                        f"open the file directly at {f}"
+                    ),
+                })
+                continue
             embedded = embed_file(f)
+            embedded_total += size
             # Label by path relative to outputs/ so nested files are
             # distinguishable (embed_file only knows the bare file name).
-            embedded["name"] = str(f.relative_to(outputs_dir)).replace("\\", "/")
+            embedded["name"] = rel_name
             output_files.append(embedded)
         omitted = len(all_files) - max_embedded
         if omitted > 0:

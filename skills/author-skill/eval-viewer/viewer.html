@@ -1198,12 +1198,17 @@
         return m + suffix + " ± " + s + suffix;
       }
 
-      function deltaClass(val) {
+      // Choose the delta color class by metric polarity. For pass_rate, higher
+      // is better, so a positive delta is good. For cost metrics (time, tokens)
+      // lower is better, so a positive delta (slower / more tokens) is a
+      // regression and must take the "negative" treatment. A zero/neutral delta
+      // stays neutral.
+      function deltaClass(val, higherIsBetter = true) {
         if (!val) return "";
         const n = parseFloat(val);
-        if (n > 0) return "benchmark-delta-positive";
-        if (n < 0) return "benchmark-delta-negative";
-        return "";
+        if (n === 0 || Number.isNaN(n)) return "";
+        const isGood = higherIsBetter ? n > 0 : n < 0;
+        return isGood ? "benchmark-delta-positive" : "benchmark-delta-negative";
       }
 
       // Discover config names dynamically (everything except "delta"). Order the
@@ -1248,7 +1253,7 @@
         html += "<tr><td><strong>Time (s)</strong></td>";
         html += "<td>" + fmtStat(a.time_seconds, false) + "</td>";
         html += "<td>" + fmtStat(b.time_seconds, false) + "</td>";
-        html += '<td class="' + deltaClass(delta.time_seconds) + '">' + (delta.time_seconds ? delta.time_seconds + "s" : "—") + "</td></tr>";
+        html += '<td class="' + deltaClass(delta.time_seconds, false) + '">' + (delta.time_seconds ? delta.time_seconds + "s" : "—") + "</td></tr>";
       }
 
       // Tokens (only show row if data exists)
@@ -1256,7 +1261,7 @@
         html += "<tr><td><strong>Tokens</strong></td>";
         html += "<td>" + fmtStat(a.tokens, false) + "</td>";
         html += "<td>" + fmtStat(b.tokens, false) + "</td>";
-        html += '<td class="' + deltaClass(delta.tokens) + '">' + (delta.tokens || "—") + "</td></tr>";
+        html += '<td class="' + deltaClass(delta.tokens, false) + '">' + (delta.tokens || "—") + "</td></tr>";
       }
 
       html += "</tbody></table>";

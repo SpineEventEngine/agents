@@ -100,12 +100,17 @@ def run_single_query(
     validated against a live Claude Code run.
     """
     unique_id = uuid.uuid4().hex[:8]
-    clean_name = f"{skill_name}-skill-{unique_id}"
+    # Keep the temp skill name within the validator's 64-char limit. The suffix
+    # is "-skill-" (7 chars) plus the 8-char unique id, so the base derived from
+    # skill_name must be capped at 64 - 7 - 8 = 49 chars. Each run is isolated
+    # with exactly one candidate skill, so truncating the base is safe.
+    base = skill_name[:49]
+    clean_name = f"{base}-skill-{unique_id}"
     # Match the per-skill prefix (not the unique id) when detecting a trigger.
     # Each run is isolated in its own temp dir with exactly one candidate skill,
     # so the prefix match only ever resolves to this run's skill; the unique id
     # keeps the on-disk skill name distinct from the real skill being optimized.
-    trigger_marker = f"{skill_name}-skill-"
+    trigger_marker = f"{base}-skill-"
     # Per-invocation isolation: a fresh temp dir is this run's project root, so
     # the agent sees ONLY this run's single candidate skill (no sibling copies).
     run_root = tempfile.mkdtemp(prefix="author-skill-eval-")

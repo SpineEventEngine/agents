@@ -14,11 +14,17 @@ import fnmatch
 import sys
 import zipfile
 from pathlib import Path
+
+# Ensure the skill root (parent of this ``scripts/`` dir) is importable so the
+# ``from scripts....`` imports below resolve whether this file is launched by
+# path (``./skills/author-skill/scripts/package_skill.py``) or via ``python -m``.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from scripts.quick_validate import validate_skill
 
 # Patterns to exclude when packaging skills.
 EXCLUDE_DIRS = {"__pycache__", "node_modules"}
-EXCLUDE_GLOBS = {"*.pyc"}
+EXCLUDE_GLOBS = {"*.pyc", "*.skill"}
 EXCLUDE_FILES = {".DS_Store"}
 # Directories excluded only at the skill root (not when nested deeper).
 ROOT_EXCLUDE_DIRS = {"evals"}

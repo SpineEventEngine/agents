@@ -245,6 +245,11 @@ The shape of it:
 1. **Spawn all runs in the same turn** — for each test case, one *with-skill* and
    one *baseline* subagent, into `<skill-name>-workspace/iteration-<N>/eval-<ID>/`.
    (Baseline = no skill when creating; the snapshotted old version when improving.)
+   Spawning evaluation subagents is delegated work — before doing so, confirm the
+   user has authorized it (some runtimes require explicit approval to spawn
+   agents). If it isn't authorized or subagents aren't available, run the evals
+   inline instead (the no-subagent path in
+   [`references/environments.md`](references/environments.md)).
 2. **While runs are in progress, draft the quantitative assertions** and explain
    them to the user.
 3. **As each run completes, capture its `total_tokens`/`duration_ms`** to

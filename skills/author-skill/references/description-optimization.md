@@ -68,8 +68,12 @@ Present the eval set to the user for review using the HTML template:
       `eval-viewer/generate_review.py`. The escapes stay valid JSON and `JSON.parse` restores the
       originals; without them a query containing `</script>` closes the tag early and can run
       injected markup.
-    - `__SKILL_NAME_PLACEHOLDER__` → the skill's name
-    - `__SKILL_DESCRIPTION_PLACEHOLDER__` → the skill's current description
+    - `__SKILL_NAME_PLACEHOLDER__` → the skill's name, HTML-escaped first: replace `&`, `<`, and
+      `>` with `&amp;`, `&lt;`, and `&gt;`. Like the eval-data escaping above, this stops injected
+      markup in the name from running when the review page opens.
+    - `__SKILL_DESCRIPTION_PLACEHOLDER__` → the skill's current description, HTML-escaped the same
+      way (replace `&`, `<`, and `>` with `&amp;`, `&lt;`, and `&gt;`). A description containing
+      markup such as `</span><script>…</script>` would otherwise execute when the page is opened.
 3. Write it to a temp file (e.g. `eval_review_<skill-name>.html`) and open it in a browser.
 4. The user can edit queries, toggle should-trigger, add/remove entries, then click "Export Eval
    Set"
@@ -93,19 +97,23 @@ This step matters — bad eval queries lead to bad descriptions.
 Tell the user: "This will take some time — I'll run the optimization loop in the background and
 check on it periodically."
 
-Save the eval set to the workspace, then run in the background:
+Save the eval set to the workspace, then run in the background. The `scripts.run_loop` module
+resolves only when the current directory is the author-skill root (from elsewhere, `python -m
+scripts.run_loop` finds the repo-level `scripts/` dir and fails with `No module named
+scripts.run_loop`), so `cd` into it first:
 
 ```bash
-python -m scripts.run_loop \
+cd <author-skill-path> && python -m scripts.run_loop \
   --eval-set <path-to-trigger-eval.json> \
   --skill-path <path-to-skill> \
-  --model <model-id-powering-this-session> \
   --max-iterations 5 \
   --verbose
 ```
 
-Use the model ID from your system prompt (the one powering the current session) so the triggering
-test matches what the user actually experiences.
+Omitting `--model` lets the loop use the Claude CLI's default model. If you do pass `--model`, give
+it a Claude alias the CLI accepts (`fable`, `opus`, `sonnet`, or `haiku`) — not the model ID from
+your system prompt: that ID may name a non-Claude model (e.g. in a Codex/OpenAI session), and the
+CLI aborts on anything outside those aliases.
 
 While it runs, periodically tail the output to give the user updates on which iteration it's on and
 what the scores look like.

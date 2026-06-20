@@ -77,9 +77,9 @@ Keep `default_prompt` short and aligned with the `SKILL.md` description.
 
 Put a skill's own helpers in `skills/<name>/scripts/`; promote a helper to the
 top-level `scripts/` only when more than one skill (or an agent hook) uses it.
-Make scripts executable and POSIX `bash`. Source files that carry code get the
-standard Apache/TeamDev copyright header. Python helpers should rely only on the
-standard library so they run without extra installs.
+Make scripts executable; write them as POSIX `bash` or Python. Source files that
+carry code get the standard Apache/TeamDev copyright header. Python helpers should
+rely only on the standard library so they run without extra installs.
 
 ## Validate before opening a PR
 
@@ -91,7 +91,8 @@ standard library so they run without extra installs.
   `grep -rnE '(^|[^[:alnum:]])(\.agents/)?tasks/' skills/<name>/` returns nothing
   that links to or cites `.agents/tasks/` or `tasks/` (the boundary guard avoids
   matching unrelated words like `subtasks/`).
-- Any shipped script parses (`bash -n`) and, where practical, has a test.
+- Any shipped script parses — shell scripts with `bash -n`, Python helpers with
+  `python -m py_compile` — and, where practical, has a test.
 
 ## Remember: this is production
 
