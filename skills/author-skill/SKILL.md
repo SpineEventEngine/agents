@@ -79,7 +79,7 @@ input/output formats observed. The user may need to fill the gaps, and should co
 proceeding to the next step.
 
 These are the things to pin down — but resolve them from the conversation where you can, and when
-you do need to ask, ask **one question at a time** (per this repo's `AGENTS.md`), not all at once:
+you do need to ask, ask **one question at a time**, not all at once:
 
 1. What should this skill enable the agent to do?
 2. When should this skill trigger? (what user phrases/contexts)

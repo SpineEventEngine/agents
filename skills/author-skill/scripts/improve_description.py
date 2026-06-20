@@ -15,6 +15,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Ensure the skill root (parent of this ``scripts/`` dir) is importable so the
+# ``from scripts....`` import below resolves whether this file is launched by
+# path (``./skills/author-skill/scripts/improve_description.py``) or via ``python -m``.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from scripts.utils import parse_skill_md
 
 
@@ -76,7 +81,7 @@ def improve_description(
     current_description: str,
     eval_results: dict,
     history: list[dict],
-    model: str,
+    model: str | None,
     test_results: dict | None = None,
     log_dir: Path | None = None,
     iteration: int | None = None,
@@ -203,6 +208,11 @@ Please respond with only the new description text in <new_description> tags, not
         transcript["rewrite_description"] = shortened
         transcript["rewrite_char_count"] = len(shortened)
         description = shortened
+
+    # Strip angle brackets: quick_validate.py forbids ``<``/``>`` in the
+    # ``description`` frontmatter, so a model-proposed description containing
+    # them would fail validation when written back to SKILL.md.
+    description = description.replace("<", "").replace(">", "")
 
     transcript["final_description"] = description
 

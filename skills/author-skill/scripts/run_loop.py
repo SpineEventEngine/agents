@@ -15,6 +15,11 @@ import time
 import webbrowser
 from pathlib import Path
 
+# Ensure the skill root (parent of this ``scripts/`` dir) is importable so the
+# ``from scripts....`` imports below resolve whether this file is launched by
+# path (``./skills/author-skill/scripts/run_loop.py``) or via ``python -m``.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from scripts.generate_report import generate_html
 from scripts.improve_description import improve_description
 from scripts.run_eval import run_eval

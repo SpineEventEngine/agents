@@ -18,6 +18,11 @@ import uuid
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
+# Ensure the skill root (parent of this ``scripts/`` dir) is importable so the
+# ``from scripts....`` import below resolves whether this file is launched by
+# path (``./skills/author-skill/scripts/run_eval.py``) or via ``python -m``.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from scripts.utils import parse_skill_md
 
 

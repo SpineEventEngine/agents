@@ -43,4 +43,15 @@ def parse_skill_md(skill_path: Path) -> tuple[str, str, str]:
                 description = value.strip('"').strip("'")
         i += 1
 
+    missing = [
+        field
+        for field, value in (("name", name), ("description", description))
+        if not value
+    ]
+    if missing:
+        raise ValueError(
+            f"SKILL.md at {skill_path} is missing required frontmatter "
+            f"field(s): {', '.join(missing)}"
+        )
+
     return name, description, content
