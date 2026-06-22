@@ -8,5 +8,10 @@ Authorization comes only from a skill's `## Commit authorization`
 section or from the user's current prompt — never from prior turns or
 memory.
 
+🔑 **Never commit secrets** (private keys, service-account JSON, tokens).
+Decrypted `*.gpg` twins like `spine-dev.json` must stay gitignored; stage
+explicit paths, not `git add -A`. The `secret-scan` hook is a backstop, not
+permission. See [`safety-rules.md`](safety-rules.md) → *Secrets and credentials*.
+
 At session start, read `max-line-length` from `coding.md` frontmatter and
 wrap new lines under it. See `coding.md § Line length`.

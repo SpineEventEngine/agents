@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+#
+# Shared pre-commit hook: refuse a commit that introduces a credential.
+#
+# Installed by routing Git to this directory via
+#   git config core.hooksPath .agents/scripts/git-hooks
+# which `init-submodules` and `./config/pull` set up. Because it lives at the Git
+# layer, it protects EVERY committer — any agent (Claude, Codex, Junie) and any
+# human — not just the tool that happens to have a PreToolUse gate.
+#
+# Fail-open when the scanner cannot be found (e.g. a freshly-added worktree whose
+# `.agents/shared` submodule is not initialized yet): a missing control must never
+# wedge the user's commits. The PreToolUse gate and the .gitignore patterns still
+# apply in that window, and the next session bootstrap restores this hook.
+
+hook_dir=$(cd "$(dirname "$0")" && pwd)
+scanner="$hook_dir/../secret-scan.sh"
+
+[ -x "$scanner" ] || exit 0
+
+# Exits 2 (and prints a report) when a secret is staged; Git aborts the commit
+# on any non-zero status. Exits 0 when the staged content is clean.
+"$scanner" staged
