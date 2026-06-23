@@ -5,6 +5,36 @@
 - ❌ Never use reflection or unsafe code without an explicit approval.
 - ❌ No analytics or telemetry code.
 - ❌ No blocking calls inside coroutines.
+- ❌ Never commit secrets — see *Secrets and credentials* below.
+
+## Secrets and credentials
+
+**Never commit secrets.** Private keys, service-account JSON, SSH keys, tokens,
+and credential property files must never enter Git — not in a commit, not in a
+branch, not in a stash that later gets pushed.
+
+The specific trap in this codebase: encrypted credentials are committed as
+`.github/keys/*.gpg`, and `config/scripts/decrypt.sh` writes their **plaintext
+twin** beside the build (e.g. `spine-dev-framework-ci.json.gpg` →
+`spine-dev.json`) at test / CI / publish time. Those decrypted twins are
+gitignored by `config`'s `.gitignore` — and stay ignored only while that block is
+left intact. A real incident pushed a decrypted key to GitHub when a stale
+`.gitignore` left it un-ignored and a broad `git add` swept it in.
+
+- **Stage deliberately.** Prefer explicit paths over `git add -A` / `git add .`.
+  Before committing, read `git status` and `git diff --cached --stat` and confirm
+  every staged path is one you meant to add.
+- **Never stage an untracked file you did not create** just to tidy the tree — a
+  decrypted key looks exactly like that.
+- **The `secret-scan` hook is a backstop, not permission.** A shared `pre-commit`
+  hook and a PreToolUse gate (both call `.agents/scripts/secret-scan.sh`) block a
+  commit that carries a credential. If one fires, fix the file — do not force-add,
+  amend around it, or disable the hook.
+- **Genuine non-secrets** (a public certificate, a documented example, a test
+  fixture) can be exempted with a repo-root `.secret-scan-allow` entry or an
+  inline `secret-scan:allow` marker — use sparingly, never on a real key.
+- If a secret is ever committed, treat it as **compromised**: rotate it, then
+  purge it from history. Removing it in a later commit is not enough.
 
 ## Commits and history-writing
 
