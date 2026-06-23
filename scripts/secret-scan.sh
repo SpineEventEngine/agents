@@ -14,9 +14,13 @@
 #     `git add` / `git commit` Bash command runs, for early, actionable feedback.
 #
 # Modes (first argument):
-#   staged            scan staged blobs (added/modified) — the commit-time guarantee.
-#   worktree          scan un-ignored, not-yet-committed files — catches a secret
-#                     sitting in the tree that a broad `git add` would sweep up.
+#   staged            scan staged blobs (added/modified/renamed) — the commit-time
+#                     guarantee.
+#   worktree          scan untracked, un-ignored files (new files a broad
+#                     `git add` would sweep up) — catches a decrypted key left in
+#                     the tree.
+#   tracked-modified  scan unstaged edits to tracked files — catches a secret
+#                     pasted into an existing file that a broad `git add` would stage.
 #   files <path>...   scan the explicit paths given.
 #
 # Exit codes:  0 = clean   2 = secret found (report on stderr)   3 = usage/env error.
@@ -35,9 +39,9 @@ mode="${1:-}"
 shift || true
 
 case "$mode" in
-  staged|worktree|files) ;;
+  staged|worktree|tracked-modified|files) ;;
   *)
-    echo "usage: secret-scan.sh {staged|worktree|files <path>...}" >&2
+    echo "usage: secret-scan.sh {staged|worktree|tracked-modified|files <path>...}" >&2
     exit 3
     ;;
 esac
@@ -56,7 +60,7 @@ MAX_BYTES=$((1024 * 1024))
 # GCP key matches both the service_account marker and the PEM body regardless of
 # what it is named, which is exactly how a renamed key (`spine-dev.json`) is caught.
 # ---------------------------------------------------------------------------
-patterns_file=$(mktemp)
+patterns_file=$(mktemp) || { echo "secret-scan: cannot create temp file." >&2; exit 3; }
 trap 'rm -f "$patterns_file"' EXIT
 cat > "$patterns_file" <<'PATTERNS'
 -----BEGIN [A-Z0-9 ]*PRIVATE KEY( BLOCK)?-----
@@ -65,25 +69,40 @@ cat > "$patterns_file" <<'PATTERNS'
 AKIA[0-9A-Z]{16}
 ASIA[0-9A-Z]{16}
 gh[pousr]_[0-9A-Za-z]{36,}
+github_pat_[0-9A-Za-z_]{40,}
 xox[baprs]-[0-9A-Za-z]{10,}
 PATTERNS
 
-# Load allowlist globs (if any) into an array.
+# Load allowlist globs (if any) into an array. In `staged` mode the exemption
+# itself must be committed, so read it from the STAGED blob — exactly as the
+# secret content is — rather than the working tree; an unstaged allowlist must
+# not be able to suppress a staged secret. `worktree`/`tracked-modified`/`files`
+# have no staged notion, so the working-tree file is the correct source there.
 allow_globs=()
-if [ -f "$repo_root/.secret-scan-allow" ]; then
+allow_src=""
+if [ "$mode" = staged ]; then
+  allow_src=$(git show ":.secret-scan-allow" 2>/dev/null) || allow_src=""
+elif [ -f "$repo_root/.secret-scan-allow" ]; then
+  allow_src=$(cat "$repo_root/.secret-scan-allow")
+fi
+if [ -n "$allow_src" ]; then
   while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in ''|\#*) continue ;; esac
     allow_globs+=("$line")
-  done < "$repo_root/.secret-scan-allow"
+  done <<< "$allow_src"
 fi
 
-# is_allowlisted <path>
+# is_allowlisted <path> — entries match the repo-relative path. A bare name like
+# `credentials.properties` therefore exempts only the repo-root file; to exempt a
+# nested one, write its path (`test/fixtures/credentials.properties`) or a glob
+# (`*/credentials.properties`). In bash `[[ ]]`, `*` crosses `/`, so `*.p12` still
+# matches at any depth.
 is_allowlisted() {
-  local path="$1" base="${1##*/}" glob
+  local path="$1" glob
   for glob in "${allow_globs[@]:-}"; do
     [ -n "$glob" ] || continue
     # shellcheck disable=SC2053  # intentional glob match on the RHS
-    if [[ "$path" == $glob || "$base" == $glob ]]; then
+    if [[ "$path" == $glob ]]; then
       return 0
     fi
   done
@@ -147,25 +166,45 @@ evaluate() {
 
 case "$mode" in
   staged)
-    # Added/Copied/Modified staged paths; judge the STAGED blob (`git show :path`),
-    # materialized to a temp file, so partially-staged content is judged exactly as
-    # it would be committed. A temp file (not a pipe) keeps `evaluate` in this shell.
+    # Added/Copied/Modified/Renamed staged paths; judge the STAGED blob
+    # (`git show :path`), materialized to a temp file, so partially-staged content
+    # is judged exactly as it would be committed. A temp file (not a pipe) keeps
+    # `evaluate` in this shell. With `--name-only`, a rename (status R) emits only
+    # its destination path, which is the staged blob `git show :path` resolves —
+    # so a `git mv clean credentials.properties` cannot slip past via R.
     while IFS= read -r -d '' path; do
       [ -n "$path" ] || continue
-      blob=$(mktemp)
-      git show ":$path" > "$blob" 2>/dev/null
+      blob=$(mktemp) || { echo "secret-scan: cannot create temp file." >&2; exit 3; }
+      if ! git show ":$path" > "$blob" 2>/dev/null; then
+        rm -f "$blob"
+        echo "secret-scan: cannot read staged blob for '$path'; refusing to report clean." >&2
+        exit 3
+      fi
       evaluate "$path" "$blob"
       rm -f "$blob"
-    done < <(git diff --cached --name-only --diff-filter=ACM -z)
+    done < <(git diff --cached --name-only --diff-filter=ACMR -z)
     ;;
   worktree)
     # Files Git does not yet track and does not ignore — i.e. exactly what a
     # `git add -A` / `git add .` would newly stage. An already-gitignored
     # decrypted key never appears here, so a correct .gitignore means no noise.
+    # `-C "$repo_root"` makes the listed paths repo-root-relative (not relative to
+    # the invocation CWD), so the `$repo_root/$path` join below resolves correctly
+    # even when the gate runs the scanner from a subdirectory.
     while IFS= read -r -d '' path; do
       [ -n "$path" ] || continue
       evaluate "$path" "$repo_root/$path"
-    done < <(git ls-files --others --exclude-standard -z)
+    done < <(git -C "$repo_root" ls-files --others --exclude-standard -z)
+    ;;
+  tracked-modified)
+    # Unstaged edits to tracked files — what a broad `git add -A` / `git add .`
+    # would stage from already-tracked files (a secret pasted into an existing
+    # file). Paths from `git -C "$repo_root"` are repo-root-relative, matching the
+    # `$repo_root/$path` join; deletions are excluded (only A/C/M).
+    while IFS= read -r -d '' path; do
+      [ -n "$path" ] || continue
+      evaluate "$path" "$repo_root/$path"
+    done < <(git -C "$repo_root" diff --name-only --diff-filter=ACM -z)
     ;;
   files)
     for path in "$@"; do

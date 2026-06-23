@@ -52,14 +52,19 @@ run() {
 
 # A `git commit` is judged on what is already staged. A `git add` has not run yet,
 # so we look for an un-ignored credential in the tree that the add could sweep up
-# (the exact shape of the incident: a decrypted key left un-ignored), and also
-# re-check anything already staged.
+# (the exact shape of the incident: a decrypted key left un-ignored): both
+# untracked files (`worktree`) and unstaged edits to tracked files
+# (`tracked-modified`, e.g. a key pasted into an existing file), and also re-check
+# anything already staged.
 hit=0
 if [ "$wants_commit" -eq 1 ]; then
   run staged || { [ "$rc" -eq 2 ] && hit=1; }
 fi
 if [ "$hit" -eq 0 ] && [ "$wants_add" -eq 1 ]; then
   run worktree || { [ "$rc" -eq 2 ] && hit=1; }
+  if [ "$hit" -eq 0 ]; then
+    run tracked-modified || { [ "$rc" -eq 2 ] && hit=1; }
+  fi
   if [ "$hit" -eq 0 ]; then
     run staged || { [ "$rc" -eq 2 ] && hit=1; }
   fi
