@@ -174,6 +174,12 @@ case "$mode" in
     # so a `git mv clean credentials.properties` cannot slip past via R.
     while IFS= read -r -d '' path; do
       [ -n "$path" ] || continue
+      # A staged submodule pointer (gitlink, mode 160000) is a commit SHA, not
+      # file content: `git show :path` cannot materialize it as a blob and it
+      # cannot carry a secret. Skip it instead of failing closed below.
+      if [ "$(git ls-files --stage -- "$path" 2>/dev/null | awk '{print $1}')" = 160000 ]; then
+        continue
+      fi
       blob=$(mktemp) || { echo "secret-scan: cannot create temp file." >&2; exit 3; }
       if ! git show ":$path" > "$blob" 2>/dev/null; then
         rm -f "$blob"
