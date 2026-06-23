@@ -145,7 +145,7 @@ the doc as real readers give feedback.
   directly (`README.md`, `docs/**`, KDoc) without the interview loop, and to keep
   docs navigation in sync. Run `.agents/skills/review-docs/SKILL.md` *after* drafting,
   on the diff, and `.agents/skills/check-links/SKILL.md` to validate links. Rule of
-  thumb: co-author-docs drafts → `writer` polishes and places → `review-docs` reviews
+  thumb: `co-author-docs` drafts → `writer` polishes and places → `review-docs` reviews
   → `check-links` verifies.
 - **Land docs as files.** Spine docs live in the working tree (`README.md`, `docs/**`,
   `.agents/**`) and ship via reviewed PR. Always draft into a Markdown file and apply
