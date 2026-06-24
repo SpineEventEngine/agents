@@ -174,6 +174,17 @@ case "$mode" in
     # so a `git mv clean credentials.properties` cannot slip past via R.
     while IFS= read -r -d '' path; do
       [ -n "$path" ] || continue
+      # A staged submodule pointer (gitlink, mode 160000) is a commit SHA, not
+      # file content: `git show :path` cannot materialize it as a blob and it
+      # cannot carry a secret. Skip it instead of failing closed below. Match
+      # the mode per-line with `grep` (already required above; `awk` is not) so
+      # an unmerged index's multi-stage output can't defeat the check, and run
+      # the lookup with `-C "$repo_root"` so the repo-root-relative `$path` from
+      # `git diff --cached` resolves even when the scanner runs from a subdir
+      # (the same reason the worktree/tracked-modified modes use `-C`).
+      if git -C "$repo_root" ls-files --stage -- "$path" 2>/dev/null | grep -q '^160000 '; then
+        continue
+      fi
       blob=$(mktemp) || { echo "secret-scan: cannot create temp file." >&2; exit 3; }
       if ! git show ":$path" > "$blob" 2>/dev/null; then
         rm -f "$blob"
