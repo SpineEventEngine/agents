@@ -24,20 +24,23 @@ Claude-specific permission/slash-command syntax in `SKILL.md`).
   `git diff` and `git log` are already allow-listed, so this removes a *third*
   prompt — verified to produce identical file/commit lists to the old form.
 
-**Remaining — hand off to a `config` session** (`config/.claude/settings.json`,
-`allow` block):
+**Config-side fix landed** (`config/.claude/settings.json`, `allow` block):
 
-1. `Edit(version.gradle.kts)` — the one file the skill edits (recommendation ②).
-2. `Bash(.agents/skills/version-bumped/scripts/version-bumped.sh:*)` — the
-   idempotency-gate script the skill runs on **every** invocation (the gate, run
-   before any edit). It is not allow-listed today, so it prompts up front — a
-   *fourth* prompt the original "two prompts" framing missed. `config` already
-   allow-lists specific helper scripts (e.g. `update_copyright.py`), so this fits
-   the existing pattern.
+- **② done** — added `Edit(version.gradle.kts)`, the one file the skill edits.
+  Removes the edit prompt. Placed in `settings.json` next to the existing
+  `update_copyright.py` allowance; `config/migrate` distributes that file to JVM
+  consumers.
 
-Net: the operator hits **four** prompts today, not two. Two are now removed
-skill-side (①, ①b); the other two need the one-time `config` allow-list above.
-Optional ③ (the `clean` gate) is unchanged. The sections below are the original
+**Correction to the original report.** The idempotency-gate script
+(`.agents/skills/version-bumped/scripts/version-bumped.sh`) is **already**
+allow-listed in `config/.claude/settings.local.json`, which `migrate` distributes
+to JVM repos alongside `settings.json`. It is *not* a prompt and needs no change —
+the original tally only missed `git merge-base` (now fixed by ①b), so the true
+count was three prompts, not four.
+
+Net: the operator hit **three** prompts — edit, `clean build`, and the step-7
+`git merge-base` — all now removed: ① and ①b skill-side, ② in `config`. Optional
+③ (the `clean` gate) is unchanged. The sections below are the original
 investigation, kept as the record.
 
 ## Symptom
