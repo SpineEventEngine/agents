@@ -26,9 +26,20 @@ Despite the `SNAPSHOT` word in the format, each such version is published as
 an ordinary immutable release — not as a mutable Maven `-SNAPSHOT` (see
 "Patch versions" below for why we avoid those).
 
-The update of the version is checked by the `checkVersionIncrement` Gradle
-task provided by the shared build configuration and run by CI: it fails when
-the current project version already exists in the Maven repository.
+The version update is enforced by CI on every pull request that targets a
+release-line branch (`master`, `main`, or e.g. `2.x-jdk8-master`). The
+`checkVersionIncrement` Gradle task — from the shared build configuration —
+requires the version to be **strictly greater than the version on the base
+branch**, and additionally checks that it is not already published. So a PR
+that forgot to bump, or that bumped to the same number as another PR, fails
+the `Version Guard` check.
+
+Because publishing runs on every merge to a release-line branch, two PRs that
+bumped to the same number cannot both publish. When one of them merges, the
+`Revalidate Versions` workflow re-judges the other open PRs against the now
+advanced base and marks the stale ones failed until they are re-bumped.
+Published artifacts are immutable, so a stale bump that still slips through to
+publishing fails there rather than overwriting an existing artifact.
 
 ## Release versions
 
