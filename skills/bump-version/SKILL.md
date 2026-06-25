@@ -17,9 +17,10 @@ description: >
 
 The authoritative policy is the [Spine SDK version policy][version-policy]. In this
 skill's target repository, CI runs the `Version Guard` workflow, which invokes
-`checkVersionIncrement` through `IncrementGuard`. The task fails if the current
-project version already exists in the Maven repository. It does not compare git
-branches or inspect commit subjects; the checks below are agent-side guardrails.
+`checkVersionIncrement` through `IncrementGuard`. The task fails when the project
+version is not strictly greater than the base branch's version, or when it already
+exists in the Maven repository — it compares version values, not commit subjects.
+The checks below are agent-side guardrails.
 
 Copy this checklist into your reply and tick each item as you finish it:
 
@@ -200,8 +201,10 @@ version. No other reason — including a large commit — justifies a second bum
    A version-only bump touches no `.proto` and no compiled code, so it needs no
    clean: per `.agents/guidelines/running-builds.md`, `clean build` is reserved
    for proto changes, while code and dependency work use plain `build`.
-   A non-clean `build` still regenerates `docs/dependencies/pom.xml` — the POM
-   embeds the version, so the bump makes it stale and the report rebuilds.
+   A non-clean `build` regenerates `docs/dependencies/pom.xml` where the report
+   task picks up the new version (the POM embeds it); step 6 commits that file
+   only if it actually changed, so this stays correct even where a repo's report
+   wiring differs.
 
    Repos using this config commonly finalize `generatePom` and
    `mergeAllLicenseReports` after `build`, which updates
