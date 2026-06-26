@@ -17,9 +17,10 @@ description: >
 
 The authoritative policy is the [Spine SDK version policy][version-policy]. In this
 skill's target repository, CI runs the `Version Guard` workflow, which invokes
-`checkVersionIncrement` through `IncrementGuard`. The task fails if the current
-project version already exists in the Maven repository. It does not compare git
-branches or inspect commit subjects; the checks below are agent-side guardrails.
+`checkVersionIncrement` through `IncrementGuard`. The task fails when the project
+version is not strictly greater than the base branch's version, or when it already
+exists in the Maven repository — it compares version values, not commit subjects.
+The checks below are agent-side guardrails.
 
 Copy this checklist into your reply and tick each item as you finish it:
 
@@ -194,8 +195,16 @@ version. No other reason — including a large commit — justifies a second bum
 5. Run the build to verify the bump and regenerate reports:
 
    ```bash
-   ./gradlew clean build
+   ./gradlew build
    ```
+
+   A version-only bump touches no `.proto` and no compiled code, so it needs no
+   clean: per `.agents/guidelines/running-builds.md`, `clean build` is reserved
+   for proto changes, while code and dependency work use plain `build`.
+   A non-clean `build` regenerates `docs/dependencies/pom.xml` where the report
+   task picks up the new version (the POM embeds it); step 6 commits that file
+   only if it actually changed, so this stays correct even where a repo's report
+   wiring differs.
 
    Repos using this config commonly finalize `generatePom` and
    `mergeAllLicenseReports` after `build`, which updates
@@ -218,12 +227,13 @@ version. No other reason — including a large commit — justifies a second bum
    ```bash
    BASE=master
    git fetch --quiet origin "$BASE"
-   RANGE="$(git merge-base HEAD origin/$BASE)..HEAD"
-   git diff --name-only "$RANGE" -- version.gradle.kts | grep '^version.gradle.kts$'
+   # `git diff A...B` diffs from the merge-base to B, and `git log A..B` lists the
+   # branch commits since base — so neither needs a separate `git merge-base`.
+   git diff --name-only "origin/$BASE...HEAD" -- version.gradle.kts | grep '^version.gradle.kts$'
 
    # Count bump commits on the branch. `|| true` keeps the zero-match case
    # (grep exits 1) from aborting under `set -e`.
-   count="$(git log --format=%s "$RANGE" | grep -c '^Bump version ->' || true)"
+   count="$(git log --format=%s "origin/$BASE..HEAD" | grep -c '^Bump version ->' || true)"
    echo "bump commits on branch: $count (expected 1)"
    ```
 
