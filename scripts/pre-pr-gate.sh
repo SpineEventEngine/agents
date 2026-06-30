@@ -38,7 +38,11 @@ if ! printf '%s' "$cmd" \
 fi
 
 repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
-sentinel="$repo_root/.git/pre-pr.ok"
+# Resolve the real git directory rather than assuming `$repo_root/.git` is one:
+# in a linked worktree `.git` is a file (a `gitdir:` pointer), so the sentinel
+# lives in the worktree's own git dir, not under `$repo_root/.git`.
+git_dir=$(git rev-parse --absolute-git-dir 2>/dev/null) || exit 0
+sentinel="$git_dir/pre-pr.ok"
 
 block() {
   cat >&2

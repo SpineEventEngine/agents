@@ -32,7 +32,8 @@ Follow the `pre-pr` skill exactly:
 - Each reviewer is read-only; do not pass it edit tools.
 - On any reviewer returning `REQUEST CHANGES`, treat the overall result
   as `FAIL` and stop before writing the sentinel as `PASS`.
-- Sentinel location: `$(git rev-parse --show-toplevel)/.git/pre-pr.ok`,
+- Sentinel location: `$(git rev-parse --git-dir)/pre-pr.ok` — the resolved git
+  directory, so it works in linked worktrees too (where `.git` is a file),
   format per the skill (`head=`, `branch=`, `status=`, `timestamp=`,
   `build=`, `reviewers=`, `version=`). Use `git rev-parse HEAD` for the
   SHA and `date -u +%Y-%m-%dT%H:%M:%SZ` for the timestamp.

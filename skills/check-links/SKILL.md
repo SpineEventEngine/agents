@@ -279,7 +279,8 @@ If `K == 0`, report a single line: "All links OK."
 
   Run this even if Lychee failed — leaving a server on port `1414` would
   poison the next invocation.
-- Write `.git/check-links.ok` at the repo root:
+- Write `check-links.ok` to the repository's git directory —
+  `$(git rev-parse --git-dir)/check-links.ok` — so it works in worktrees too:
 
   ```
   head=<full HEAD SHA>
@@ -295,7 +296,7 @@ If `K == 0`, report a single line: "All links OK."
 The sentinel is consumed by the `pre-pr` skill's reviewer step: when it
 sees a sentinel whose `head=` matches the current HEAD SHA and
 `status=PASS`, it skips re-dispatching `check-links` and records it
-as APPROVE with the note "cached from `.git/check-links.ok`". Any
+as APPROVE with the note "cached from `check-links.ok`". Any
 HEAD advance (commit, amend, rebase) invalidates the cache automatically.
 
 ## Notes
