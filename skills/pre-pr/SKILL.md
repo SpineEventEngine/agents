@@ -226,8 +226,9 @@ missing version bump.
 ### 6. Sentinel
 
 Write `pre-pr.ok` to the repository's git directory — `$(git rev-parse
---git-dir)/pre-pr.ok` (never under `.claude/`). Resolving the git directory keeps
-the sentinel correct in linked worktrees, where `.git` is a file, not a directory.
+--absolute-git-dir)/pre-pr.ok` (never under `.claude/`). Resolving the git
+directory keeps the sentinel correct in linked worktrees, where `.git` is a file,
+not a directory; `--absolute-git-dir` matches what the hook reads.
 The `gh pr create` hook (`.agents/scripts/pre-pr-gate.sh`) checks `head=` and
 `status=`; field names in this block are part of that contract.
 

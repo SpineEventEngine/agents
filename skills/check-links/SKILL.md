@@ -280,7 +280,8 @@ If `K == 0`, report a single line: "All links OK."
   Run this even if Lychee failed — leaving a server on port `1414` would
   poison the next invocation.
 - Write `check-links.ok` to the repository's git directory —
-  `$(git rev-parse --git-dir)/check-links.ok` — so it works in worktrees too:
+  `$(git rev-parse --absolute-git-dir)/check-links.ok` — so it works in worktrees
+  too (matching the path the `pre-pr` gate reads):
 
   ```
   head=<full HEAD SHA>
