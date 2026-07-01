@@ -85,8 +85,13 @@ The version of a Spine SDK repository is kept in the file named
 file (sans the copyright header) looks like this:
 
 ```kotlin
-val versionToPublish: String by extra("2.0.0-SNAPSHOT.182")
+extra.set("versionToPublish", "2.0.0-SNAPSHOT.182")
 ```
+
+Older repositories may still use the deprecated `by extra(...)` property
+delegate — `val versionToPublish: String by extra("2.0.0-SNAPSHOT.182")`.
+The [`bump-version`](../skills/bump-version/SKILL.md) skill migrates such
+declarations to the `extra.set(...)` form the next time it bumps the version.
 
 It is recommended to increment the version number when starting work on a
 new code branch — this way you will not be surprised by the error emitted by

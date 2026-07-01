@@ -9,7 +9,8 @@ description: >
   Invoke this skill directly to perform the actual bump, or to re-bump only for
   a sanctioned reason — a published-version collision, or reclassification to a
   breaking PR (see "Sanctioned re-bumps"). Covers the idempotency gate, locating the
-  published version value, choosing the increment, committing the bump,
+  published version value, choosing the increment, migrating deprecated
+  `by extra(...)` declarations to `extra.set(...)`, committing the bump,
   rebuilding reports, and resolving version conflicts.
 ---
 
@@ -28,7 +29,7 @@ Copy this checklist into your reply and tick each item as you finish it:
 Bump progress:
 - [ ] Idempotency gate — stop if already bumped, on the base branch, or N/A
 - [ ] 1. Confirm `version.gradle.kts` exists; preserve unrelated changes
-- [ ] 2. Locate the value that feeds `versionToPublish`
+- [ ] 2. Locate the value that feeds `versionToPublish`; migrate any `by extra(...)` to `extra.set(...)`
 - [ ] 3. Choose the increment (snapshot +1, or next multiple of 10 if breaking)
 - [ ] 4. Commit only `version.gradle.kts`
 - [ ] 5. Build to verify and regenerate dependency reports
@@ -145,24 +146,48 @@ version. No other reason — including a large commit — justifies a second bum
    Inspect `git status --short` before changing files. Preserve unrelated user
    changes and stage only the version/report files this workflow owns.
 
-2. Locate `version.gradle.kts` and update the value that feeds
-   `versionToPublish`.
+2. Locate `version.gradle.kts`, migrate any deprecated `by extra(...)`
+   declarations, and update the value that feeds `versionToPublish`.
 
-   The published version may be a literal:
+   **Migrate the syntax.** Gradle deprecated the `by extra(...)` property
+   delegate. Whenever this skill edits `version.gradle.kts`, rewrite **every**
+   `by extra(...)` declaration in the file to the `extra.set(...)` form — not
+   only the publishing version, but any dependency-version entries too. The
+   migration rides along in the same single bump commit (step 4); it changes
+   only `version.gradle.kts`. If the file already uses `extra.set(...)`, there
+   is nothing to migrate — just bump the value. (Because migration only happens
+   when the skill edits the file, a branch that the idempotency gate stops keeps
+   its current syntax until its next bump.)
+
+   | Shape | Deprecated | Migrated |
+   |-------|------------|----------|
+   | Literal | `val versionToPublish: String by extra("2.0.0-SNAPSHOT.182")` | `extra.set("versionToPublish", "2.0.0-SNAPSHOT.182")` |
+   | Alias to a plain `val` | `val base = "…"`<br>`val versionToPublish by extra(base)` | `val base = "…"`<br>`extra.set("versionToPublish", base)` |
+
+   An alias whose source is *itself* a `by extra(...)` needs that source demoted
+   to a plain `val` so it stays in scope, with its own `extra` registration
+   preserved:
 
    ```kotlin
-   val versionToPublish: String by extra("2.0.0-SNAPSHOT.182")
-   ```
-
-   Or it may come from another variable:
-
-   ```kotlin
+   // Deprecated:
    val compilerVersion: String by extra("2.0.0-SNAPSHOT.043")
    val versionToPublish by extra(compilerVersion)
+
+   // Migrated:
+   val compilerVersion = "2.0.0-SNAPSHOT.043"
+   extra.set("compilerVersion", compilerVersion)
+   extra.set("versionToPublish", compilerVersion)
    ```
 
-   In the second case, update the source value (`compilerVersion` here), not
-   only the `versionToPublish` alias.
+   The migrated file must still compile: if a delegated name is referenced
+   elsewhere in the file — as an alias source, or in any other expression such
+   as string interpolation — keep it as an in-scope `val` (as shown above)
+   instead of dropping it. Step 5's build is the backstop.
+
+   **Bump the value.** Update the single literal that feeds `versionToPublish`.
+   When it comes from another variable (the alias/`compilerVersion` case above),
+   change the source value — the `"2.0.0-SNAPSHOT.043"` literal — not the alias
+   line.
 
 3. Choose the increment.
 
@@ -190,13 +215,20 @@ version. No other reason — including a large commit — justifies a second bum
    ```
 
    Use the actual new version in the subject. Do not include unrelated files in
-   this commit.
+   this commit. This single commit legitimately also carries the
+   `by extra(...)` → `extra.set(...)` migration from step 2 — both are changes
+   to `version.gradle.kts` only.
 
 5. Run the build to verify the bump and regenerate reports:
 
    ```bash
    ./gradlew build
    ```
+
+   The build applies and compiles `version.gradle.kts`, so it also catches a
+   malformed migration — for example, an alias whose source `val` was left out
+   of scope. If it fails on the migrated file, correct `version.gradle.kts`
+   (step 2) and rebuild before proceeding.
 
    A version-only bump touches no `.proto` and no compiled code, so it needs no
    clean: per `.agents/guidelines/running-builds.md`, `clean build` is reserved

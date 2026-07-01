@@ -30,10 +30,10 @@
 # Publishing-key discovery:
 #   The publishing version's variable name varies across Spine repos
 #   (`versionToPublish`, `validationVersion`, `compilerVersion`, …).
-#   `version.gradle.kts` may also declare other `val xxxVersion by extra(...)` entries
-#   that are *dependency* versions of other Spine modules — not this
-#   project's own publishing version — so the key cannot be picked by
-#   inspecting `version.gradle.kts` alone.
+#   `version.gradle.kts` may also declare other `extra.set("xxxVersion", …)`
+#   entries (or the legacy `val xxxVersion by extra(...)`) that are *dependency*
+#   versions of other Spine modules — not this project's own publishing version
+#   — so the key cannot be picked by inspecting `version.gradle.kts` alone.
 #
 #   The canonical source is `build.gradle.kts`, which assigns
 #   `version = extra["KEY"]!!`. This script scans for that pattern,
@@ -183,43 +183,62 @@ if [ -z "$key" ]; then
   fi
 fi
 
-# --- Parse a `val KEY by extra(...)` from a Gradle file content ----------
-# Handles three shapes (per .agents/skills/bump-version/SKILL.md step 2):
-#   1. val KEY[: String]? by extra("X")           — literal extra
-#   2. val SRC[: String]? by extra("X")           — alias chain via extra
-#      val KEY[: String]? by extra(SRC)
-#   3. val SRC[: String]? = "X"                   — alias chain via plain val
-#      val KEY[: String]? by extra(SRC)
+# --- Parse a version property from a Gradle file content -----------------
+# Resolves the string bound to `KEY`, handling both the current
+# `extra.set("KEY", …)` spelling and the legacy `val KEY by extra(…)` delegate
+# that Gradle deprecated. Three value shapes (per
+# .agents/skills/bump-version/SKILL.md step 2):
+#   1. a literal:            extra.set("KEY", "X")   /  val KEY[: String]? by extra("X")
+#   2. an alias to a source: extra.set("KEY", SRC)   /  val KEY[: String]? by extra(SRC)
+#   3. …whose source SRC is a literal (either spelling) or a plain `val SRC = "X"`.
 # The key name is parameterized so that any project-specific name works
 # (versionToPublish, validationVersion, bootstrapVersion, botVersion, …).
 parse_version() {
   local content="$1" name="$2"
   local v varName
-  # Shape 1: literal.
+  # Shape 1 — literal. Current `extra.set` spelling first, then legacy `by extra`.
   v=$(printf '%s' "$content" \
-      | grep -E "val[[:space:]]+${name}([[:space:]]*:[[:space:]]*String)?[[:space:]]+by[[:space:]]+extra\(\"" \
+      | grep -E "extra\.set\([[:space:]]*\"${name}\"[[:space:]]*,[[:space:]]*\"" \
       | head -n1 \
-      | sed -nE 's/.*extra\("([^"]+)".*/\1/p')
+      | sed -nE 's/.*extra\.set\([^,]*,[[:space:]]*"([^"]+)".*/\1/p')
+  if [ -z "$v" ]; then
+    v=$(printf '%s' "$content" \
+        | grep -E "val[[:space:]]+${name}([[:space:]]*:[[:space:]]*String)?[[:space:]]+by[[:space:]]+extra\(\"" \
+        | head -n1 \
+        | sed -nE 's/.*extra\("([^"]+)".*/\1/p')
+  fi
   if [ -n "$v" ]; then
     printf '%s' "$v"
     return 0
   fi
-  # Shapes 2 & 3: extract the alias source identifier.
+  # Shapes 2 & 3 — alias. Extract the source identifier, current spelling then legacy.
   varName=$(printf '%s' "$content" \
-      | grep -E "val[[:space:]]+${name}([[:space:]]*:[[:space:]]*String)?[[:space:]]+by[[:space:]]+extra\(" \
+      | grep -E "extra\.set\([[:space:]]*\"${name}\"[[:space:]]*,[[:space:]]*[A-Za-z_]" \
       | head -n1 \
-      | sed -nE 's/.*extra\(([A-Za-z_][A-Za-z0-9_]*)\).*/\1/p')
-  if [ -n "$varName" ]; then
-    # Shape 2: source is `val SRC ... by extra("X")`.
-    v=$(printf '%s' "$content" \
-        | grep -E "val[[:space:]]+${varName}([[:space:]]*:[[:space:]]*String)?[[:space:]]+by[[:space:]]+extra\(\"" \
+      | sed -nE 's/.*extra\.set\([^,]*,[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*\).*/\1/p')
+  if [ -z "$varName" ]; then
+    varName=$(printf '%s' "$content" \
+        | grep -E "val[[:space:]]+${name}([[:space:]]*:[[:space:]]*String)?[[:space:]]+by[[:space:]]+extra\(" \
         | head -n1 \
-        | sed -nE 's/.*extra\("([^"]+)".*/\1/p')
+        | sed -nE 's/.*extra\(([A-Za-z_][A-Za-z0-9_]*)\).*/\1/p')
+  fi
+  if [ -n "$varName" ]; then
+    # Source literal — `extra.set` spelling, then legacy `by extra`.
+    v=$(printf '%s' "$content" \
+        | grep -E "extra\.set\([[:space:]]*\"${varName}\"[[:space:]]*,[[:space:]]*\"" \
+        | head -n1 \
+        | sed -nE 's/.*extra\.set\([^,]*,[[:space:]]*"([^"]+)".*/\1/p')
+    if [ -z "$v" ]; then
+      v=$(printf '%s' "$content" \
+          | grep -E "val[[:space:]]+${varName}([[:space:]]*:[[:space:]]*String)?[[:space:]]+by[[:space:]]+extra\(\"" \
+          | head -n1 \
+          | sed -nE 's/.*extra\("([^"]+)".*/\1/p')
+    fi
     if [ -n "$v" ]; then
       printf '%s' "$v"
       return 0
     fi
-    # Shape 3: source is `val SRC[: String]? = "X"`.
+    # Source plain val — `val SRC[: String]? = "X"`.
     v=$(printf '%s' "$content" \
         | grep -E "val[[:space:]]+${varName}([[:space:]]*:[[:space:]]*String)?[[:space:]]*=[[:space:]]*\"" \
         | head -n1 \

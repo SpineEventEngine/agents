@@ -114,10 +114,21 @@ read_declared_version() {
         "$file" | head -n 1
 }
 
-# Read a `val <NAME>[: Type] by extra("VALUE")` declaration from a file.
-# Prints VALUE on stdout; empty if not found.
+# Read a version property literal for `<NAME>` from a file, handling both the
+# current `extra.set("<NAME>", "VALUE")` spelling and the legacy
+# `val <NAME>[: Type] by extra("VALUE")` delegate that Gradle deprecated.
+# Prints VALUE on stdout; empty if not found. Only the literal form is resolved
+# (an alias to another property is treated as "not found", as before).
 _read_extra_val() {
-    local file="$1" name="$2"
+    local file="$1" name="$2" v
+    # Current spelling: extra.set("NAME", "VALUE").
+    v=$(sed -nE 's/^[[:space:]]*extra\.set\([[:space:]]*"'"$name"'"[[:space:]]*,[[:space:]]*"([^"]+)"[[:space:]]*\).*/\1/p' \
+        "$file" | head -n 1)
+    if [ -n "$v" ]; then
+        printf '%s\n' "$v"
+        return 0
+    fi
+    # Legacy spelling: val NAME[: Type] by extra("VALUE").
     sed -nE 's/^[[:space:]]*val[[:space:]]+'"$name"'([[:space:]]*:[[:space:]]*[A-Za-z]+)?[[:space:]]+by[[:space:]]+extra\("([^"]+)"\).*/\2/p' \
         "$file" | head -n 1
 }
