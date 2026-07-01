@@ -11,10 +11,10 @@ description: >
   KDoc/Javadoc links fail locally instead of in CI's Dokka run, and invokes
   the relevant reviewers (`kotlin-engineer`, `spine-code-review`,
   `review-docs`, `dependency-audit`,
-  `check-links`) against the branch diff. On success, writes a sentinel file at
-  `.git/pre-pr.ok` so the `gh pr create` hook can verify the checklist ran
-  for the current HEAD. Use before opening a PR, or when CI rejected a
-  branch and a fast local repro is wanted.
+  `check-links`) against the branch diff. On success, writes the `pre-pr.ok`
+  sentinel into the repository's git directory so the `gh pr create` hook can
+  verify the checklist ran for the current HEAD. Use before opening a PR, or
+  when CI rejected a branch and a fast local repro is wanted.
 ---
 
 # Pre-PR checklist (repo-specific)
@@ -50,7 +50,7 @@ Pre-PR progress:
 - [ ] 3. Build/check; dokkaGenerate on any `.kt`/`.java` source change (alone if doc-only)
 - [ ] 4. Reviewers dispatched for the changed file types
 - [ ] 5. Aggregate to PASS / FAIL
-- [ ] 6. Write the `.git/pre-pr.ok` sentinel
+- [ ] 6. Write the `pre-pr.ok` sentinel
 ```
 
 ### 1. Determine scope and repository capabilities
@@ -193,9 +193,10 @@ for this repo" rather than failing.
   reported by the dispatched reviewers (`spine-code-review`, `review-docs`);
   pre-pr itself does not re-check.
 
-**`check-links` sentinel short-circuit.** Read `.git/check-links.ok` (if
-present). If `head=` equals the current **full** HEAD SHA and `status=PASS`, skip
-the link check and record `APPROVE` with note "cached from `.git/check-links.ok`"
+**`check-links` sentinel short-circuit.** Read `check-links.ok` from the git
+directory (if present). If `head=` equals the current **full** HEAD SHA and
+`status=PASS`, skip the link check and record `APPROVE` with note "cached from
+`check-links.ok`"
 (caching its ~30 s rebuild+serve cycle; the result is deterministic for a given
 HEAD). Otherwise run `check-links` normally.
 
@@ -224,9 +225,12 @@ missing version bump.
 
 ### 6. Sentinel
 
-Write `.git/pre-pr.ok` at the repo root (never under `.claude/`). The `gh pr
-create` hook (`.agents/scripts/pre-pr-gate.sh`) checks `head=` and `status=`;
-field names in this block are part of that contract.
+Write `pre-pr.ok` to the repository's git directory — `$(git rev-parse
+--absolute-git-dir)/pre-pr.ok` (never under `.claude/`). Resolving the git
+directory keeps the sentinel correct in linked worktrees, where `.git` is a file,
+not a directory; `--absolute-git-dir` matches what the hook reads.
+The `gh pr create` hook (`.agents/scripts/pre-pr-gate.sh`) checks `head=` and
+`status=`; field names in this block are part of that contract.
 
 ```
 head=<full HEAD SHA>
