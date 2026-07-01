@@ -159,10 +159,25 @@ version. No other reason — including a large commit — justifies a second bum
    when the skill edits the file, a branch that the idempotency gate stops keeps
    its current syntax until its next bump.)
 
-   | Shape | Deprecated | Migrated |
-   |-------|------------|----------|
-   | Literal | `val versionToPublish: String by extra("2.0.0-SNAPSHOT.182")` | `extra.set("versionToPublish", "2.0.0-SNAPSHOT.182")` |
-   | Alias to a plain `val` | `val base = "…"`<br>`val versionToPublish by extra(base)` | `val base = "…"`<br>`extra.set("versionToPublish", base)` |
+   A literal — rewrite in place:
+
+   ```kotlin
+   // deprecated
+   val versionToPublish: String by extra("2.0.0-SNAPSHOT.182")
+   // migrated
+   extra.set("versionToPublish", "2.0.0-SNAPSHOT.182")
+   ```
+
+   An alias to a plain `val` — keep the `val`, rewrite only the delegate:
+
+   ```kotlin
+   // deprecated
+   val base = "2.0.0-SNAPSHOT.182"
+   val versionToPublish by extra(base)
+   // migrated
+   val base = "2.0.0-SNAPSHOT.182"
+   extra.set("versionToPublish", base)
+   ```
 
    An alias whose source is *itself* a `by extra(...)` needs that source demoted
    to a plain `val` so it stays in scope, with its own `extra` registration

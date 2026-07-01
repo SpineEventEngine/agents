@@ -114,23 +114,43 @@ read_declared_version() {
         "$file" | head -n 1
 }
 
-# Read a version property literal for `<NAME>` from a file, handling both the
-# current `extra.set("<NAME>", "VALUE")` spelling and the legacy
-# `val <NAME>[: Type] by extra("VALUE")` delegate that Gradle deprecated.
-# Prints VALUE on stdout; empty if not found. Only the literal form is resolved
-# (an alias to another property is treated as "not found", as before).
+# Read a version property value for `<NAME>` from a file, handling both the
+# current `extra.set("<NAME>", …)` spelling and the legacy
+# `val <NAME>[: Type] by extra(…)` delegate that Gradle deprecated. Resolves a
+# direct literal and a single alias hop — `extra.set("<NAME>", SRC)` (or the
+# legacy `val <NAME> by extra(SRC)`) whose source `SRC` is a plain
+# `val SRC = "VALUE"` or a literal in either spelling. Prints VALUE on stdout;
+# empty if not found. Migration demotes an aliased source (e.g. `compilerVersion`)
+# to a plain `val`, so resolving the alias keeps it readable post-migration.
 _read_extra_val() {
-    local file="$1" name="$2" v
-    # Current spelling: extra.set("NAME", "VALUE").
+    local file="$1" name="$2" v src
+    # Literal, current spelling: extra.set("NAME", "VALUE").
     v=$(sed -nE 's/^[[:space:]]*extra\.set\([[:space:]]*"'"$name"'"[[:space:]]*,[[:space:]]*"([^"]+)"[[:space:]]*\).*/\1/p' \
         "$file" | head -n 1)
-    if [ -n "$v" ]; then
-        printf '%s\n' "$v"
-        return 0
+    if [ -n "$v" ]; then printf '%s\n' "$v"; return 0; fi
+    # Literal, legacy spelling: val NAME[: Type] by extra("VALUE").
+    v=$(sed -nE 's/^[[:space:]]*val[[:space:]]+'"$name"'([[:space:]]*:[[:space:]]*[A-Za-z]+)?[[:space:]]+by[[:space:]]+extra\("([^"]+)"\).*/\2/p' \
+        "$file" | head -n 1)
+    if [ -n "$v" ]; then printf '%s\n' "$v"; return 0; fi
+    # Alias: extra.set("NAME", SRC), or legacy val NAME by extra(SRC).
+    src=$(sed -nE 's/^[[:space:]]*extra\.set\([[:space:]]*"'"$name"'"[[:space:]]*,[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*\).*/\1/p' \
+        "$file" | head -n 1)
+    if [ -z "$src" ]; then
+        src=$(sed -nE 's/^[[:space:]]*val[[:space:]]+'"$name"'([[:space:]]*:[[:space:]]*[A-Za-z]+)?[[:space:]]+by[[:space:]]+extra\(([A-Za-z_][A-Za-z0-9_]*)\).*/\2/p' \
+            "$file" | head -n 1)
     fi
-    # Legacy spelling: val NAME[: Type] by extra("VALUE").
-    sed -nE 's/^[[:space:]]*val[[:space:]]+'"$name"'([[:space:]]*:[[:space:]]*[A-Za-z]+)?[[:space:]]+by[[:space:]]+extra\("([^"]+)"\).*/\2/p' \
-        "$file" | head -n 1
+    if [ -n "$src" ]; then
+        # Source as a plain val: val SRC[: Type] = "VALUE".
+        v=$(sed -nE 's/^[[:space:]]*val[[:space:]]+'"$src"'([[:space:]]*:[[:space:]]*[A-Za-z]+)?[[:space:]]*=[[:space:]]*"([^"]+)".*/\2/p' \
+            "$file" | head -n 1)
+        # Source as a literal, either spelling.
+        [ -z "$v" ] && v=$(sed -nE 's/^[[:space:]]*extra\.set\([[:space:]]*"'"$src"'"[[:space:]]*,[[:space:]]*"([^"]+)"[[:space:]]*\).*/\1/p' \
+            "$file" | head -n 1)
+        [ -z "$v" ] && v=$(sed -nE 's/^[[:space:]]*val[[:space:]]+'"$src"'([[:space:]]*:[[:space:]]*[A-Za-z]+)?[[:space:]]+by[[:space:]]+extra\("([^"]+)"\).*/\2/p' \
+            "$file" | head -n 1)
+        if [ -n "$v" ]; then printf '%s\n' "$v"; return 0; fi
+    fi
+    return 1
 }
 
 # Read the sibling's "main" version from `<sibling>/version.gradle.kts`.
