@@ -29,7 +29,7 @@ Copy this checklist into your reply and tick each item as you finish it:
 Bump progress:
 - [ ] Idempotency gate — stop if already bumped, on the base branch, or N/A
 - [ ] 1. Confirm `version.gradle.kts` exists; preserve unrelated changes
-- [ ] 2. Locate the value that feeds `versionToPublish`; migrate any `by extra(...)` to `extra.set(...)`
+- [ ] 2. Locate the value feeding `versionToPublish`; migrate `by extra(...)` to `extra.set(...)`
 - [ ] 3. Choose the increment (snapshot +1, or next multiple of 10 if breaking)
 - [ ] 4. Commit only `version.gradle.kts`
 - [ ] 5. Build to verify and regenerate dependency reports
