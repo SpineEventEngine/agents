@@ -17,6 +17,22 @@ built-in tools gate approval and render live progress.
 Filename = the task's kebab-case slug. Multiple active tasks per
 branch are allowed — use distinct slugs.
 
+## Claude Code plan files
+
+By default Claude Code keeps plan-mode files under `~/.claude/plans/` —
+outside the repository, where plans and the status notes appended to
+them are invisible to the team. Repos adopting this convention redirect
+them here via `.claude/settings.json`:
+
+    {
+      "plansDirectory": ".agents/tasks"
+    }
+
+Plan mode names its files with random slugs (`twinkling-booping-flask.md`).
+When such a plan turns into durable work, rename the file to a meaningful
+task slug and add the frontmatter described below; otherwise treat it
+like any other task file and delete it once the work lands.
+
 ## File format
 
     ---
