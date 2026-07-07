@@ -1,3 +1,8 @@
 {
+  "permissions": {
+    "ask": [
+      "Bash(git commit:*)"
+    ]
+  },
   "plansDirectory": ".agents/tasks"
 }
