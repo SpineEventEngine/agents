@@ -17,6 +17,33 @@ built-in tools gate approval and render live progress.
 Filename = the task's kebab-case slug. Multiple active tasks per
 branch are allowed — use distinct slugs.
 
+## Claude Code plan files vs. task files
+
+Claude Code's **plan mode** writes its own file — the plan it shows you
+for approval — with a harness-assigned random slug like
+`twinkling-booping-flask.md`. That name is **not controllable**: there is
+no naming setting, and the model cannot choose it. So the plan-mode file
+is only an *ephemeral approval artifact*, never the durable record.
+
+The durable record is a **task file you author**: `.agents/tasks/<slug>.md`
+written with the Write tool, where `<slug>` is a meaningful kebab-case
+name taken from the task. Because the agent picks the name when it creates
+the file, it is meaningful from the start and never needs renaming.
+Durable status, hand-off notes, and resumable plans belong **in this
+file** — never appended to the random-named plan-mode file.
+
+Keep the two apart by routing plan mode's throwaway files to a gitignored
+scratch dir via `.claude/settings.json`:
+
+    {
+      "plansDirectory": ".claude/plans"
+    }
+
+`.claude/plans/` is gitignored: plan-mode files stay in the working tree
+(inspectable, resumable within the session) but out of version control
+and out of `.agents/tasks/`, which then holds only meaningful, committed
+task files.
+
 ## File format
 
     ---

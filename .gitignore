@@ -12,3 +12,6 @@ Thumbs.db
 # Claude Code runtime (not part of the shared content)
 .claude/worktrees/
 .claude/scheduled_tasks.lock
+# Ephemeral plan-mode files (random harness slugs); durable task files
+# live in `.agents/tasks/`. See `.agents/tasks/README.md`.
+.claude/plans/
