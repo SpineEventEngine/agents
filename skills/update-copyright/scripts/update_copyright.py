@@ -9,6 +9,7 @@ import html
 import re
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
@@ -80,6 +81,14 @@ EXCLUDED_FILES = {
     "gradlew",
     "gradlew.bat",
 }
+# Root files that `config`'s `migrate` script copies into consumer repos.
+CONFIG_DISTRIBUTED_ROOT_FILES = {
+    ".codecov.yml",
+    "gradle.properties",
+    "lychee.toml",
+}
+# The one `buildSrc` file `migrate` preserves across pulls; the consumer owns it.
+CONSUMER_OWNED_MODULE_GRADLE = Path("buildSrc/src/main/kotlin/module.gradle.kts")
 
 
 def parse_args() -> argparse.Namespace:
@@ -175,13 +184,86 @@ def style_for(path: Path) -> str | None:
     return None
 
 
-def is_excluded(path: Path) -> bool:
+@dataclass(frozen=True)
+class ConfigDistribution:
+    """Files the shared `config` repository distributes into a consumer repo.
+
+    A consumer repo declares the `config` submodule in `.gitmodules`;
+    `./config/pull` (the submodule's `migrate` script) then copies these files
+    into the repo and overwrites them on every pull. Their headers are owned
+    by `config`, so re-stamping them from the consumer's copyright profile is
+    wrong. The `config` and `agents` source repositories declare no such
+    submodule; there the same paths are project-owned and stay in scope.
+    """
+
+    workflows: frozenset[str]
+    """Basenames of the workflows distributed into `.github/workflows/`.
+
+    Empty when the `config` submodule is not checked out: the comparison is
+    impossible, and workflow files are treated as consumer-owned (stamped).
+    """
+
+    def covers(self, path: Path) -> bool:
+        parts = path.parts
+        if parts[0] == "buildSrc":
+            return path != CONSUMER_OWNED_MODULE_GRADLE
+        if len(parts) == 1 and parts[0] in CONFIG_DISTRIBUTED_ROOT_FILES:
+            return True
+        return (
+            len(parts) == 3
+            and parts[:2] == (".github", "workflows")
+            and parts[2] in self.workflows
+        )
+
+
+def declares_config_submodule(root: Path) -> bool:
+    try:
+        text = (root / ".gitmodules").read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return False
+    in_submodule = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("["):
+            in_submodule = stripped[1:].lstrip().lower().startswith("submodule")
+            continue
+        if not in_submodule:
+            continue
+        key, sep, value = stripped.partition("=")
+        if sep and key.strip().lower() == "path":
+            if value.strip().strip('"') == "config":
+                return True
+    return False
+
+
+def distributed_workflow_names(root: Path) -> frozenset[str]:
+    names: set[str] = set()
+    for directory in (
+        root / "config" / ".github" / "workflows",
+        root / "config" / ".github-workflows",
+    ):
+        if directory.is_dir():
+            names.update(
+                entry.name for entry in directory.iterdir() if entry.is_file()
+            )
+    return frozenset(names)
+
+
+def config_distribution(root: Path) -> ConfigDistribution | None:
+    if not declares_config_submodule(root):
+        return None
+    return ConfigDistribution(workflows=distributed_workflow_names(root))
+
+
+def is_excluded(path: Path, distribution: ConfigDistribution | None = None) -> bool:
     if path.name in EXCLUDED_FILES:
         return True
     parts = path.parts
     if len(parts) >= 2 and parts[0] == "gradle" and parts[1] == "wrapper":
         return True
-    return any(part in EXCLUDED_DIRS for part in parts)
+    if any(part in EXCLUDED_DIRS for part in parts):
+        return True
+    return distribution is not None and distribution.covers(path)
 
 
 def tracked_files(root: Path) -> list[Path]:
@@ -230,11 +312,12 @@ def expand_requested_paths(root: Path, requested: list[str]) -> list[Path]:
             else:
                 paths.append(path.relative_to(root))
 
+    distribution = config_distribution(root)
     unique = sorted(set(paths), key=lambda p: p.as_posix())
     return [
         path
         for path in unique
-        if style_for(path) is not None and not is_excluded(path)
+        if style_for(path) is not None and not is_excluded(path, distribution)
     ]
 
 
