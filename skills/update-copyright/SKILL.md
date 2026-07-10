@@ -32,8 +32,7 @@ declares a submodule with `path = config`), the script skips the files that
 `config`'s `migrate` script distributes into the repo: `./config/pull`
 overwrites them on every pull, so their headers are owned by `config`, not by
 the consumer's copyright profile. The skip applies to explicit paths (including
-the PostToolUse hook that invokes the script after edits) and to repo-wide runs
-alike:
+the automatic follow-up run after edits) and to repo-wide runs alike:
 
 - `buildSrc/` — except `buildSrc/src/main/kotlin/module.gradle.kts`, which
   `migrate` preserves across pulls, so the consumer owns it; its
