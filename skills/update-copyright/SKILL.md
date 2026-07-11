@@ -9,7 +9,7 @@ description: >
   `config`, not by the consumer's copyright profile.
 ---
 
-# Copyright Update
+# Copyright update
 
 **Command:** `python3 .agents/skills/update-copyright/scripts/update_copyright.py`
 
@@ -41,15 +41,17 @@ the automatic follow-up run after edits) and to repo-wide runs alike:
 - The root files `gradle.properties`, `.codecov.yml`, and `lychee.toml`.
 - `.github/workflows/<name>` when the `config` submodule carries a workflow of
   the same basename in its `.github/workflows/` or `.github-workflows/`
-  directory. Repo-specific workflows — including `config:replaces` variants,
-  which use a different name — keep being stamped. When the submodule is not
+  directory. Repo-specific workflows — including variants that replace a
+  distributed workflow via a `config:replaces` directive and so ship under a
+  different basename — keep being stamped. When the submodule is not
   checked out, the comparison is impossible and all workflow files are treated
   as consumer-owned (stamped).
 
 The `config` and `agents` source repositories declare no `config` submodule,
-so the rule is inert there and their own `buildSrc/` etc. keep being stamped —
-correct, since those files are project-owned at the source. Do **not** skip a
-path merely because a same-named file exists somewhere under the `config/`
-submodule: `config` carries files it does not distribute (e.g. its own
-`README.md`). The set mirrors what `config`'s `migrate` script copies; if that
-script changes what it distributes, update the script's exclusions to match.
+so the rule is inert there and their own `buildSrc/`, `gradle.properties`, etc.
+keep being stamped — correct, since those files are project-owned at the
+source. Do **not** skip a path merely because a same-named file exists
+somewhere under the `config/` submodule: `config` carries files it does not
+distribute (e.g. its own `README.md`). The set mirrors what `config`'s
+`migrate` script copies; if that script changes what it distributes, update
+the exclusions in `update_copyright.py` to match.
