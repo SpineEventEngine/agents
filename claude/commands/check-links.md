@@ -15,5 +15,6 @@ Follow the `check-links` skill exactly:
   source Markdown page).
 - If no Hugo config exists under `docs/` or `site/`, report the check as
   not applicable and stop — do not write a `FAIL` sentinel for that case.
-- Always tear the Hugo server down (step 8), even when Lychee fails, and
-  write the `check-links.ok` sentinel to the repository's git directory.
+- When the pipeline runs, always tear the Hugo server down (step 8), even
+  when Lychee fails, and write the `check-links.ok` sentinel to the
+  repository's git directory.

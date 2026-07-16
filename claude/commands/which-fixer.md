@@ -1,5 +1,5 @@
 ---
-description: Fix restrictive "which" clauses to "that" in comments and docs (bulk on the first run, incremental afterwards).
+description: Fix restrictive "which" clauses to "that" in comments and docs.
 allowed-tools: Read, Edit, Write, Grep, Glob, Bash(git diff:*), Bash(git ls-files:*), Bash(git status:*), Bash(cmp:*)
 model: sonnet
 ---

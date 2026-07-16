@@ -1,6 +1,13 @@
 ---
 name: check-links
-description: Validates the Hugo documentation site under `docs/` or `site/` for broken links — builds the site, serves it locally, runs Lychee with the repo's `lychee.toml`, and reports broken URLs grouped by source Markdown page. Use when a diff touches `docs/**`, `site/**`, or `lychee.toml`, when CI's `Check Links` job fails, or when the user asks to check doc links. Reports "not applicable" when no Hugo site exists. Read-only with respect to project sources; does not run Gradle builds.
+description: >
+  Validates the Hugo documentation site under `docs/` or `site/` for broken
+  links — builds the site, serves it locally, runs Lychee with the repo's
+  `lychee.toml`, and reports broken URLs grouped by source Markdown page. Use
+  when a diff touches `docs/**`, `site/**`, or `lychee.toml`, when CI's
+  `Check Links` job fails, or when the user asks to check doc links. Reports
+  "not applicable" when no Hugo site exists. Read-only with respect to
+  project sources; does not run Gradle builds.
 tools: Read, Grep, Glob, Bash
 model: haiku
 ---
