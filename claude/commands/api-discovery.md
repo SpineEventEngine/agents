@@ -1,7 +1,9 @@
 ---
 description: Resolve a Maven artifact's on-disk sources instead of unzipping Gradle-cache JARs.
 argument-hint: "<group:artifact[:version] | artifact>"
-allowed-tools: Read, Grep, Glob, Write, Bash(.agents/scripts/api-discovery/discover:*), Bash(.agents/scripts/api-discovery/update-sibling:*), Bash(mkdir:*)
+allowed-tools: >-
+  Read, Grep, Glob, Write, Bash(.agents/scripts/api-discovery/discover:*),
+  Bash(.agents/scripts/api-discovery/update-sibling:*), Bash(mkdir:*)
 model: haiku
 ---
 

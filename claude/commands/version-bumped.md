@@ -1,7 +1,9 @@
 ---
 description: Verify the branch bumped version.gradle.kts above base; recover via bump-version.
 argument-hint: "[base-ref]"
-allowed-tools: Read, Edit, Bash(.agents/skills/version-bumped/scripts/version-bumped.sh:*), Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(./gradlew:*)
+allowed-tools: >-
+  Read, Edit, Bash(.agents/skills/version-bumped/scripts/version-bumped.sh:*),
+  Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(./gradlew:*)
 model: haiku
 ---
 
@@ -16,4 +18,5 @@ Follow the `version-bumped` skill exactly:
   Do not bump.
 - Exit 1 → run the `bump-version` skill to recover (it owns the policy),
   then re-run the check once to confirm. Do not loop.
-- Stop and ask the user before committing anything.
+- Recovery may commit the bump — that is the `bump-version` skill's
+  documented policy; the repo's permission settings still gate `git commit`.

@@ -27,3 +27,8 @@ Follow the `check-links` skill exactly:
 - Read-only with respect to tracked sources: use `Bash` for the
   build/serve/check pipeline, git-ignored caches, and the sentinel only;
   never modify project files.
+- End with the reviewers' one-line verdict so `pre-pr` can aggregate this
+  agent like the other reviewers: `APPROVE` when no broken links are found
+  (or the check is not applicable), `REQUEST CHANGES` when Lychee reports
+  broken URLs or the pipeline itself fails (preflight, build, or server
+  errors). Place the skill's report above the verdict line.

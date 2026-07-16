@@ -13,8 +13,9 @@ Follow the `check-links` skill exactly:
   the CI-pinned versions, `npm ci`, Hugo build and serve on port `1414`,
   the Lychee run, teardown) and the report format (broken URLs grouped by
   source Markdown page).
-- If no Hugo config exists under `docs/` or `site/`, report the check as
-  not applicable and stop — do not write a `FAIL` sentinel for that case.
+- If no Hugo config exists under `docs/` or `site/`, return
+  `APPROVE — no Hugo documentation site found under docs/ or site/.` and
+  stop — do not write a `FAIL` sentinel for that case.
 - When the pipeline runs, always tear the Hugo server down (step 8), even
   when Lychee fails, and write the `check-links.ok` sentinel to the
   repository's git directory.
