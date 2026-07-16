@@ -124,8 +124,9 @@ rely only on the standard library so they run without extra installs.
 - Directory name == frontmatter `name`.
 - `description` < 1024 characters; `SKILL.md` < ~500 lines.
 - `agents/openai.yaml` present, with a `$<name>` `default_prompt`.
-- If a `claude/` wrapper sets `model:`, the value is an alias
-  (`haiku`/`sonnet`/`opus`/`inherit`), never a dated model ID.
+- If a `claude/` wrapper sets `model:`, the value is an alias — never a
+  dated model ID: `haiku`/`sonnet`/`opus` for commands and agents, plus
+  `inherit` for agents only (a command inherits by omitting the field).
 - Every `.agents/...` reference resolves (check through the in-repo symlinks).
 - No skill file references a task plan:
   `grep -rnE '(^|[^[:alnum:]])(\.agents/)?tasks/' skills/<name>/` returns nothing
