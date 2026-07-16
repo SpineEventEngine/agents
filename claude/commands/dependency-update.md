@@ -1,7 +1,9 @@
 ---
 description: Refresh external dependency versions in buildSrc to their latest non-snapshot release.
 argument-hint: "[--dry-run] [paths...]"
-allowed-tools: Read, Edit, Write, Grep, Glob, WebFetch, Bash(git status:*), Bash(git diff:*), Bash(./gradlew build:*), Bash(./gradlew clean build:*)
+allowed-tools: >-
+  Read, Edit, Write, Grep, Glob, WebFetch, Bash(git status:*),
+  Bash(git diff:*), Bash(./gradlew build:*), Bash(./gradlew clean build:*)
 model: sonnet
 ---
 

@@ -1,7 +1,9 @@
 ---
 description: Bump the project version in version.gradle.kts per Spine SDK versioning policy.
 argument-hint: "[snapshot|minor|major]"
-allowed-tools: Read, Edit, Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(./gradlew:*)
+allowed-tools: >-
+  Read, Edit, Bash(git status:*), Bash(git diff:*), Bash(git log:*),
+  Bash(git fetch:*), Bash(git merge-base:*), Bash(./gradlew:*)
 model: haiku
 ---
 

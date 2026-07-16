@@ -1,5 +1,7 @@
 ---
-description: Refresh copyright headers from the IntelliJ profile, replacing today.year with the current year.
+description: >
+  Refresh copyright headers from the IntelliJ profile, replacing
+  today.year with the current year.
 argument-hint: "[paths...]"
 allowed-tools: Bash(python3 .agents/skills/update-copyright/scripts/update_copyright.py:*), Read
 model: haiku

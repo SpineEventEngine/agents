@@ -1,5 +1,7 @@
 ---
-description: Run the applicable pre-PR checklist (version gate, build/check, reviewers) and write a sentinel so `gh pr create` is unblocked.
+description: >
+  Run the applicable pre-PR checklist (version gate, build/check,
+  reviewers) and write a sentinel so `gh pr create` is unblocked.
 argument-hint: "[base-ref]"
 allowed-tools: Read, Write, Grep, Glob, Agent, Bash
 ---

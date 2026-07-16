@@ -1,6 +1,11 @@
 ---
 name: review-docs
-description: Reviews documentation changes — KDoc/Javadoc inside Kotlin/Java sources and Markdown docs (`README.md`, `docs/**`, `.agents/**`) — against Spine documentation conventions. Use proactively when a diff touches doc comments or Markdown, before opening a doc-affecting PR, or when the user asks for a documentation review. Read-only; does not run builds.
+description: >
+  Reviews documentation changes — KDoc/Javadoc inside Kotlin/Java sources
+  and Markdown docs (`README.md`, `docs/**`, `.agents/**`) — against Spine
+  documentation conventions. Use proactively when a diff touches doc
+  comments or Markdown, before opening a doc-affecting PR, or when the
+  user asks for a documentation review. Read-only; does not run builds.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
