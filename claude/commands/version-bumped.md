@@ -2,7 +2,7 @@
 description: Verify the branch bumped version.gradle.kts above base; recover via bump-version.
 argument-hint: "[base-ref]"
 allowed-tools: Read, Edit, Bash(.agents/skills/version-bumped/scripts/version-bumped.sh:*), Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(./gradlew:*)
-model: sonnet
+model: haiku
 ---
 
 Follow the `version-bumped` skill exactly:

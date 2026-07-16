@@ -85,20 +85,24 @@ which other runtimes also parse.
   dated ID pins every repository to an aging snapshot that eventually
   retires; an alias upgrades for free.
 - Pick the cheapest tier that runs the skill reliably:
-    - `haiku` — formulaic work: run a script or a deterministic pipeline
-      and relay the result (`update-copyright`, `run-build`,
-      `api-discovery`, `check-links`), or a checklist audit already
+    - `haiku` — formulaic work: run a script, a deterministic pipeline, or
+      a tightly specified procedure and relay the result
+      (`update-copyright`, `run-build`, `api-discovery`, `check-links`,
+      `bump-version`, `version-bumped`), or a checklist audit already
       optimized for batched tool calls (`dependency-audit`).
     - `sonnet` — procedural edits and checklist reviews that involve some
-      judgment (`bump-version`, `bump-gradle`, `version-bumped`,
-      `dependency-update`, `move-files`, `which-fixer`, and the
-      `spine-code-review`, `review-docs`, and `gradle-review` agents).
+      judgment (`bump-gradle`, `dependency-update`, `move-files`,
+      `which-fixer`, and the `spine-code-review`, `review-docs`, and
+      `gradle-review` agents).
     - omit the field (commands) or `inherit` (agents) — deep-reasoning work
       where the user's session model should govern: code translation, test
       and prose authoring, and the `kotlin-engineer` review.
 - Leave `pre-pr` without a model: a command's model applies to the turn
   that runs it, and a subagent declaring `inherit` inherits from that turn —
   pinning the orchestrator would silently downgrade the reviewers it dispatches.
+- Tier paired wrappers together: `version-bumped` runs `bump-version` as
+  its recovery path, so the guard must never sit on a lower tier than the
+  action it embeds.
 - Some skills run inline at the session model **by design**: `author-skill`
   and `co-author-docs` are interactive workflows that converse with the
   user, while `kotlin-jvm-tester` and `kotlin-engineer` (when used directly
