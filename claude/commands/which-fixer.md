@@ -19,4 +19,6 @@ Follow the `which-fixer` skill exactly:
   `Skipped[]` — a missed case beats a wrong fix.
 - Never touch code: string literals, identifiers, fenced or indented code
   blocks, inline code spans, or snippets embedded in doc comments.
-- Report: Mode, FilesScanned, FilesChanged, Replacements[], Skipped[].
+- Report per the skill: Mode (bulk | incremental), FilesScanned,
+  FilesChanged, Replacements[] (file, line, before → after), Skipped[]
+  (file, line, reason).
