@@ -51,7 +51,7 @@ Rules:
 
 - Write the `description:` as shown — a `>` folded scalar, even when the text
   would fit on one line — and wrap its lines near 80 columns (the hard limit
-  is 100, per `guidelines/coding.md`).
+  is 100, per `.agents/guidelines/coding.md`).
 - Keep `SKILL.md` under ~500 lines; move long material into `references/` and link
   to it.
 - Reference shared guidance with **repo-rooted** paths
@@ -79,8 +79,8 @@ Keep `default_prompt` short and aligned with the `SKILL.md` description.
 ## Claude wrapper frontmatter
 
 Wrappers under `claude/commands/` and `claude/agents/` are Markdown, so the
-100-character line limit from `guidelines/coding.md` applies to them (see
-`guidelines/documentation.md`). Two conventions follow:
+100-character line limit from `.agents/guidelines/coding.md` applies to them
+(see `.agents/guidelines/documentation.md`). Two conventions follow:
 
 - **Always write `description:` as a `>` block scalar** — even when the text
   would fit on one line — wrapping its lines near 80 columns, the same idiom
