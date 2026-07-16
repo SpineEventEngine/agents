@@ -379,17 +379,26 @@ def strip_existing_header(text: str, style: str) -> tuple[str, bool]:
                 return strip_leading_blank_lines(text[close + 3 :]), True
 
     if style == "hash":
-        # Blank notice-paragraph separators render as a bare "#" (see
-        # build_header), never as a truly empty line, so a genuinely blank
-        # line always marks the end of the header. Stopping there — rather
-        # than also swallowing blank lines — keeps a doc comment that
-        # immediately follows the header (separated by one blank line) from
-        # being consumed as part of the header block.
+        # A freshly rendered header (see build_header) never has a truly
+        # empty line inside it — blank notice-paragraph separators render as
+        # a bare "#" — so a blank line found after the accumulated candidate
+        # already reads as a copyright header marks the end of that header,
+        # and anything past it (e.g. a doc comment separated by one blank
+        # line) must not be swallowed. But some legacy/hand-written headers
+        # use a genuine blank line as their own internal paragraph
+        # separator, before "Licensed under"/"All rights reserved" has
+        # appeared yet; stopping unconditionally at the first blank line
+        # would leave those headers unrecognized (and so never re-stamped).
+        # Only treat a blank line as the header's end once the text seen so
+        # far already satisfies is_copyright_header; otherwise keep going.
         lines = text.splitlines(keepends=True)
         end = 0
         for line in lines:
             stripped = line.strip()
             if stripped.startswith("#"):
+                end += len(line)
+                continue
+            if stripped == "" and not is_copyright_header(text[:end]):
                 end += len(line)
                 continue
             break

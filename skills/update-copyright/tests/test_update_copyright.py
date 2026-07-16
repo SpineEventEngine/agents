@@ -117,6 +117,41 @@ class UpdateCopyrightTest(unittest.TestCase):
                 "echo hello\n",
             )
 
+    def test_hash_header_with_real_blank_line_separator_is_still_updated(self) -> None:
+        # Regression test: some legacy/hand-written headers use a genuine
+        # blank line as their own internal paragraph separator (rather than
+        # the bare "#" a freshly rendered header uses). The header-detection
+        # loop must not stop at that blank line before "All rights reserved"
+        # has been seen, or the stale header is silently left unchanged.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            self.write_profile(root)
+            source = root / "run.sh"
+            source.write_text(
+                "#!/usr/bin/env bash\n"
+                "\n"
+                "# Copyright 2024 ACME\n"
+                "\n"
+                "# All rights reserved\n"
+                "\n"
+                "echo hello\n",
+                encoding="utf-8",
+            )
+
+            result = self.run_script(root, "--year", "2026", "run.sh")
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Updated 1 file(s).", result.stdout)
+            self.assertEqual(
+                source.read_text(encoding="utf-8"),
+                "#!/usr/bin/env bash\n"
+                "\n"
+                "# Copyright 2026 ACME\n"
+                "# All rights reserved\n"
+                "\n"
+                "echo hello\n",
+            )
+
     def test_default_run_skips_tracked_files_deleted_from_working_tree(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
