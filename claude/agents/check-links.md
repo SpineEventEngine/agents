@@ -21,9 +21,10 @@ Follow the `check-links` skill exactly:
   source Markdown page).
 - If no Hugo config exists under `docs/` or `site/`, return
   `APPROVE — no Hugo documentation site found under docs/ or site/.` and stop.
-- Write the `check-links.ok` sentinel to the repository's git directory as
-  the skill's final step — the `pre-pr` gate reads it to skip a redundant
-  re-run at the same HEAD.
+- When the pipeline runs, write the `check-links.ok` sentinel to the
+  repository's git directory as the skill's final step — the `pre-pr` gate
+  reads it to skip a redundant re-run at the same HEAD. The not-applicable
+  early exit above writes no sentinel.
 - Read-only with respect to tracked sources: use `Bash` for the
   build/serve/check pipeline, git-ignored caches, and the sentinel only;
   never modify project files.
