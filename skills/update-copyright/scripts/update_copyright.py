@@ -379,11 +379,17 @@ def strip_existing_header(text: str, style: str) -> tuple[str, bool]:
                 return strip_leading_blank_lines(text[close + 3 :]), True
 
     if style == "hash":
+        # Blank notice-paragraph separators render as a bare "#" (see
+        # build_header), never as a truly empty line, so a genuinely blank
+        # line always marks the end of the header. Stopping there — rather
+        # than also swallowing blank lines — keeps a doc comment that
+        # immediately follows the header (separated by one blank line) from
+        # being consumed as part of the header block.
         lines = text.splitlines(keepends=True)
         end = 0
         for line in lines:
             stripped = line.strip()
-            if stripped == "" or stripped.startswith("#"):
+            if stripped.startswith("#"):
                 end += len(line)
                 continue
             break
