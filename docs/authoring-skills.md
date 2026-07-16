@@ -73,6 +73,40 @@ Rules:
 
 Keep `default_prompt` short and aligned with the `SKILL.md` description.
 
+## Claude wrappers and model tiers
+
+Claude Code consumes a skill through thin wrappers: `claude/commands/` (slash
+commands) and `claude/agents/` (subagents). Model selection is a Claude-specific
+concern, so it lives **only** in wrapper frontmatter — never in `SKILL.md`,
+which other runtimes also parse.
+
+- Declare models by **alias** (`haiku`, `sonnet`, `opus`; agents may also
+  `inherit`) — never by dated model ID. Consumers float to `master`, so a
+  dated ID pins every repository to an aging snapshot that eventually
+  retires; an alias upgrades for free.
+- Pick the cheapest tier that runs the skill reliably:
+    - `haiku` — formulaic work: run a script or a deterministic pipeline
+      and relay the result (`update-copyright`, `run-build`,
+      `api-discovery`, `check-links`), or a checklist audit already
+      optimized for batched tool calls (`dependency-audit`).
+    - `sonnet` — procedural edits and checklist reviews that involve some
+      judgment (`bump-version`, `bump-gradle`, `version-bumped`,
+      `dependency-update`, `move-files`, `which-fixer`, and the
+      `spine-code-review`, `review-docs`, and `gradle-review` agents).
+    - omit the field (commands) or `inherit` (agents) — deep-reasoning work
+      where the user's session model should govern: code translation, test
+      and prose authoring, and the `kotlin-engineer` review.
+- Leave `pre-pr` without a model: a command's model applies to the turn
+  that runs it, and a subagent declaring `inherit` inherits from that turn —
+  pinning the orchestrator would silently downgrade the reviewers it dispatches.
+- Some skills run inline at the session model **by design**: `author-skill`
+  and `co-author-docs` are interactive workflows that converse with the
+  user, while `kotlin-jvm-tester` and `kotlin-engineer` (when used directly
+  as a skill for writing Kotlin, as opposed to its review-agent wrapper)
+  are convention packs whose guidance must land in the calling context
+  while it writes code. A wrapper cannot re-tier them without severing
+  that interaction, so their cost deliberately follows the session.
+
 ## Scripts & copyright
 
 Put a skill's own helpers in `skills/<name>/scripts/`; promote a helper to the
@@ -86,6 +120,8 @@ rely only on the standard library so they run without extra installs.
 - Directory name == frontmatter `name`.
 - `description` < 1024 characters; `SKILL.md` < ~500 lines.
 - `agents/openai.yaml` present, with a `$<name>` `default_prompt`.
+- If a `claude/` wrapper sets `model:`, the value is an alias
+  (`haiku`/`sonnet`/`opus`/`inherit`), never a dated model ID.
 - Every `.agents/...` reference resolves (check through the in-repo symlinks).
 - No skill file references a task plan:
   `grep -rnE '(^|[^[:alnum:]])(\.agents/)?tasks/' skills/<name>/` returns nothing

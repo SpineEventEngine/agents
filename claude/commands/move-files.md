@@ -2,6 +2,7 @@
 description: Move or rename files/directories, updating all references and build metadata.
 argument-hint: "<source> <destination>"
 allowed-tools: Read, Edit, Bash(git mv:*), Bash(git status:*), Bash(git ls-files:*), Grep, Glob
+model: sonnet
 ---
 
 Follow the `move-files` skill exactly:
