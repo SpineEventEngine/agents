@@ -1,5 +1,7 @@
 ---
-description: Review documentation changes (KDoc/Javadoc and Markdown) against Spine documentation conventions.
+description: >
+  Review documentation changes (KDoc/Javadoc and Markdown) against Spine
+  documentation conventions.
 argument-hint: "[base-ref | --staged | paths...]"
 allowed-tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git status:*), Bash(git rev-parse:*), Bash(git ls-files:*)
 ---
