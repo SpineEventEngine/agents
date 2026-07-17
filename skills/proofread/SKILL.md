@@ -67,11 +67,13 @@ wrong fix.** When a fix is not clearly correct, leave the text and report it.
    - `**/*.md` — Markdown
    - `**/*.adoc` — AsciiDoc
 
-   Scan **git-tracked files only**. In full-sweep and scoped-sweep modes,
-   `git ls-files` lists tracked files, so untracked build output and
-   ignored artifacts stay out; as a safeguard, also drop any `build/` and
-   `.gradle/` paths explicitly. In branch-diff mode, intersect the
-   changed-file list with the filter above.
+   In full-sweep and scoped-sweep modes, scan **git-tracked files only**:
+   `git ls-files` lists tracked files, so untracked build output and ignored
+   artifacts stay out; as a safeguard, also drop any `build/` and `.gradle/`
+   paths explicitly. In branch-diff mode, the step-1 list already includes
+   untracked, non-ignored files (new prose not yet `git add`ed) alongside
+   tracked changes — keep them; intersect the whole list with the filter
+   above.
 
    **Then drop everything the project does not own**, per
    `.agents/guidelines/project-owned-files.md` — submodule contents and, in
