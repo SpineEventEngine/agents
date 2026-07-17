@@ -1,5 +1,7 @@
 ---
-description: Verify the branch bumped version.gradle.kts above base; recover via bump-version.
+description: >
+  Verify the branch bumped version.gradle.kts above base; recover via
+  bump-version.
 argument-hint: "[base-ref]"
 allowed-tools: >-
   Read, Edit, Bash(.agents/skills/version-bumped/scripts/version-bumped.sh:*),

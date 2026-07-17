@@ -49,6 +49,9 @@ Frontmatter followed by the body:
 
 Rules:
 
+- Write the `description:` as shown — a `>` folded scalar, even when the text
+  would fit on one line — and wrap its lines near 80 columns (the hard limit
+  is 100, per `.agents/guidelines/coding.md`).
 - Keep `SKILL.md` under ~500 lines; move long material into `references/` and link
   to it.
 - Reference shared guidance with **repo-rooted** paths
@@ -111,6 +114,27 @@ which other runtimes also parse.
   while it writes code. A wrapper cannot re-tier them without severing
   that interaction, so their cost deliberately follows the session.
 
+## Claude wrapper frontmatter
+
+Wrappers under `claude/commands/` and `claude/agents/` are Markdown, so the
+100-character line limit from `.agents/guidelines/coding.md` applies to them
+(see `.agents/guidelines/documentation.md`). Two conventions follow:
+
+- **Always write `description:` as a `>` block scalar** — even when the text
+  would fit on one line — wrapping its lines near 80 columns, the same idiom
+  `skills/*/SKILL.md` files use. YAML folds the lines back into a single-line
+  string, so wrapping never changes the wording that drives command or agent
+  dispatch, and the uniform shape keeps a later edit from drifting past the
+  100-character limit.
+- **`allowed-tools:` may stay on one line or be folded with `>-`** — the
+  field is machine-consumed as permission rules (likewise an agent's
+  `tools:` field), and a `>-` folded scalar parses to the byte-identical
+  single-line string, so both forms reach Claude Code the same way. This
+  equivalence is verified — with a strict YAML parser over every wrapper,
+  and by live command registration of folded wrappers — so fold the field
+  when a line grows unwieldy, or leave a long line in place: it is exempt
+  from the line-length limit.
+
 ## Scripts & copyright
 
 Put a skill's own helpers in `skills/<name>/scripts/`; promote a helper to the
@@ -127,6 +151,10 @@ rely only on the standard library so they run without extra installs.
 - If a `claude/` wrapper sets `model:`, the value is an alias — never a
   dated model ID: `haiku`/`sonnet`/`opus` for commands and agents, plus
   `inherit` for agents only (a command inherits by omitting the field).
+- Skill files and Claude wrappers stay within the 100-character line limit;
+  only `allowed-tools:`/`tools:` lines are exempt, and every `description:`
+  is a `>` block scalar wrapped near 80 columns (see "Claude wrapper
+  frontmatter").
 - Every `.agents/...` reference resolves (check through the in-repo symlinks).
 - No skill file references a task plan:
   `grep -rnE '(^|[^[:alnum:]])(\.agents/)?tasks/' skills/<name>/` returns nothing

@@ -1,5 +1,7 @@
 ---
-description: Check the Hugo documentation site for broken links, mirroring CI's Check Links job.
+description: >
+  Check the Hugo documentation site for broken links, mirroring CI's
+  Check Links job.
 argument-hint: "[base-ref]"
 allowed-tools: Read, Grep, Glob, Bash
 model: haiku

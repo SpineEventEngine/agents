@@ -1,12 +1,12 @@
 ---
 name: spine-code-review
 description: >
-  Reviews Kotlin, Java, and build changes against repo-specific Spine
-  rules — the AGENTS.md code-review filter, safety rules, testing policy,
-  and version gate. Defers general Kotlin language, coroutine/Flow,
-  null-safety, and API-design standards to the `kotlin-engineer` agent.
-  Use proactively after any non-trivial code edit, before opening a PR,
-  or when the user asks for a code review. Read-only; does not run builds.
+  Reviews Kotlin, Java, and build changes against repo-specific Spine rules
+  — the AGENTS.md code-review filter, safety rules, testing policy, and
+  version gate. Defers general Kotlin language, coroutine/Flow, null-safety,
+  and API-design standards to the `kotlin-engineer` agent. Use proactively
+  after any non-trivial code edit, before opening a PR, or when the user
+  asks for a code review. Read-only; does not run builds.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 ---

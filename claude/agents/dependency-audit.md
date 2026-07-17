@@ -3,10 +3,10 @@ name: dependency-audit
 description: >
   Audits changes to dependency declarations under
   `buildSrc/src/main/kotlin/io/spine/dependency/` — catches accidental
-  version downgrades, BOM mismatches, missing deprecation markers,
-  copyright drift, and convention drift. Use proactively whenever a diff
-  touches that directory, or when the user asks "audit this dependency
-  bump". Read-only; does not run builds.
+  version downgrades, BOM mismatches, missing deprecation markers, copyright
+  drift, and convention drift. Use proactively whenever a diff touches that
+  directory, or when the user asks "audit this dependency bump". Read-only;
+  does not run builds.
 tools: Read, Grep, Glob, Bash
 model: haiku
 ---
