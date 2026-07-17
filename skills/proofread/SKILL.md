@@ -31,19 +31,25 @@ wrong fix.** When a fix is not clearly correct, leave the text and report it.
 
 1. **Choose the mode from the caller's argument.**
    - **No argument → branch-diff mode.** Scan only the files changed on the
-     current branch, *including uncommitted edits* — agents here often work
-     before an explicit commit, so a committed-only diff would miss the very
-     comments under review. Take the union of:
-     - `git diff --name-only --diff-filter=ACMR origin/master...HEAD` —
-       committed changes since the branch diverged from `origin/master`
-       (three-dot, not a tip-to-tip diff); and
+     current branch, *including uncommitted and brand-new edits* — agents
+     here often work before an explicit commit, so a committed-only diff
+     would miss the very comments under review. Resolve a base ref, then take
+     the union of three lists:
+     - `git diff --name-only --diff-filter=ACMR <base>...HEAD` — committed
+       changes since the branch diverged from `<base>` (three-dot, not a
+       tip-to-tip diff);
      - `git diff --name-only --diff-filter=ACMR HEAD` — staged and unstaged
-       working-tree edits.
+       edits to tracked files; and
+     - `git ls-files --others --exclude-standard` — untracked, non-ignored
+       files (brand-new prose not yet `git add`ed).
 
-     `origin/master` is the base ref used across this repo's skills and
-     resolves in fresh clones and CI, where a local `master` may be absent.
-     `--diff-filter=ACMR` excludes deleted paths, so step 3 never reads a
-     file that no longer exists.
+     Resolve `<base>` to the first ref that exists: `origin/master`, else
+     `master`. `origin/master` is the base used across this repo's skills and
+     resolves in most clones and CI; the `master` fallback covers a checkout
+     that fetched only `master` with no remote-tracking ref. If neither
+     resolves, use the two working-tree lists alone and note the missing base
+     in the report. `--diff-filter=ACMR` excludes deleted paths, so step 3
+     never reads a file that no longer exists.
    - **Argument is exactly `all` → full-sweep mode.** Scan every
      project-owned file in the repository. Enumerate candidates with
      `git ls-files`. Also perform the **legacy cleanup** in step 4. (To

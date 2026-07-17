@@ -157,6 +157,16 @@ get cleaned up once and new changes are held to the standard afterwards.
   in the prose-location table) is fixed. Phase 1 is done; changes are
   staged, awaiting commit/PR authorization.
 - 2026-07-17 — Phase 1 committed (`ac097c4`).
+- 2026-07-17 — PR #36 review comments addressed. Copilot flagged the aligned
+  Markdown tables in `english-style.md` as over the line limit; Alexander
+  replied the layout is for human readers, so left as-is. Fixed five Codex
+  P2s: the `proofread` command now passes `$ARGUMENTS` (plus an
+  `argument-hint`) so `all`/`<path>` modes are reachable; its `allowed-tools`
+  gains `git rm`/`rm` for the legacy-marker cleanup; branch-diff mode resolves
+  a base ref with an `origin/master` → `master` fallback and adds untracked
+  files (`git ls-files --others`) to the scan union; and `pre-pr` gains a
+  `doc-source (non-JVM)` classification so it dispatches `review-docs` for
+  TS/JS/Go-only doc-comment changes.
 - 2026-07-17 — Phase 4 implemented and committed: catalog pointers added to
   `writer` (conventions list) and `java-to-kotlin` (Javadoc → KDoc
   conversion). All four planned phases are complete; the branch PR is opened
