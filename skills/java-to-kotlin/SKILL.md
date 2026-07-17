@@ -26,13 +26,22 @@ conversion-specific policy below; it does not re-teach the language.
 
 ## Javadoc → KDoc
 
-- **Preserve the original wording** of every comment.
+- **Preserve the original wording and meaning** of every comment — do not
+  paraphrase or restyle. The one exception is fixing outright English errors
+  (below).
 - `@param`, `@return`, and `@throws` keep their tag and description.
 - `{@link X}` becomes `[X]`, or `[label][fully.qualified.Name]` when a label
   is needed.
 - `{@code x}` becomes an inline code span (`` `x` ``).
 - Remove residual HTML (`<p>`, entities); `review-docs` owns the full
   Javadoc-residue checklist.
+- **Fix genuine English errors while you are here.** The comment is being
+  rewritten anyway, so apply `.agents/guidelines/english-style.md` to any
+  clear grammar, punctuation, or spelling error, honoring its leave-alone
+  guards — this corrects wording that is *wrong*, never wording that is merely
+  *different*. In particular, give a KDoc summary the third-person verb form
+  the catalog requires ("Returns …", not "Return …"). When a fix is not
+  clearly correct, leave it; `review-docs` will flag it.
 
 ## Final step: ensure the version is bumped
 

@@ -2,7 +2,7 @@
 slug: english-usage-improvements
 branch: doc-review-improvements
 owner: claude
-status: in-progress
+status: in-review
 started: 2026-07-17
 ---
 
@@ -113,9 +113,15 @@ get cleaned up once and new changes are held to the standard afterwards.
         touches doc-comment lines in any supported language — including
         mixed code + comment changes and `.proto` edits (today a proto
         change triggers the build but no doc reviewer explicitly).
-- [ ] **Phase 4 — prevention at authoring time.** Add language-quality
+- [x] **Phase 4 — prevention at authoring time.** Add language-quality
       pointers to the catalog in `writer` and `java-to-kotlin` (the
       Javadoc → KDoc conversion is the natural moment to also fix old prose).
+      `writer`'s "Follow local documentation conventions" now lists
+      `english-style.md`; `java-to-kotlin`'s "Javadoc → KDoc" gains a
+      "fix genuine English errors while you are here" bullet (preserve
+      meaning, correct outright errors, third-person KDoc summary verb).
+      (`co-author-docs` is a further authoring surface a pointer could reach
+      later; left out to keep Phase 4 to the planned scope.)
 - [ ] Validate per `docs/authoring-skills.md` checklist; open a PR.
 
 ## Log
@@ -151,6 +157,11 @@ get cleaned up once and new changes are held to the standard afterwards.
   in the prose-location table) is fixed. Phase 1 is done; changes are
   staged, awaiting commit/PR authorization.
 - 2026-07-17 — Phase 1 committed (`ac097c4`).
+- 2026-07-17 — Phase 4 implemented and committed: catalog pointers added to
+  `writer` (conventions list) and `java-to-kotlin` (Javadoc → KDoc
+  conversion). All four planned phases are complete; the branch PR is opened
+  from this plan. Rollout automation across the ~40 repos remains a separate,
+  out-of-scope follow-up. Phase 3 committed as `77c5733`.
 - 2026-07-17 — Phase 3 implemented and committed after two review passes.
   Re-verify verdict: APPROVE WITH CHANGES — all substantive items confirmed
   fixed; closed the final nits (fourth wrapper's catalog naming, and scoped
