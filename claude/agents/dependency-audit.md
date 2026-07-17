@@ -8,7 +8,7 @@ description: >
   directory, or when the user asks "audit this dependency bump". Read-only;
   does not run builds.
 tools: Read, Grep, Glob, Bash
-model: claude-haiku-4-5-20251001
+model: haiku
 ---
 
 Follow the `dependency-audit` skill exactly:

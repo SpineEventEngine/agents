@@ -7,7 +7,7 @@ description: >
   comments or Markdown, before opening a doc-affecting PR, or when the user
   asks for a documentation review. Read-only; does not run builds.
 tools: Read, Grep, Glob, Bash
-model: inherit
+model: sonnet
 ---
 
 Follow the `review-docs` skill exactly:

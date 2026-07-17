@@ -28,6 +28,11 @@ Follow the `pre-pr` skill exactly:
   - `review-docs` when `.md` files or KDoc inside sources changed.
   - `dependency-audit` when any file under
     `buildSrc/src/main/kotlin/io/spine/dependency/` changed.
+  - `check-links` when a Hugo site exists (a Hugo config under `docs/` or
+    `site/`) and the diff touches files under the site directory or
+    `lychee.toml`. Honor the `check-links.ok` sentinel short-circuit from
+    the skill: skip the dispatch when the sentinel matches the current
+    HEAD with `status=PASS`.
 - Pass the version-check status to reviewers. If it is `N/A`, tell them:
   "This repository has no root `version.gradle.kts`; a version bump is not
   applicable and must not be reported as missing."

@@ -4,6 +4,7 @@ description: >
   with the current year.
 argument-hint: "[paths...]"
 allowed-tools: Bash(python3 .agents/skills/update-copyright/scripts/update_copyright.py:*), Read
+model: haiku
 ---
 
 Follow the `update-copyright` skill exactly:

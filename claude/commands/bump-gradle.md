@@ -3,6 +3,7 @@ description: >
   Upgrade the Gradle wrapper to the latest release.
 argument-hint: "[gradle-version]"
 allowed-tools: Read, Edit, Bash(./gradlew:*), Bash(git status:*), Bash(git diff:*), WebFetch
+model: sonnet
 ---
 
 Follow the `bump-gradle` skill exactly:

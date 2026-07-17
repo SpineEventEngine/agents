@@ -8,7 +8,7 @@ description: >
   after any non-trivial code edit, before opening a PR, or when the user
   asks for a code review. Read-only; does not run builds.
 tools: Read, Grep, Glob, Bash
-model: inherit
+model: sonnet
 ---
 
 Follow the `spine-code-review` skill exactly:

@@ -76,6 +76,44 @@ Rules:
 
 Keep `default_prompt` short and aligned with the `SKILL.md` description.
 
+## Claude wrappers and model tiers
+
+Claude Code consumes a skill through thin wrappers: `claude/commands/` (slash
+commands) and `claude/agents/` (subagents). Model selection is a Claude-specific
+concern, so it lives **only** in wrapper frontmatter — never in `SKILL.md`,
+which other runtimes also parse.
+
+- Declare models by **alias** (`haiku`, `sonnet`, `opus`; agents may also
+  `inherit`) — never by dated model ID. Consumers float to `master`, so a
+  dated ID pins every repository to an aging snapshot that eventually
+  retires; an alias upgrades for free.
+- Pick the cheapest tier that runs the skill reliably:
+    - `haiku` — formulaic work: run a script, a deterministic pipeline, or
+      a tightly specified procedure and relay the result
+      (`update-copyright`, `run-build`, `api-discovery`, `check-links`,
+      `bump-version`, `version-bumped`), or a checklist audit already
+      optimized for batched tool calls (`dependency-audit`).
+    - `sonnet` — procedural edits and checklist reviews that involve some
+      judgment (`bump-gradle`, `dependency-update`, `move-files`,
+      `which-fixer`, and the `spine-code-review`, `review-docs`, and
+      `gradle-review` agents).
+    - omit the field (commands) or `inherit` (agents) — deep-reasoning work
+      where the user's session model should govern: code translation, test
+      and prose authoring, and the `kotlin-engineer` review.
+- Leave `pre-pr` without a model: a command's model applies to the turn
+  that runs it, and a subagent declaring `inherit` inherits from that turn —
+  pinning the orchestrator would silently downgrade the reviewers it dispatches.
+- Tier paired wrappers together: `version-bumped` runs `bump-version` as
+  its recovery path, so the guard must never sit on a lower tier than the
+  action it embeds.
+- Some skills run inline at the session model **by design**: `author-skill`
+  and `co-author-docs` are interactive workflows that converse with the
+  user, while `kotlin-jvm-tester` and `kotlin-engineer` (when used directly
+  as a skill for writing Kotlin, as opposed to its review-agent wrapper)
+  are convention packs whose guidance must land in the calling context
+  while it writes code. A wrapper cannot re-tier them without severing
+  that interaction, so their cost deliberately follows the session.
+
 ## Claude wrapper frontmatter
 
 Wrappers under `claude/commands/` and `claude/agents/` are Markdown, so the
@@ -88,12 +126,14 @@ Wrappers under `claude/commands/` and `claude/agents/` are Markdown, so the
   string, so wrapping never changes the wording that drives command or agent
   dispatch, and the uniform shape keeps a later edit from drifting past the
   100-character limit.
-- **Keep `allowed-tools:` on one line, however long** — the field is exempt
-  from the line-length limit (likewise an agent's `tools:` field). Its value
-  is machine-consumed as permission rules, and the Claude Code documentation
-  defines no format for it beyond single-line examples, so a folded scalar is
-  not confirmed to parse identically. `master` floats to every consumer
-  repository; do not re-wrap the field on an unverified assumption.
+- **`allowed-tools:` may stay on one line or be folded with `>-`** — the
+  field is machine-consumed as permission rules (likewise an agent's
+  `tools:` field), and a `>-` folded scalar parses to the byte-identical
+  single-line string, so both forms reach Claude Code the same way. This
+  equivalence is verified — with a strict YAML parser over every wrapper,
+  and by live command registration of folded wrappers — so fold the field
+  when a line grows unwieldy, or leave a long line in place: it is exempt
+  from the line-length limit.
 
 ## Scripts & copyright
 
@@ -108,6 +148,9 @@ rely only on the standard library so they run without extra installs.
 - Directory name == frontmatter `name`.
 - `description` < 1024 characters; `SKILL.md` < ~500 lines.
 - `agents/openai.yaml` present, with a `$<name>` `default_prompt`.
+- If a `claude/` wrapper sets `model:`, the value is an alias — never a
+  dated model ID: `haiku`/`sonnet`/`opus` for commands and agents, plus
+  `inherit` for agents only (a command inherits by omitting the field).
 - Skill files and Claude wrappers stay within the 100-character line limit;
   only `allowed-tools:`/`tools:` lines are exempt, and every `description:`
   is a `>` block scalar wrapped near 80 columns (see "Claude wrapper

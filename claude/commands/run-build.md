@@ -3,6 +3,7 @@ description: >
   Build the project the right way based on what changed
   (proto vs. Kotlin/Java vs. docs).
 allowed-tools: Bash(./gradlew:*), Bash(git status:*), Bash(git diff:*)
+model: haiku
 ---
 
 Decide which build to run by looking at `git status --short` and `git diff --name-only`:
