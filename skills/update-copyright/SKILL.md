@@ -27,6 +27,13 @@ description: >
 
 ## Files distributed by the `config` repository
 
+The shared mechanism — what "project-owned" means, how to detect a
+`config`-consuming repo, the `buildSrc/src/main/kotlin/module.gradle.kts`
+exception, and the `config`/`agents` source-repo exemption — is described in
+`.agents/guidelines/project-owned-files.md`. The list below is the
+copyright-relevant subset the `update_copyright.py` script encodes; keep the
+two in sync.
+
 In a repository that consumes the shared `config` submodule (its `.gitmodules`
 declares a submodule with `path = config`), the script skips the files that
 `config`'s `migrate` script distributes into the repo: `./config/pull`

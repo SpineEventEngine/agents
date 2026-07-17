@@ -61,7 +61,7 @@ get cleaned up once and new changes are held to the standard afterwards.
         `buf:lint:ignore`.
   - [x] Index in `guidelines/_TOC.md`; link from `documentation.md`,
         `kdoc.md`, `javadoc.md`, and `protobuf.md`.
-- [ ] **Phase 2 — the fixer.** New skill `proofread`, replacing
+- [x] **Phase 2 — the fixer.** New skill `proofread`, replacing
       `which-fixer`: stateless, with the mode chosen explicitly by the
       caller — the default run scans the files changed on the current branch
       (union of `origin/master...HEAD` and working-tree diffs,
@@ -71,22 +71,27 @@ get cleaned up once and new changes are held to the standard afterwards.
       repo state. Project-owned file scoping, comments-and-prose-only
       editing discipline, conservative when-uncertain-skip bias, and a
       report grouped by catalog topic (the learning loop).
-  - [ ] File scope: `.kt`, `.kts`, `.java`, `.proto`, `.md`, `.adoc`, plus
+  - [x] File scope: `.kt`, `.kts`, `.java`, `.proto`, `.md`, `.adoc`, plus
         `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`, and `.go`.
-  - [ ] Retire `which-fixer`: delete `skills/which-fixer/` and
+  - [x] Retire `which-fixer`: delete `skills/which-fixer/` and
         `claude/commands/which-fixer.md`; swap the `which-fixer` example in
         `docs/authoring-skills.md` (line ~98, sonnet tier) for `proofread`.
         The which/that guard list migrates into the catalog (Phase 1) — no
-        other references exist outside the skill's own directory.
-  - [ ] Legacy cleanup in `all` mode: if the target repo carries the
+        other references exist outside the skill's own directory. (The
+        `english-style.md` hyphenated-identifier guard keeps `which-fixer`
+        as its illustrative example — a valid teaching case, not a live
+        cross-reference.)
+  - [x] Legacy cleanup in `all` mode: if the target repo carries the
         obsolete `.agents/memory/which-fixer-applied.md`, delete it and its
         pointer line in `.agents/memory/MEMORY.md`.
-  - [ ] Optional refactor: extract the shared project-owned-files scoping
+  - [x] Optional refactor: extract the shared project-owned-files scoping
         into `guidelines/project-owned-files.md`, referenced by `proofread`
-        and `update-copyright`.
-  - [ ] Accept an optional path argument to scope a sweep to one module —
+        and `update-copyright`. `update-copyright`'s skip is implemented in
+        its Python script, so it keeps its own list and gains a
+        cross-reference; behavior unchanged.
+  - [x] Accept an optional path argument to scope a sweep to one module —
         useful for staging `all` over very large repos.
-  - [ ] Wrappers: `claude/commands/proofread.md` (model: sonnet) and
+  - [x] Wrappers: `claude/commands/proofread.md` (model: sonnet) and
         `skills/proofread/agents/openai.yaml`. No subagent wrapper — fixers
         are commands in this repo.
 - [ ] **Phase 3 — the reviewer.** Add a check section "E. English usage" to
@@ -143,3 +148,15 @@ get cleaned up once and new changes are held to the standard afterwards.
   re-verified by `review-docs`; the last cosmetic nit (comment word order
   in the prose-location table) is fixed. Phase 1 is done; changes are
   staged, awaiting commit/PR authorization.
+- 2026-07-17 — Phase 1 committed (`ac097c4`).
+- 2026-07-17 — Phase 2 implemented: `skills/proofread/` (SKILL.md +
+  `agents/openai.yaml`), `claude/commands/proofread.md` (sonnet), the
+  extracted `guidelines/project-owned-files.md` (TOC entry 19), a
+  cross-reference in `update-copyright`, and the `which-fixer` retirement
+  (skill dir + command deleted, `authoring-skills.md` tier example
+  swapped). `review-docs` verdict: APPROVE WITH CHANGES — extraction
+  fidelity, git/mode logic, legacy cleanup, and retirement all verified
+  correct; fixed its findings (a wrong `module.gradle.kts` path in
+  `update-copyright`, six widow lines, terminology drift, a dropped
+  `config:replaces` detail, and the wrapper checkbox). Staged, awaiting
+  commit authorization.

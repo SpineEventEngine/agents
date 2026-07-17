@@ -1,0 +1,8 @@
+interface:
+  display_name: "Proofread"
+  short_description: "Fix English grammar, punctuation, and spelling in comments and docs"
+  default_prompt: >-
+    Use $proofread to fix English grammar, punctuation, and spelling errors in
+    the comments and documentation of this repository. Pass `all` for a full
+    sweep, a path to scope to one module, or no argument to check the current
+    branch's changes.
