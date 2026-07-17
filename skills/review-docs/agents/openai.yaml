@@ -1,6 +1,7 @@
 interface:
   display_name: "Review Docs"
-  short_description: "Review KDoc and Markdown changes"
+  short_description: "Review doc-comment and Markdown changes, including English usage"
   default_prompt: >-
-    Use $review-docs to review KDoc, Javadoc, Protobuf comments, and Markdown
-    changes against Spine documentation conventions.
+    Use $review-docs to review doc comments (KDoc/Javadoc, Protobuf, TSDoc/JSDoc,
+    Go) and Markdown changes against Spine documentation conventions, including
+    the English grammar, punctuation, and spelling catalog.

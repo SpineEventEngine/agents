@@ -94,20 +94,22 @@ get cleaned up once and new changes are held to the standard afterwards.
   - [x] Wrappers: `claude/commands/proofread.md` (model: sonnet) and
         `skills/proofread/agents/openai.yaml`. No subagent wrapper — fixers
         are commands in this repo.
-- [ ] **Phase 3 — the reviewer.** Add a check section "E. English usage" to
+- [x] **Phase 3 — the reviewer.** Add a check section "E. English usage" to
       `skills/review-docs/SKILL.md`, referencing the catalog; changed prose
       lines only. Severity: clear grammatical errors → Should fix; ambiguous
       or debatable phrasing → Nits; meaning-distorting errors → Must fix.
-  - [ ] Widen `review-docs` Protobuf coverage from "file-level documentation
+  - [x] Widen `review-docs` Protobuf coverage from "file-level documentation
         headers" to all doc comments — type and field docs are a primary API
         surface, with structure rules already in
         `.agents/guidelines/protobuf.md`.
-  - [ ] Add `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`, and `.go` to the
+  - [x] Add `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`, and `.go` to the
         `review-docs` scope. Prose-flow, terminology, and English-usage
         checks apply to every language; structural checks stay per-language
         (KDoc/Javadoc today; TSDoc/JSDoc and godoc structure notes can come
-        later).
-  - [ ] Clarify `pre-pr` dispatch: `review-docs` runs when any changed hunk
+        later). Added a `## Checks` preamble marking C/D/E language-agnostic
+        and A/B JVM/Markdown-specific; mirrored the wider scope in the
+        `review-docs` agent wrapper's description.
+  - [x] Clarify `pre-pr` dispatch: `review-docs` runs when any changed hunk
         touches doc-comment lines in any supported language — including
         mixed code + comment changes and `.proto` edits (today a proto
         change triggers the build but no doc reviewer explicitly).
@@ -149,6 +151,20 @@ get cleaned up once and new changes are held to the standard afterwards.
   in the prose-location table) is fixed. Phase 1 is done; changes are
   staged, awaiting commit/PR authorization.
 - 2026-07-17 — Phase 1 committed (`ac097c4`).
+- 2026-07-17 — Phase 3 implemented and committed after two review passes.
+  Re-verify verdict: APPROVE WITH CHANGES — all substantive items confirmed
+  fixed; closed the final nits (fourth wrapper's catalog naming, and scoped
+  the `pre-pr` dispatch honestly to the JVM/Protobuf/Markdown files step 1
+  classifies rather than over-promising TS/JS/Go). Added Check E
+  (English usage) to `review-docs` with the plan's severity mapping; widened
+  its scope to full Protobuf doc comments plus TS/JS/Go; added a `## Checks`
+  language-agnostic preamble; wired `protobuf.md` structure into Check A;
+  broadened the `pre-pr` review-docs dispatch (proto + mixed code+comment).
+  `review-docs` re-reviewed: caught stale wrapper twins
+  (`claude/commands/review-docs.md`, `skills/review-docs/agents/openai.yaml`,
+  `claude/commands/pre-pr.md`), a missing "verb form in API summaries" topic
+  in Check E, an over-claimed AsciiDoc scope, and a Protobuf structural gap —
+  all fixed. Phase 2 committed as `407ff52`; Phase 1 as `ac097c4`.
 - 2026-07-17 — Phase 2 implemented: `skills/proofread/` (SKILL.md +
   `agents/openai.yaml`), `claude/commands/proofread.md` (sonnet), the
   extracted `guidelines/project-owned-files.md` (TOC entry 19), a

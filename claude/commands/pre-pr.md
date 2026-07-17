@@ -25,7 +25,10 @@ Follow the `pre-pr` skill exactly:
     rules). When `.kt|.kts` changed it runs alongside `kotlin-engineer`
     (disjoint concerns, no double-reporting); a Java-only or build-only diff
     dispatches `spine-code-review` alone (`kotlin-engineer` is Kotlin-only).
-  - `review-docs` when `.md` files or KDoc inside sources changed.
+  - `review-docs` whenever a changed hunk touches doc-comment or prose lines:
+    any `.md` or `.proto` change (a proto edit dispatches it in addition to
+    the build), or a `.kt`/`.kts`/`.java` diff that also touches comment
+    lines. See the skill for the exact conditions.
   - `dependency-audit` when any file under
     `buildSrc/src/main/kotlin/io/spine/dependency/` changed.
   - `check-links` when a Hugo site exists (a Hugo config under `docs/` or

@@ -185,7 +185,19 @@ for this repo" rather than failing.
   (e.g. a `.gradle.kts` change plus `gradle.properties`), selecting
   `spine-code-review` from both bullets. Dispatch each reviewer **at most once**
   over the whole changed-file set — never run the same reviewer twice.
-- **docs** or KDoc changed → `review-docs`
+- **Documentation review** → dispatch `review-docs` whenever a changed hunk
+  touches doc-comment or prose lines, not only on a **docs**-classified diff:
+  - any `*.md` change (**docs**);
+  - any `*.proto` change — its doc comments (type, field, service) are an API
+    surface, so a proto edit dispatches `review-docs` **in addition to**
+    triggering the build;
+  - a **code** change to `.kt` / `.kts` / `.java` whose diff also touches
+    KDoc/Javadoc or other comment lines — dispatch `review-docs` alongside the
+    code reviewers; it scopes itself to the prose.
+  A source diff that touches only executable lines does not need `review-docs`.
+  (`review-docs` itself also reviews TypeScript, JavaScript, and Go doc
+  comments; `pre-pr` only auto-dispatches for the JVM, Protobuf, and Markdown
+  files it classifies in step 1.)
 - **deps** changed → `dependency-audit`
 - **site** changed → `check-links` (unless the sentinel short-circuit below
   applies)
