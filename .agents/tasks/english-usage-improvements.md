@@ -2,7 +2,7 @@
 slug: english-usage-improvements
 branch: doc-review-improvements
 owner: claude
-status: draft
+status: in-progress
 started: 2026-07-17
 ---
 
@@ -32,17 +32,17 @@ get cleaned up once and new changes are held to the standard afterwards.
 
 ## Plan
 
-- [ ] **Phase 1 — the standard.** Create `guidelines/english-style.md` (name
+- [x] **Phase 1 — the standard.** Create `guidelines/english-style.md` (name
       parallels `kotlin-code-style.md` / `java-code-style.md`): the error
       catalog grouped by topic — articles, subject–verb agreement,
       prepositions, comma rules, hyphenated compound modifiers, "allows to",
       its/it's, verb form in API summaries, punctuation mechanics, spelling —
       each topic with before → after examples and leave-alone guards, at the
       rigor level of `which-fixer`'s guard list.
-  - [ ] Seed the topics from the grouped report of the `core-jvm` Sonnet
+  - [x] Seed the topics from the grouped report of the `core-jvm` Sonnet
         session (user to share it) plus recurring Russian-speaker error
         classes.
-  - [ ] Migrate the which/that rule from `which-fixer` as a catalog topic,
+  - [x] Migrate the which/that rule from `which-fixer` as a catalog topic,
         preserving its full guard list (comma, parenthesis/dash, preposition,
         interrogative/determiner, sentence-initial, hyphenated identifier,
         fixed phrases).
@@ -50,7 +50,7 @@ get cleaned up once and new changes are held to the standard afterwards.
         file — align a clear outlier to the file's dominant dialect; when no
         dialect clearly dominates, report the mix and leave the text alone.
         No org-wide dialect conversion; a standard may be forced later.
-  - [ ] Add a "Comment mechanics per language" section: where English prose
+  - [x] Add a "Comment mechanics per language" section: where English prose
         lives in each language (KDoc/Javadoc; Protobuf `//` doc comments per
         `protobuf.md`; TSDoc/JSDoc descriptions; Go doc comments) and what
         is machine-directed and must never be edited — `//go:*` pragmas,
@@ -59,7 +59,7 @@ get cleaned up once and new changes are held to the standard afterwards.
         `@ts-nocheck`, triple-slash references, eslint/prettier/istanbul
         directives, webpack magic comments, JSDoc tags and `{Type}` braces,
         `buf:lint:ignore`.
-  - [ ] Index in `guidelines/_TOC.md`; link from `documentation.md`,
+  - [x] Index in `guidelines/_TOC.md`; link from `documentation.md`,
         `kdoc.md`, `javadoc.md`, and `protobuf.md`.
 - [ ] **Phase 2 — the fixer.** New skill `proofread`, replacing
       `which-fixer`: stateless, with the mode chosen explicitly by the
@@ -126,3 +126,20 @@ get cleaned up once and new changes are held to the standard afterwards.
   an org-wide standard may be forced later.
 - 2026-07-17 — renamed the full-sweep parameter `all-files` → `all`: it
   means all project-owned code and docs, not literally every file.
+- 2026-07-17 — Phase 1 approved and implemented: `guidelines/english-style.md`
+  created with 11 catalog topics, per-language comment mechanics, and the
+  migrated which/that guard list; indexed in `_TOC.md` and linked from
+  `documentation.md`, `kdoc.md`, `javadoc.md`, and `protobuf.md`. The
+  `core-jvm` grouped report was not available, so the catalog is seeded from
+  recurring Russian-speaker error classes; the report can extend it later.
+- 2026-07-17 — `review-docs` reviewed Phase 1: which/that migration and
+  linguistics confirmed sound; fixed its findings — deterministic "listens
+  to" row plus a "listens for" guard, an AsciiDoc "Never edit" subsection,
+  two over-long table rows, three widow paragraphs, a missing article in
+  `kdoc.md`, "provides the possibility to" demoted from auto-fix to
+  report-only, dialect self-consistency (`behaviour`), and c8/v8 coverage
+  markers added.
+- 2026-07-17 — re-review verdict: APPROVE. All fixes independently
+  re-verified by `review-docs`; the last cosmetic nit (comment word order
+  in the prose-location table) is fixed. Phase 1 is done; changes are
+  staged, awaiting commit/PR authorization.

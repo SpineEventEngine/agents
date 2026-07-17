@@ -47,6 +47,8 @@ Spine-related imports should follow after an empty line break.
 
 ## API documentation
 
+The English in doc comments follows the rules in [English style](english-style.md).
+
 If documentation of a type or a field fits into one paragraph, do NOT add an empty line after
 the paragraph.
 
