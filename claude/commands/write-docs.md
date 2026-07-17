@@ -1,5 +1,7 @@
 ---
-description: Write or update Markdown / KDoc documentation per Spine documentation conventions.
+description: >
+  Write or update Markdown / KDoc documentation per Spine
+  documentation conventions.
 argument-hint: "<topic or file path>"
 allowed-tools: Read, Edit, Write, Grep, Glob
 ---
@@ -10,5 +12,6 @@ Follow the `writer` skill exactly:
 - Topic / target: $ARGUMENTS
 - Decide audience first (end user, contributor, maintainer, tooling).
 - Prefer updating an existing doc over creating a new one.
-- Keep `docs/data/docs/<section>/<version>/sidenav.yml` in sync when adding, removing, moving, or renaming pages under `docs/content/docs/<section>/`.
+- Keep `docs/data/docs/<section>/<version>/sidenav.yml` in sync when adding,
+  removing, moving, or renaming pages under `docs/content/docs/<section>/`.
 - Honor `.agents/guidelines/documentation.md` and `.agents/guidelines/documentation-tasks.md`.

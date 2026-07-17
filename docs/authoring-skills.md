@@ -49,6 +49,9 @@ Frontmatter followed by the body:
 
 Rules:
 
+- Write the `description:` as shown — a `>` folded scalar, even when the text
+  would fit on one line — and wrap its lines near 80 columns (the hard limit
+  is 100, per `.agents/guidelines/coding.md`).
 - Keep `SKILL.md` under ~500 lines; move long material into `references/` and link
   to it.
 - Reference shared guidance with **repo-rooted** paths
@@ -73,6 +76,25 @@ Rules:
 
 Keep `default_prompt` short and aligned with the `SKILL.md` description.
 
+## Claude wrapper frontmatter
+
+Wrappers under `claude/commands/` and `claude/agents/` are Markdown, so the
+100-character line limit from `.agents/guidelines/coding.md` applies to them
+(see `.agents/guidelines/documentation.md`). Two conventions follow:
+
+- **Always write `description:` as a `>` block scalar** — even when the text
+  would fit on one line — wrapping its lines near 80 columns, the same idiom
+  `skills/*/SKILL.md` files use. YAML folds the lines back into a single-line
+  string, so wrapping never changes the wording that drives command or agent
+  dispatch, and the uniform shape keeps a later edit from drifting past the
+  100-character limit.
+- **Keep `allowed-tools:` on one line, however long** — the field is exempt
+  from the line-length limit (likewise an agent's `tools:` field). Its value
+  is machine-consumed as permission rules, and the Claude Code documentation
+  defines no format for it beyond single-line examples, so a folded scalar is
+  not confirmed to parse identically. `master` floats to every consumer
+  repository; do not re-wrap the field on an unverified assumption.
+
 ## Scripts & copyright
 
 Put a skill's own helpers in `skills/<name>/scripts/`; promote a helper to the
@@ -86,6 +108,10 @@ rely only on the standard library so they run without extra installs.
 - Directory name == frontmatter `name`.
 - `description` < 1024 characters; `SKILL.md` < ~500 lines.
 - `agents/openai.yaml` present, with a `$<name>` `default_prompt`.
+- Skill files and Claude wrappers stay within the 100-character line limit;
+  only `allowed-tools:`/`tools:` lines are exempt, and every `description:`
+  is a `>` block scalar wrapped near 80 columns (see "Claude wrapper
+  frontmatter").
 - Every `.agents/...` reference resolves (check through the in-repo symlinks).
 - No skill file references a task plan:
   `grep -rnE '(^|[^[:alnum:]])(\.agents/)?tasks/' skills/<name>/` returns nothing

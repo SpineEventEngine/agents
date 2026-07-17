@@ -1,6 +1,14 @@
 ---
 name: kotlin-engineer
-description: Reviews Kotlin changes against Kotlin 2.x language and design standards — coroutine-safety, Flow correctness, null-safety, and idiomatic API design that LLMs frequently get wrong. Pairs with the `spine-code-review` agent (which owns repo-specific rules) and takes priority on general Kotlin standards. Use proactively when reviewing Kotlin, before opening a PR, or when the user asks for a Kotlin review. Read-only; does not edit files or run builds. (For writing or refactoring Kotlin in the main session, use the `kotlin-engineer` skill directly.)
+description: >
+  Reviews Kotlin changes against Kotlin 2.x language and design standards —
+  coroutine-safety, Flow correctness, null-safety, and idiomatic API design
+  that LLMs frequently get wrong. Pairs with the `spine-code-review` agent
+  (which owns repo-specific rules) and takes priority on general Kotlin
+  standards. Use proactively when reviewing Kotlin, before opening a PR, or
+  when the user asks for a Kotlin review. Read-only; does not edit files or
+  run builds. (For writing or refactoring Kotlin in the main session, use
+  the `kotlin-engineer` skill directly.)
 tools: Read, Grep, Glob, Bash
 model: inherit
 ---
