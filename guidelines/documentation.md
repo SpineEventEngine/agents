@@ -1,7 +1,8 @@
 # Documentation & comments
 
 Language-specific API-documentation conventions live on dedicated pages:
-[Javadoc](javadoc.md) and [KDoc](kdoc.md).
+[Javadoc](javadoc.md) and [KDoc](kdoc.md). English grammar, punctuation,
+and spelling rules — for every language — are catalogued in [English style](english-style.md).
 
 ## Commenting guidelines
 - Avoid inline comments in production code unless necessary.

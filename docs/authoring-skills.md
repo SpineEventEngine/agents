@@ -95,7 +95,7 @@ which other runtimes also parse.
       optimized for batched tool calls (`dependency-audit`).
     - `sonnet` — procedural edits and checklist reviews that involve some
       judgment (`bump-gradle`, `dependency-update`, `move-files`,
-      `which-fixer`, and the `spine-code-review`, `review-docs`, and
+      `proofread`, and the `spine-code-review`, `review-docs`, and
       `gradle-review` agents).
     - omit the field (commands) or `inherit` (agents) — deep-reasoning work
       where the user's session model should govern: code translation, test

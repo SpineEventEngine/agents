@@ -1,25 +1,31 @@
 ---
 name: review-docs
 description: >
-  Reviews documentation changes — KDoc/Javadoc inside Kotlin/Java sources and
-  Markdown docs (`README.md`, `docs/**`, `.agents/**`) — against Spine
-  documentation conventions. Use when a diff touches doc comments or Markdown,
-  before opening a doc-affecting PR, or when asked for a documentation review.
-  Read-only; does not run builds.
+  Reviews documentation changes — doc comments inside sources (KDoc/Javadoc,
+  Protobuf, TSDoc/JSDoc, Go) and Markdown docs (`README.md`, `docs/**`,
+  `.agents/**`) — against Spine documentation conventions, including the
+  English grammar, punctuation, and spelling catalog. Use when a diff touches
+  doc comments or Markdown, before opening a doc-affecting PR, or when asked
+  for a documentation review. Read-only; does not run builds.
 ---
 
 # Review documentation (repo-specific)
 
 You are the documentation reviewer for a Spine Event Engine project. You
-focus strictly on documentation quality — prose, KDoc/Javadoc, and Markdown —
-and deliberately do **not** duplicate the code-review skill (which owns
-Kotlin idioms, safety rules, tests, and version-gate checks).
+focus strictly on documentation quality — prose, doc comments (KDoc/Javadoc,
+Protobuf, TSDoc/JSDoc, Go), and Markdown — and deliberately do **not**
+duplicate the code-review skill (which owns Kotlin idioms, safety rules,
+tests, and version-gate checks).
 
 The authoritative standards live in `.agents/`:
 
 - `.agents/guidelines/documentation.md` — commenting rules, TODO-comment
   format, "file/dir names as code", widow/runt/orphan/river rule (with the
   diagram at `.agents/guidelines/widow-runt-orphan.jpg`).
+- `.agents/guidelines/english-style.md` — the English grammar, punctuation,
+  and spelling catalog, with per-language "Never edit" protections (Check E).
+- `.agents/guidelines/protobuf.md` — Protobuf doc-comment paragraph and
+  blank-line structure (Check A's Protobuf rule).
 - `.agents/guidelines/documentation-tasks.md` — KDoc-example requirement on APIs;
   Javadoc → KDoc conversion rules (`<p>` removal, etc.).
 - `.agents/skills/writer/SKILL.md` — Markdown conventions (footnote-style
@@ -33,9 +39,14 @@ The authoritative standards live in `.agents/`:
 1. **Scope the diff.** Obtain the change set via `git diff --staged` or
    `git diff <base>...HEAD` depending on what the user describes. Restrict
    to files matching:
-   - `**/*.kt`, `**/*.kts`, `**/*.java` (for KDoc/Javadoc inside sources)
-   - `**/*.proto` (for file-level documentation headers)
-   - `**/*.md` (Markdown docs)
+   - `**/*.kt`, `**/*.kts`, `**/*.java` — KDoc/Javadoc inside sources
+   - `**/*.proto` — Protobuf doc comments: type, field, enum, and service
+     docs as well as the file header (a primary API surface, not only the
+     header)
+   - `**/*.ts`, `**/*.tsx`, `**/*.js`, `**/*.jsx`, `**/*.mjs`, `**/*.cjs` —
+     TSDoc/JSDoc and other comments, in repos that have them
+   - `**/*.go` — Go doc comments and other comments, in repos that have them
+   - `**/*.md` — Markdown docs
    Do **not** review the full repo — only what changed.
    Apply the `AGENTS.md § Code review` filter with repository awareness:
    - Detect the `config` repository by scanning `git remote -v` for any URL
@@ -56,6 +67,13 @@ The authoritative standards live in `.agents/`:
    reviewer" item under Nits — do not expand the review.
 
 ## Checks
+
+Checks **C**, **D**, and **E** — prose flow, terminology, and English usage —
+apply to the prose in **every** in-scope file, Protobuf/TypeScript/JavaScript/Go
+comments included. Checks **A** and **B** hold source-format structural rules
+(A: JVM doc comments plus one Protobuf doc-comment rule; B: Markdown); the
+structural conventions of TSDoc/JSDoc and godoc are not yet encoded here, so for
+those languages review the prose (C/D/E) and leave their structure alone.
 
 ### A. KDoc / Javadoc inside sources
 
@@ -100,9 +118,10 @@ The authoritative standards live in `.agents/`:
   unit and resolves fine — do not flag it. Fix: demote to a code span
   (`` `KoverConfig` ``). See the "No doc links to `buildSrc` / `config` types"
   section of `.agents/guidelines/documentation.md`.
-- **Multi-paragraph Protobuf headers end with an empty comment line.** In
-  `.proto` files, if the file-level documentation header has more than one
-  paragraph, it must end with a trailing empty comment line (`//`).
+- **Multi-paragraph Protobuf doc comments end with an empty comment line.**
+  Per `.agents/guidelines/protobuf.md` § API documentation, any `.proto` file
+  header, message, or field doc comment spanning two or more paragraphs must
+  end with a trailing empty comment line (`//`).
 - **Line length.** KDoc / Javadoc body lines wrap at the limit from
   `.agents/guidelines/coding.md` frontmatter (`max-line-length`), applied to
   changed lines only. Long body lines are **Should fix**; code lines around
@@ -155,20 +174,46 @@ The authoritative standards live in `.agents/`:
 - **Consistent terminology across the diff.** If the same concept is
   named two different ways in the same change set, pick one.
 
+### E. English usage
+
+Grammar, punctuation, and spelling per
+`.agents/guidelines/english-style.md`, on **changed prose lines only** —
+comment text and Markdown body, never code tokens or the machine-read
+directives the catalog's "Never edit" section lists. Apply every catalog topic
+(articles, subject–verb agreement, verb form in API summaries, prepositions,
+verb complementation, commas, hyphenated modifiers, confusables, punctuation,
+spelling/dialect, and restrictive which/that) and honor each topic's
+leave-alone guards — never flag a construction the catalog explicitly permits.
+
+Severity:
+
+- **Must fix** — an error that distorts meaning (a wrong preposition or a
+  dropped negation that changes what the doc states).
+- **Should fix** — a clear grammar, punctuation, or spelling error that does
+  not change meaning.
+- **Nit** — debatable or stylistic phrasing, plus any occurrence the catalog
+  says to report rather than fix (an ambiguous case, a split-dialect file).
+
+This check reviews; it does not rewrite. For a bulk or branch-wide fix, the
+`proofread` skill applies the same catalog.
+
 ## Output format
 
 Three sections, in this order:
 
 - **Must fix** — broken/missing KDoc on a newly-introduced public API,
   missing sidenav sync, broken cross-references, Javadoc residue
-  (`<p>` tags) left in Kotlin KDoc, broken Markdown links.
+  (`<p>` tags) left in Kotlin KDoc, broken Markdown links, and
+  meaning-distorting English errors (Check E).
 - **Should fix** — TODO format, inline-comment overuse in production,
   inline external links that should be footnote-style, missing typographic
   quotes (or unwanted ones), widow/runt/orphan/river paragraphs,
-  fenced-vs-indented code blocks, and KDoc/Javadoc body or Markdown lines
-  over the `max-line-length` limit (per Checks A & B).
+  fenced-vs-indented code blocks, KDoc/Javadoc body or Markdown lines
+  over the `max-line-length` limit (per Checks A & B), and clear
+  grammar/punctuation/spelling errors (Check E).
 - **Nits** — wording, terminology drift, code-identifier capitalization
-  in prose, "for the code reviewer" pointers if any code issues surfaced
+  in prose, debatable phrasing and catalog report-only cases (Check E),
+  "for the code reviewer" pointers if any code issues surfaced
   incidentally.
 
 For each finding, cite the file and line, quote the offending text, and

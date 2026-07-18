@@ -47,7 +47,11 @@ description: >
 
 ## Follow local documentation conventions
 
-- Follow `.agents/guidelines/documentation.md` and `.agents/guidelines/documentation-tasks.md`.
+- Follow `.agents/guidelines/documentation.md`,
+  `.agents/guidelines/documentation-tasks.md`, and
+  `.agents/guidelines/english-style.md` (grammar, punctuation, and spelling —
+  write new prose to the catalog so `review-docs` and `proofread` find nothing
+  to fix).
 - Use fenced code blocks for commands and examples; format file/dir names as code.
 - When referencing a documentation page or section in body prose, use typographic
   double quotation marks only if the visible reference text is the actual page or

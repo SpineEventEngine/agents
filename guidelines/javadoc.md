@@ -1,8 +1,9 @@
 # Javadoc
 
 Conventions for writing Javadoc in the Java code of the Spine SDK. See also
-the API-documentation scope rules in `.agents/guidelines/documentation.md`
-and the language conventions in `.agents/guidelines/java-code-style.md`.
+the API-documentation scope rules in `.agents/guidelines/documentation.md`,
+the language conventions in `.agents/guidelines/java-code-style.md`, and the
+English grammar and punctuation rules in `.agents/guidelines/english-style.md`.
 
 **Table of contents**
 

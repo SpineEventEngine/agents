@@ -3,7 +3,8 @@
 This page describes the documentation aspects of programming in Kotlin.
 For the language conventions please see
 `.agents/guidelines/kotlin-code-style.md`; for the API-documentation scope
-rules see `.agents/guidelines/documentation.md`.
+rules see `.agents/guidelines/documentation.md`; for the English grammar
+and punctuation rules see `.agents/guidelines/english-style.md`.
 
 Use these [KDoc guidelines for Android developers][android-kdoc] as general
 rules. Recommendations and requirements specific to the Spine SDK are

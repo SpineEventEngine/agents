@@ -84,6 +84,10 @@ Pre-PR progress:
     `settings.gradle`, `gradle.properties`, `libs.versions.toml`, or any other
     `*.versions.toml`
   - **docs** — any `*.md` or doc-only source edits changed
+  - **doc-source (non-JVM)** — a doc-comment or prose change in a `*.ts`,
+    `*.tsx`, `*.js`, `*.jsx`, `*.mjs`, `*.cjs`, or `*.go` file. These trigger
+    no Gradle build and no code reviewer; `review-docs` reviews their prose
+    (step 4)
   - **deps** — any file under `buildSrc/src/main/kotlin/io/spine/dependency/` changed
   - **site** — a Hugo site exists and any file under `docs/**` or `lychee.toml`
     changed (triggers Hugo link check; pure `README.md` or KDoc-only changes do
@@ -121,9 +125,9 @@ item 3):
 - Else **`.kt`/`.java` code** change, or a **build**/**deps** file → `./gradlew build`
 - Else **doc-only `.kt`/`.java`** edit (no code change) → `./gradlew dokkaGenerate`
   (no build, no tests)
-- Else **Markdown / non-source docs only** → no Gradle build required; the
-  reviewers (and `check-links` for a Hugo site) cover it. Record
-  `build_status=skipped` with the reason.
+- Else **Markdown or non-JVM doc-source only** (`*.md`, or `*.ts`/`*.js`/`*.go`
+  and the like) → no Gradle build required; the reviewers (and `check-links`
+  for a Hugo site) cover it. Record `build_status=skipped` with the reason.
 
 **Append `dokkaGenerate` to a *build* target whenever a `.kt`/`.java` source file
 changed** — a code edit can rename or move a type an existing doc comment links
@@ -142,7 +146,7 @@ Putting it together:
 - `.kt`/`.java` **code** change → `./gradlew build dokkaGenerate`
 - `.kt`/`.java` **doc-only** edit → `./gradlew dokkaGenerate` (no build, no tests)
 - **build**/**deps**/`*.kts`-only (no `.kt`/`.java`) → `./gradlew build`
-- **Markdown / non-source docs only** → no Dokka, no build
+- **Markdown or non-JVM doc-source only** → no Dokka, no build
 
 Use `dokkaGenerate`, never the bare `dokka` task — the latter is ambiguous
 under the Dokka v2 Gradle plugin and aborts the build. If `dokkaGenerate` is
@@ -185,7 +189,20 @@ for this repo" rather than failing.
   (e.g. a `.gradle.kts` change plus `gradle.properties`), selecting
   `spine-code-review` from both bullets. Dispatch each reviewer **at most once**
   over the whole changed-file set — never run the same reviewer twice.
-- **docs** or KDoc changed → `review-docs`
+- **Documentation review** → dispatch `review-docs` whenever a changed hunk
+  touches doc-comment or prose lines, not only on a **docs**-classified diff:
+  - any `*.md` change (**docs**);
+  - any `*.proto` change — its doc comments (type, field, service) are an API
+    surface, so a proto edit dispatches `review-docs` **in addition to**
+    triggering the build;
+  - a **code** change to `.kt` / `.kts` / `.java` whose diff also touches
+    KDoc/Javadoc or other comment lines — dispatch `review-docs` alongside the
+    code reviewers; it scopes itself to the prose;
+  - a **doc-source (non-JVM)** change — a `.ts` / `.tsx` / `.js` / `.jsx` /
+    `.mjs` / `.cjs` / `.go` diff whose hunks touch doc comments or other
+    comments. These have no Gradle build and no code reviewer, so `review-docs`
+    is their only gate.
+  A source diff that touches only executable lines does not need `review-docs`.
 - **deps** changed → `dependency-audit`
 - **site** changed → `check-links` (unless the sentinel short-circuit below
   applies)
