@@ -30,10 +30,10 @@ history** without explicit authorization: a per-prompt request ("commit this"), 
 session grant ("you may commit for the rest of this session") that holds on the
 granted branch until revoked or the session ends, or an active skill's
 `## Commit authorization` section. A grant covers only the operations it names;
-history rewrites and release operations (force-push, rebase, tag, release,
-PR merge) always stay per-action. When in doubt: stage changes, show the diff,
-and stop — let the maintainer open the pull request. See
-`.agents/guidelines/safety-rules.md`.
+history rewrites and release operations (`git push --force`, `git rebase`,
+`git tag`, `gh release create`, `gh pr merge`) always stay per-action. When in
+doubt: stage changes, show the diff, and stop — let the maintainer open the pull
+request. See `.agents/guidelines/safety-rules.md`.
 
 ## Other safety rules
 

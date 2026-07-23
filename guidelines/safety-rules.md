@@ -66,12 +66,14 @@ of the following is true *right now*:
    "tag this release". This form covers the named operation in the
    current turn only.
 3. **Session-granted.** The user's prompt explicitly grants standing
-   authorization for the rest of the session — e.g. "you may commit
-   throughout this session", "commit and push as needed until CI is
-   green". Unlike a user-instructed request, a session grant persists
+   authorization for the rest of the session — e.g.
+   "you may commit throughout this session" or
+   "commit and push as needed until CI is green".
+   Unlike a user-instructed request, a session grant persists
    across turns. Its limits:
-   - It covers only the operations it names: "commit" does not imply
-     push, and "push" does not imply force-push.
+   - It covers only the operations it names: `git commit` does not
+     imply `git push`, and `git push` does not imply
+     `git push --force`.
    - It is scoped to the repository and branch it was given on;
      switching either suspends it until the user confirms it again.
    - It never extends to history-rewriting or publishing operations:
@@ -94,7 +96,7 @@ If none of the three holds, the agent:
 3. **Stops.** The user runs the commit themselves, or replies with
    explicit authorization in the next prompt.
 
-Do not pin `Bash(git commit:*)` into `permissions.ask` in a repo's
+Do not add `Bash(git commit:*)` to `permissions.ask` in a repo's
 checked-in `.claude/settings.json`. In Claude Code, an `ask` rule
 outranks every `allow` rule from every settings file, so such an entry
 forces a confirmation dialog on each commit — even under a valid
