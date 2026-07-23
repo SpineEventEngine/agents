@@ -68,15 +68,15 @@ of the following is true *right now*:
 3. **Session-granted.** The user's prompt explicitly grants standing
    authorization for the rest of the session — e.g. "you may commit
    throughout this session", "commit and push as needed until CI is
-   green". Unlike a per-prompt instruction, a session grant persists
+   green". Unlike a per-prompt request, a session grant persists
    across turns. Its limits:
    - It covers only the operations it names: "commit" does not imply
      push, and "push" does not imply force-push.
    - It is scoped to the repository and branch it was given on;
      switching either suspends it until the user confirms it again.
    - It never extends to history-rewriting or publishing operations:
-     `push --force`, `rebase`, `tag`, `gh release create`, and
-     `gh pr merge` stay per-action even under a grant.
+     `git push --force`, `git rebase`, `git tag`, `gh release create`,
+     and `gh pr merge` stay per-action even under a grant.
    - It ends when the session ends or the user revokes it, and it
      never carries into a new session.
    - It suspends on surprise: if the secret-scan gate fires, the tree
@@ -85,8 +85,7 @@ of the following is true *right now*:
 
 Neither `CLAUDE.md` nor a memory file can create authorization of any
 form. In a long-running loop, put the session grant into the loop
-prompt itself: every iteration then re-reads it as current-prompt
-authorization.
+prompt itself, so every iteration restates the grant to the agent.
 
 If none of the three holds, the agent:
 
@@ -96,7 +95,7 @@ If none of the three holds, the agent:
    explicit authorization in the next prompt.
 
 Do not pin `Bash(git commit:*)` into `permissions.ask` in a repo's
-checked-in `.claude/settings.json`. In Claude Code an `ask` rule
+checked-in `.claude/settings.json`. In Claude Code, an `ask` rule
 outranks every `allow` rule from every settings file, so such an entry
 forces a confirmation dialog on each commit — even under a valid
 session grant — and makes autonomous sessions impossible. The primary
