@@ -68,7 +68,7 @@ of the following is true *right now*:
 3. **Session-granted.** The user's prompt explicitly grants standing
    authorization for the rest of the session — e.g. "you may commit
    throughout this session", "commit and push as needed until CI is
-   green". Unlike a per-prompt request, a session grant persists
+   green". Unlike a user-instructed request, a session grant persists
    across turns. Its limits:
    - It covers only the operations it names: "commit" does not imply
      push, and "push" does not imply force-push.
