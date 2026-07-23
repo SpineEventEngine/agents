@@ -25,6 +25,18 @@ description: >
 3. Relay stdout (notice source, file count, changed paths) to the user.
 4. Never add a copyright header to a file that does not already have one.
 
+## Third-party attribution
+
+Files derived from an upstream project carry that project's credit ahead of
+TeamDev's own, e.g. `Copyright 2023, The Flogger Authors; 2025, TeamDev. All rights reserved.`.
+The IntelliJ profile names a single holder, but re-stamping **preserves any
+holder listed ahead of the profile's own** — segments separated by `;` — and
+refreshes only the trailing (profile-holder) year, yielding
+`… The Flogger Authors; 2026, TeamDev. …`. This keeps the upstream attribution
+that Apache-2.0 §4(c) requires, instead of collapsing the line to a TeamDev-only
+notice. A header that carries only the profile's own holder is stamped exactly
+as before.
+
 ## Files distributed by the `config` repository
 
 The shared mechanism — what "project-owned" means, how to detect a
