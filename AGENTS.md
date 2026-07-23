@@ -25,9 +25,11 @@ production.**
 ## Commit and history safety
 
 **Do not commit, push, tag, rebase, merge, cherry-pick, or otherwise write to git
-history** unless the user's *current* prompt explicitly requests it. Authorization
-does not carry over between turns. When in doubt: stage changes, show the diff, and
-stop — let the maintainer open the pull request. See
+history** without explicit authorization. Authorization is per-prompt ("commit
+this") or a session grant ("you may commit for the rest of this session"), which
+holds on the granted branch until revoked or the session ends. History-rewriting
+and publishing operations are never covered by a grant. When in doubt: stage
+changes, show the diff, and stop — let the maintainer open the pull request. See
 `.agents/guidelines/safety-rules.md`.
 
 ## Other safety rules

@@ -5,8 +5,8 @@
 explicit authorization. See
 [`safety-rules.md`](safety-rules.md) → *Commits and history-writing*.
 Authorization comes only from a skill's `## Commit authorization`
-section or from the user's current prompt — never from prior turns or
-memory.
+section, the user's current prompt, or an unrevoked session grant —
+never from `CLAUDE.md` or memory.
 
 🔑 **Never commit secrets** (private keys, service-account JSON, tokens).
 Decrypted `*.gpg` twins like `spine-dev.json` must stay gitignored; stage
