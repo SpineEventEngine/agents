@@ -9,6 +9,9 @@ Thumbs.db
 *.iml
 .vscode/
 
+# Python bytecode caches (generated when skill scripts run)
+__pycache__/
+
 # Claude Code runtime (not part of the shared content)
 .claude/worktrees/
 .claude/scheduled_tasks.lock
