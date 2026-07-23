@@ -32,7 +32,7 @@ the file, it is meaningful from the start and never needs renaming.
 Durable status, hand-off notes, and resumable plans belong **in this
 file** — never appended to the random-named plan-mode file.
 
-Plan-mode files land in this directory too — `.claude/settings.json` sets
+Plan-mode files land in this directory too — `.claude/settings.json` sets:
 
     {
       "plansDirectory": ".agents/tasks"
