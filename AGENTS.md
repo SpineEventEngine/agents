@@ -18,8 +18,9 @@ production.**
   `.agents/...` references resolve while you edit (the repo dogfoods itself).
 - Durable task and hand-off notes go in `.agents/tasks/<meaningful-slug>.md` that
   **you author** with the Write tool — a meaningful name from creation, never
-  renamed. Claude Code's plan-mode file keeps a harness-assigned random name and is
-  only a throwaway approval artifact; never put durable content in it. Details:
+  renamed. Claude Code's plan-mode files land in the same directory (via
+  `plansDirectory`) under harness-assigned random names; they are throwaway
+  approval artifacts — never commit one or put durable content in it. Details:
   [`.agents/tasks/README.md`](.agents/tasks/README.md).
 
 ## Commit and history safety
