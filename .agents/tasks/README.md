@@ -32,17 +32,21 @@ the file, it is meaningful from the start and never needs renaming.
 Durable status, hand-off notes, and resumable plans belong **in this
 file** — never appended to the random-named plan-mode file.
 
-Keep the two apart by routing plan mode's throwaway files to a gitignored
-scratch dir via `.claude/settings.json`:
+Plan-mode files land in this directory too — `.claude/settings.json` sets:
 
     {
-      "plansDirectory": ".claude/plans"
+      "plansDirectory": ".agents/tasks"
     }
 
-`.claude/plans/` is gitignored: plan-mode files stay in the working tree
-(inspectable, resumable within the session) but out of version control
-and out of `.agents/tasks/`, which then holds only meaningful, committed
-task files.
+so approval artifacts are visible beside the durable notes they precede
+instead of hiding under `.claude/`. The two kinds stay apart by
+lifecycle, not location:
+
+- A **task file** is committed, carries frontmatter, and has a
+  meaningful slug an agent chose.
+- A **plan-mode file** is untracked, frontmatter-less, and random-named.
+  Never stage, commit, or rename one — it may be deleted freely once its
+  session is over.
 
 ## File format
 
@@ -91,7 +95,9 @@ complete unchecked items by ticking them and adding a `Log` line.
 
 1. **Discover** — at task start, scan `.agents/tasks/` for `in-progress`
    or `blocked` plans **whose `branch` frontmatter equals the current git
-   branch**, and resume rather than restart. Ignore plans tagged to other
+   branch**, and resume rather than restart. A file without `status`
+   frontmatter (e.g. an untracked plan-mode artifact) is not a task
+   file — skip it. Ignore plans tagged to other
    branches — they are someone else's in-flight work, not yours to pick up,
    so a plan that lands on `master` (or any other branch) is never
    resurfaced outside its own branch.

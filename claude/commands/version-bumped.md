@@ -20,5 +20,5 @@ Follow the `version-bumped` skill exactly:
   Do not bump.
 - Exit 1 → run the `bump-version` skill to recover (it owns the policy),
   then re-run the check once to confirm. Do not loop.
-- Recovery may commit the bump — that is the `bump-version` skill's
-  documented policy; the repo's permission settings still gate `git commit`.
+- Recovery may commit the bump — the `bump-version` skill's `SKILL.md`
+  declares it in its `## Commit authorization` section.

@@ -63,17 +63,46 @@ of the following is true *right now*:
 2. **User-instructed.** The user's *current* prompt explicitly tells
    the agent to perform the operation. Examples that qualify:
    "commit this", "make a commit with subject X", "push the branch",
-   "tag this release". Authorization from previous turns, from
-   `CLAUDE.md`, or from any memory file does **not** carry over.
+   "tag this release". This form covers the named operation in the
+   current turn only.
+3. **Session-granted.** The user's prompt explicitly grants standing
+   authorization for the rest of the session — e.g.
+   "you may commit throughout this session" or
+   "commit and push as needed until CI is green".
+   Unlike a user-instructed request, a session grant persists
+   across turns. Its limits:
+   - It covers only the operations it names: `git commit` does not
+     imply `git push`, and `git push` does not imply
+     `git push --force`.
+   - It is scoped to the repository and branch it was given on;
+     switching either suspends it until the user confirms it again.
+   - It never extends to history-rewriting or publishing operations:
+     `git push --force`, `git rebase`, `git tag`, `gh release create`,
+     and `gh pr merge` stay per-action even under a grant.
+   - It ends when the session ends or the user revokes it, and it
+     never carries into a new session.
+   - It suspends on surprise: if the secret-scan gate fires, the tree
+     contains changes the agent did not make, or the scope of the
+     next commit is unclear — stop and ask despite the grant.
 
-If neither holds, the agent:
+Neither `CLAUDE.md` nor a memory file can create authorization of any
+form. In a long-running loop, put the session grant into the loop
+prompt itself, so every iteration restates the grant to the agent.
+
+If none of the three holds, the agent:
 
 1. Stages relevant changes with `git add` (only if helpful for review).
 2. Prints the proposed commit subject (if any) and `git diff --staged`.
 3. **Stops.** The user runs the commit themselves, or replies with
    explicit authorization in the next prompt.
 
-The project's `.claude/settings.json` keeps `Bash(git commit:*)` in
-`permissions.ask` as defense-in-depth, but the primary enforcement is
-this rule — agents must not propose commit attempts that rely on the
-user clicking the prompt.
+Do not add `Bash(git commit:*)` to `permissions.ask` in a repo's
+checked-in `.claude/settings.json`. In Claude Code, an `ask` rule
+outranks every `allow` rule from every settings file, so such an entry
+forces a confirmation dialog on each commit — even under a valid
+session grant — and makes autonomous sessions impossible. The primary
+enforcement is this rule plus the secret-scan gate; leave harness
+prompting at Claude Code's defaults, so each developer decides once
+per repository whether `git commit` may run without a dialog. Agents
+still must not attempt a commit that relies on the user clicking a
+permission prompt.

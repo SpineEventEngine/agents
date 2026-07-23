@@ -18,17 +18,22 @@ production.**
   `.agents/...` references resolve while you edit (the repo dogfoods itself).
 - Durable task and hand-off notes go in `.agents/tasks/<meaningful-slug>.md` that
   **you author** with the Write tool — a meaningful name from creation, never
-  renamed. Claude Code's plan-mode file keeps a harness-assigned random name and is
-  only a throwaway approval artifact; never put durable content in it. Details:
+  renamed. Claude Code's plan-mode files land in the same directory (via
+  `plansDirectory`) under harness-assigned random names; they are throwaway
+  approval artifacts — never commit one or put durable content in it. Details:
   [`.agents/tasks/README.md`](.agents/tasks/README.md).
 
 ## Commit and history safety
 
 **Do not commit, push, tag, rebase, merge, cherry-pick, or otherwise write to git
-history** unless the user's *current* prompt explicitly requests it. Authorization
-does not carry over between turns. When in doubt: stage changes, show the diff, and
-stop — let the maintainer open the pull request. See
-`.agents/guidelines/safety-rules.md`.
+history** without explicit authorization: a per-prompt request ("commit this"), a
+session grant ("you may commit for the rest of this session") that holds on the
+granted branch until revoked or the session ends, or an active skill's
+`## Commit authorization` section. A grant covers only the operations it names;
+history rewrites and release operations (`git push --force`, `git rebase`,
+`git tag`, `gh release create`, `gh pr merge`) always stay per-action. When in
+doubt: stage changes, show the diff, and stop — let the maintainer open the pull
+request. See `.agents/guidelines/safety-rules.md`.
 
 ## Other safety rules
 

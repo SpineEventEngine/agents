@@ -8,5 +8,7 @@
 - To create or edit a skill, use the `author-skill` skill; the full conventions
   are in [`docs/authoring-skills.md`](docs/authoring-skills.md).
 - `master` floats to every Spine repository, so land changes through a reviewed
-  pull request — do not commit or push unless explicitly asked.
+  pull request — do not commit or push without explicit authorization: a
+  per-prompt request, a session grant, or a skill's `## Commit authorization`
+  section, per `.agents/guidelines/safety-rules.md`.
 - Per-developer memory lives in the built-in auto-memory dir.
