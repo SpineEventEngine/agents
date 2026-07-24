@@ -363,20 +363,27 @@ def strip_leading_blank_lines(text: str) -> str:
     return re.sub(r"^(?:[ \t]*\r?\n)+", "", text)
 
 
-def strip_existing_header(text: str, style: str) -> tuple[str, bool]:
+def strip_existing_header(text: str, style: str) -> tuple[str, str | None]:
+    """Split off a leading copyright header.
+
+    Returns ``(remaining_text, header)`` where ``header`` is the consumed
+    header text, or ``None`` when the text has no recognizable copyright
+    header. The caller inspects ``header`` to carry any third-party attribution
+    forward (see ``preserve_foreign_attribution``).
+    """
     if style == "block" and text.startswith("/*"):
         close = text.find("*/")
         if close != -1:
             candidate = text[: close + 2]
             if is_copyright_header(candidate):
-                return strip_leading_blank_lines(text[close + 2 :]), True
+                return strip_leading_blank_lines(text[close + 2 :]), candidate
 
     if style == "xml" and text.startswith("<!--"):
         close = text.find("-->")
         if close != -1:
             candidate = text[: close + 3]
             if is_copyright_header(candidate):
-                return strip_leading_blank_lines(text[close + 3 :]), True
+                return strip_leading_blank_lines(text[close + 3 :]), candidate
 
     if style == "hash":
         # A freshly rendered header (see build_header) never has a truly
@@ -404,9 +411,9 @@ def strip_existing_header(text: str, style: str) -> tuple[str, bool]:
             break
         candidate = text[:end]
         if candidate and is_copyright_header(candidate):
-            return strip_leading_blank_lines(text[end:]), True
+            return strip_leading_blank_lines(text[end:]), candidate
 
-    return text, False
+    return text, None
 
 
 def is_copyright_header(text: str) -> bool:
@@ -416,20 +423,64 @@ def is_copyright_header(text: str) -> bool:
     )
 
 
-def updated_text(text: str, notice: str, style: str) -> str:
+def preserve_foreign_attribution(header: str, notice: str, year: str) -> str:
+    """Carry third-party copyright credit from the old *header* into *notice*.
+
+    The IntelliJ profile stamps a single-holder line — e.g.
+    ``Copyright <year>, TeamDev. All rights reserved.`` — so a header that reads
+    ``Copyright 2023, The Flogger Authors; 2024, TeamDev. ...`` would otherwise
+    lose the upstream credit on every re-stamp. Apache-2.0 §4(c) requires
+    retaining that credit. When the existing header lists holders ahead of the
+    profile's own (separated by ``;``), keep them verbatim and refresh only the
+    trailing (profile-holder) year; return the notice to stamp.
+
+    Nothing is hard-coded to a specific project: the profile's first line
+    defines ``head`` (text before its year) and ``tail`` (text after it), and
+    any segments the old header carries between them, before the last, are
+    preserved as foreign attribution.
+    """
+    lines = notice.split("\n")
+    head, sep, tail = lines[0].partition(year)
+    if not sep or not tail:
+        # The profile's first line carries no year token to anchor on, so there
+        # is no holder segment to preserve; stamp the notice unchanged.
+        return notice
+    match = re.search(
+        re.escape(head) + r"(?P<middle>.*?)" + re.escape(tail), header
+    )
+    if match is None:
+        # The old header's copyright line does not match the profile's shape
+        # (different holder or wording); leave the notice untouched.
+        return notice
+    segments = match.group("middle").split(";")
+    if len(segments) < 2:
+        # Only the profile holder's own credit is present — the ordinary case;
+        # the plain notice (with the current year) is already correct.
+        return notice
+    last = segments[-1]
+    leading = last[: len(last) - len(last.lstrip())]
+    segments[-1] = leading + year
+    merged_first = head + ";".join(segments) + tail
+    return "\n".join([merged_first, *lines[1:]])
+
+
+def updated_text(text: str, notice: str, style: str, year: str) -> str:
     original = text
     bom = "\ufeff" if text.startswith("\ufeff") else ""
     if bom:
         text = text[1:]
     newline = newline_for(text)
     prefix, body = split_leading_directive(text, style, newline)
-    body, had_header = strip_existing_header(body, style)
-    if not had_header:
+    body, header = strip_existing_header(body, style)
+    if header is None:
         return original
+    notice = preserve_foreign_attribution(header, notice, year)
     return bom + prefix + build_header(notice, style, newline) + body
 
 
-def update_file(root: Path, path: Path, notice: str, dry_run: bool) -> bool:
+def update_file(
+    root: Path, path: Path, notice: str, year: str, dry_run: bool
+) -> bool:
     absolute = root / path
     style = style_for(path)
     if style is None:
@@ -444,7 +495,7 @@ def update_file(root: Path, path: Path, notice: str, dry_run: bool) -> bool:
         print(f"Skipping non-UTF-8 file: {path}", file=sys.stderr)
         return False
 
-    next_text = updated_text(text, notice, style)
+    next_text = updated_text(text, notice, style, year)
     if next_text == text:
         return False
 
@@ -468,7 +519,7 @@ def main() -> int:
     changed = [
         path
         for path in paths
-        if update_file(root, path, notice, dry_run=dry_run)
+        if update_file(root, path, notice, args.year, dry_run=dry_run)
     ]
 
     rel_profile = profile_path.relative_to(root)

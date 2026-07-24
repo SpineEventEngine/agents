@@ -334,6 +334,104 @@ class UpdateCopyrightTest(unittest.TestCase):
                 FRESH_BLOCK + "class Foo {}\n",
             )
 
+    def test_existing_header_retains_third_party_attribution(self) -> None:
+        # Regression test: files derived from an Apache-2.0 upstream (e.g. Flogger)
+        # carry a dual-attribution first line. Apache-2.0 §4(c) requires
+        # retaining the upstream credit, so re-stamping must keep it and
+        # refresh only the profile holder's (TeamDev) year — never collapse
+        # the line to a TeamDev-only notice.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            self.write_derived_profile(root)
+            source = root / "AbstractLogger.kt"
+            source.write_text(
+                "/*\n"
+                " * Copyright 2023, The Flogger Authors; 2025, TeamDev."
+                " All rights reserved.\n"
+                " *\n"
+                " * Licensed under the Apache License.\n"
+                " */\n"
+                "\n"
+                "package io.spine.logging\n",
+                encoding="utf-8",
+            )
+
+            result = self.run_script(root, "--year", "2026", "AbstractLogger.kt")
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Updated 1 file(s).", result.stdout)
+            self.assertEqual(
+                source.read_text(encoding="utf-8"),
+                "/*\n"
+                " * Copyright 2023, The Flogger Authors; 2026, TeamDev."
+                " All rights reserved.\n"
+                " *\n"
+                " * Licensed under the Apache License.\n"
+                " */\n"
+                "\n"
+                "package io.spine.logging\n",
+            )
+
+    def test_third_party_attribution_update_is_idempotent(self) -> None:
+        # A header already crediting the upstream and carrying the current
+        # year must be left untouched on a re-run.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            self.write_derived_profile(root)
+            source = root / "AbstractLogger.kt"
+            current = (
+                "/*\n"
+                " * Copyright 2023, The Flogger Authors; 2026, TeamDev."
+                " All rights reserved.\n"
+                " *\n"
+                " * Licensed under the Apache License.\n"
+                " */\n"
+                "\n"
+                "package io.spine.logging\n"
+            )
+            source.write_text(current, encoding="utf-8")
+
+            result = self.run_script(root, "--year", "2026", "AbstractLogger.kt")
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Updated 0 file(s).", result.stdout)
+            self.assertEqual(source.read_text(encoding="utf-8"), current)
+
+    def test_multiple_third_party_holders_are_all_retained(self) -> None:
+        # Generality: every holder listed ahead of the profile's own is kept
+        # verbatim; only the trailing (profile-holder) year is refreshed.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            self.write_derived_profile(root)
+            source = root / "ValueQueue.kt"
+            source.write_text(
+                "/*\n"
+                " * Copyright 2015, Google Inc.; 2023, The Flogger Authors;"
+                " 2024, TeamDev. All rights reserved.\n"
+                " *\n"
+                " * Licensed under the Apache License.\n"
+                " */\n"
+                "\n"
+                "package io.spine.logging\n",
+                encoding="utf-8",
+            )
+
+            result = self.run_script(root, "--year", "2026", "ValueQueue.kt")
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Updated 1 file(s).", result.stdout)
+            self.assertEqual(
+                source.read_text(encoding="utf-8"),
+                "/*\n"
+                " * Copyright 2015, Google Inc.; 2023, The Flogger Authors;"
+                " 2026, TeamDev. All rights reserved.\n"
+                " *\n"
+                " * Licensed under the Apache License.\n"
+                " */\n"
+                "\n"
+                "package io.spine.logging\n",
+            )
+
     @staticmethod
     def run_script(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -379,6 +477,31 @@ class UpdateCopyrightTest(unittest.TestCase):
             "<copyright>"
             '<option name="notice" '
             'value="Copyright ${today.year} ACME&#10;All rights reserved" />'
+            "</copyright>"
+            "</component>\n",
+            encoding="utf-8",
+        )
+
+    @staticmethod
+    def write_derived_profile(root: Path) -> None:
+        # A profile shaped like the real TeamDev one: the holder and
+        # "All rights reserved." share the first line, so an upstream-derived
+        # header's third-party prefix sits inside that same line.
+        copyright_dir = root / ".idea" / "copyright"
+        copyright_dir.mkdir(parents=True)
+        (copyright_dir / "profiles_settings.xml").write_text(
+            '<component name="CopyrightManager">'
+            '<settings default="Default" />'
+            "</component>\n",
+            encoding="utf-8",
+        )
+        (copyright_dir / "Default.xml").write_text(
+            '<component name="CopyrightManager">'
+            "<copyright>"
+            '<option name="notice" value="'
+            "Copyright ${today.year}, TeamDev. All rights reserved."
+            "&#10;&#10;Licensed under the Apache License."
+            '" />'
             "</copyright>"
             "</component>\n",
             encoding="utf-8",
