@@ -283,6 +283,33 @@ Leave alone:
   grammaticality is disputed rather than settled: prefer "makes it
   possible to …" when writing new text, and report rather than auto-fix.
 
+### Comparatives
+
+A comparison carries its own function word: "greater **than** X", "equal
+**to** X". Coordinating the two keeps both — "greater than or equal to X".
+Dropping one or both yields "greater or equal X", a calque of the Russian
+«больше или равно X», where the comparative governs the case of the noun
+and no separate function word appears.
+
+| Before                               | After                                      |
+|--------------------------------------|--------------------------------------------|
+| the day is less or equal zero        | the day is less than or equal to zero      |
+| a value greater or equal the limit   | a value greater than or equal to the limit |
+| the size is equal or greater than 10 | the size is greater than or equal to 10    |
+
+Leave alone:
+
+- "greater than or equal to" and "less than or equal to" — already
+  complete.
+- Comparison operators inside code spans: `>=`, `<=`, `a >= b`. These are
+  code tokens, not prose.
+- "no less than", "no more than", "at least", "at most" — idiomatic and
+  complete without "or equal".
+- "equals" used transitively: "the result equals zero" takes no "to".
+
+"then" written for "than" in a comparison is a separate error — see
+*Confusables*.
+
 ### Commas
 
 Only the mechanical cases below are errors; most comma placement is the
