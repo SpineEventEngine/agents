@@ -299,16 +299,14 @@ and no separate function word appears.
 
 Leave alone:
 
-- "greater than or equal to" and "less than or equal to" — already
-  complete.
+- "greater than or equal to" and "less than or equal to" — already complete.
 - Comparison operators inside code spans: `>=`, `<=`, `a >= b`. These are
   code tokens, not prose.
 - "no less than", "no more than", "at least", "at most" — idiomatic and
   complete without "or equal".
 - "equals" used transitively: "the result equals zero" takes no "to".
 
-"then" written for "than" in a comparison is a separate error — see
-*Confusables*.
+Writing "then" for "than" is a separate error — see *Confusables*.
 
 ### Commas
 
