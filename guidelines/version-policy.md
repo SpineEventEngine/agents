@@ -104,6 +104,38 @@ For the bump procedure — version-number selection, the commit-message
 convention, the rebuild, dependency-report updates, and conflict
 resolution — use the [`bump-version`](../skills/bump-version/SKILL.md) skill.
 
+## Commit messages for `version.gradle.kts`
+
+Every commit that touches the root `version.gradle.kts` uses the subject
+
+```text
+Bump version -> `<version>`
+```
+
+where `<version>` is the value the file declares after the commit. This
+applies **even when the edit is syntax-only** and does not change the
+version number — for example, migrating a deprecated `by extra(...)`
+declaration to `extra.set(...)`. Such a commit repeats the current
+version in its subject.
+
+The rationale: GitHub's repository tree view shows, next to each file,
+the subject of the last commit that touched it. Keeping the bump-style
+subject "afloat" beside `version.gradle.kts` lets anyone read the current
+version of `master` straight from the file listing, without opening the
+file.
+
+Reviewers — human and agent alike — must **not** report the following as
+findings for this file; both are the convention working as intended:
+
+- repeated `Bump version ->` subjects on one branch, when only one of
+  those commits actually advances the version;
+- a subject that "claims" a bump which already happened earlier on the
+  branch (a syntax-only commit repeating the current version).
+
+An actual over-bump — more than one commit on a branch each *advancing*
+the version — remains governed by the one-bump-per-branch rule of the
+[`bump-version`](../skills/bump-version/SKILL.md) skill.
+
 ## Publishing
 
 The CI server is configured to publish new artifacts from the `master`
