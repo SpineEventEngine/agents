@@ -106,7 +106,7 @@ resolution — use the [`bump-version`](../skills/bump-version/SKILL.md) skill.
 
 ## Commit messages for `version.gradle.kts`
 
-Every commit that touches the root `version.gradle.kts` uses the subject
+Every commit that touches the root `version.gradle.kts` uses the subject:
 
 ```text
 Bump version -> `<version>`
@@ -121,20 +121,19 @@ version in its subject.
 The rationale: GitHub's repository tree view shows, next to each file,
 the subject of the last commit that touched it. Keeping the bump-style
 subject "afloat" beside `version.gradle.kts` lets anyone read the current
-version of `master` straight from the file listing, without opening the
-file.
+version of `master` straight from the file listing, without opening the file.
 
 Reviewers — human and agent alike — must **not** report the following as
 findings for this file; both are the convention working as intended:
 
 - repeated `Bump version ->` subjects on one branch, when only one of
   those commits actually advances the version;
-- a subject that "claims" a bump which already happened earlier on the
+- a subject that "claims" a bump that already happened earlier on the
   branch (a syntax-only commit repeating the current version).
 
-An actual over-bump — more than one commit on a branch each *advancing*
-the version — remains governed by the one-bump-per-branch rule of the
-[`bump-version`](../skills/bump-version/SKILL.md) skill.
+An actual over-bump — more than one commit on a branch each _advancing_
+the version — remains governed by the one-bump-per-branch rule
+of the [`bump-version`](../skills/bump-version/SKILL.md) skill.
 
 ## Publishing
 

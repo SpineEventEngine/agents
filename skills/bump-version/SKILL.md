@@ -53,7 +53,7 @@ under these constraints:
 
 - Stage only `version.gradle.kts`. Any other modified files are out of scope
   for this skill's commit and must remain unstaged.
-- Use the exact subject `` Bump version -> `<new>` `` (see step 4 of the
+- Use the exact subject `` Bump version -> `<version>` `` (see step 4 of the
   Checklist) with the actual new version value substituted. Keep the
   backticks around the version literal (for example, ``... -> `2.0.0``` ) and
   do not escape them as ``\````.
@@ -237,14 +237,14 @@ version. No other reason — including a large commit — justifies a second bum
    `by extra(...)` → `extra.set(...)` migration from step 2 — both are changes
    to `version.gradle.kts` only.
 
-   The subject format is not specific to this skill's bump commits: per the
-   [version policy][version-policy] (§ *Commit messages for
-   `version.gradle.kts`*), **every** commit touching the root
-   `version.gradle.kts` uses it — even a syntax-only edit, such as the
-   `by extra(...)` migration performed alone, which repeats the *unchanged*
-   current version in the subject. GitHub's tree view shows the last-touching
-   commit's subject next to each file, so the convention keeps the current
-   version of `master` readable straight from the file listing.
+   The subject format is not specific to this skill's bump commits: per
+   `version-policy.md § Commit messages for version.gradle.kts`, **every**
+   commit touching the root `version.gradle.kts` uses it — even a
+   syntax-only edit, such as the `by extra(...)` migration performed alone,
+   which repeats the *unchanged* current version in the subject. GitHub's
+   tree view shows, next to each file, the subject of the last commit that
+   touched it, so the convention keeps the current version of `master`
+   readable straight from the file listing.
 
 5. Run the build to verify the bump and regenerate reports:
 
