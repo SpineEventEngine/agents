@@ -39,18 +39,21 @@ Bump progress:
 
 ## Commit authorization
 
-**One bump per branch.** A branch carries **at most one** `Bump version ->`
-commit relative to base. Do not add another bump just because the branch grew —
-even a large commit does not warrant a second bump. The only exceptions are the
-sanctioned re-bumps (a published-version collision or reclassification to a
-breaking PR) listed under the Idempotency gate below.
+**One bump per branch.** A branch carries **at most one** commit that
+*advances* the version relative to base. Do not add another bump just because
+the branch grew — even a large commit does not warrant a second bump. The only
+exceptions are the sanctioned re-bumps (a published-version collision or
+reclassification to a breaking PR) listed under the Idempotency gate below.
+Note that the `Bump version ->` *subject* is not unique to bump commits: per
+the [policy][version-policy], every commit touching `version.gradle.kts` uses
+it, including syntax-only edits that leave the version value unchanged.
 
 This skill is authorized to run `git commit` **exactly once** per invocation,
 under these constraints:
 
 - Stage only `version.gradle.kts`. Any other modified files are out of scope
   for this skill's commit and must remain unstaged.
-- Use the exact subject `` Bump version -> `<new>` `` (see step 4 of the
+- Use the exact subject `` Bump version -> `<version>` `` (see step 4 of the
   Checklist) with the actual new version value substituted. Keep the
   backticks around the version literal (for example, ``... -> `2.0.0``` ) and
   do not escape them as ``\````.
@@ -234,6 +237,15 @@ version. No other reason — including a large commit — justifies a second bum
    `by extra(...)` → `extra.set(...)` migration from step 2 — both are changes
    to `version.gradle.kts` only.
 
+   The subject format is not specific to this skill's bump commits: per
+   `version-policy.md § Commit messages for version.gradle.kts`, **every**
+   commit touching the root `version.gradle.kts` uses it — even a
+   syntax-only edit, such as the `by extra(...)` migration performed alone,
+   which repeats the *unchanged* current version in the subject. GitHub's
+   tree view shows, next to each file, the subject of the last commit that
+   touched it, so the convention keeps the current version of `master`
+   readable straight from the file listing.
+
 5. Run the build to verify the bump and regenerate reports:
 
    ```bash
@@ -278,10 +290,10 @@ version. No other reason — including a large commit — justifies a second bum
    # branch commits since base — so neither needs a separate `git merge-base`.
    git diff --name-only "origin/$BASE...HEAD" -- version.gradle.kts | grep '^version.gradle.kts$'
 
-   # Count bump commits on the branch. `|| true` keeps the zero-match case
+   # Count commits using the bump subject. `|| true` keeps the zero-match case
    # (grep exits 1) from aborting under `set -e`.
    count="$(git log --format=%s "origin/$BASE..HEAD" | grep -c '^Bump version ->' || true)"
-   echo "bump commits on branch: $count (expected 1)"
+   echo "commits using the bump subject: $count"
    ```
 
    Interpret `count`:
@@ -289,10 +301,19 @@ version. No other reason — including a large commit — justifies a second bum
    - **1** — expected. The branch carries exactly one bump.
    - **0** — the bump commit is missing: this step ran but the Checklist did not
      produce a commit. Investigate and report; do not silently proceed.
-   - **>1** — over-bumped. Legitimate only after a deliberate sanctioned re-bump
-     (a published-version collision or a breaking-scope reclassification — see
-     "Sanctioned re-bumps"); otherwise the idempotency gate was bypassed on an
-     earlier run. Report it rather than adding yet another bump.
+   - **>1** — more than one commit uses the bump subject. This alone is *not*
+     over-bumping: per the [policy][version-policy], a syntax-only edit to
+     `version.gradle.kts` (e.g. the `by extra(...)` migration on its own) also
+     uses the `Bump version ->` subject while repeating the current version —
+     never flag such subject reuse as a finding. Check how many of the counted
+     commits actually *advance* the version value —
+     `git log -p "origin/$BASE..HEAD" -- version.gradle.kts` shows each
+     commit's change to the file. Exactly one advancing commit is expected.
+     More than one advancing commit is over-bumped: legitimate only after a
+     deliberate sanctioned re-bump (a published-version collision or a
+     breaking-scope reclassification — see "Sanctioned re-bumps"); otherwise
+     the idempotency gate was bypassed on an earlier run. Report it rather
+     than adding yet another bump.
 
    Use the actual merge target for `BASE` when it is not `master`. Also confirm
    `git status --short` has no
