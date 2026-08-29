@@ -72,10 +72,10 @@ decision is required), and acting accordingly.
 This skill is authorized to run `git commit` **exactly once** per invocation,
 under these constraints:
 
-- Stage only the source and test files edited to adapt the repository to the
-  refreshed dependencies. `version.gradle.kts`, `buildSrc/`,
-  `docs/dependencies/`, and any files this skill did not edit are out of scope
-  for this commit and must remain unstaged.
+- Stage only the files edited to adapt the repository to the refreshed dependencies
+  (sources, tests, and build files as needed). `version.gradle.kts`, `buildSrc/`,
+  `docs/dependencies/`, and any files this skill did not edit are out of scope for
+  this commit and must remain unstaged.
 - Use the exact subject `Adapt to refreshed dependencies`.
 - No `git push`, `git tag`, `git rebase`, `git commit --amend`, or any other
   history-writing operation. Those require a separate authorization
