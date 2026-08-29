@@ -1,6 +1,6 @@
 interface:
   display_name: "Cascade Adapt"
-  short_description: "Adapt a repo to refreshed dependencies"
+  short_description: "Adapt a repository to refreshed dependencies"
   default_prompt: >-
     Use $cascade-adapt to diagnose the build failure escalated by the cascade
     script, fix and commit mechanical breakage, or park the repository with a

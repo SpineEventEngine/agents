@@ -19,9 +19,8 @@ decision is required), and acting accordingly.
 ## Inputs
 
 - The failing repository (named by the escalating `cascade` message).
-- The build log at `$(git rev-parse --absolute-git-dir)/cascade-build.log`
-  inside that repository.
-- The wave task file `summit/.agents/tasks/<wave>.md` for park diagnoses.
+- The build log at `$(git rev-parse --absolute-git-dir)/cascade-build.log` inside that repository.
+- The wave task file `summit/.agents/tasks/<wave-slug>.md` for park diagnoses.
 
 ## Procedure
 
@@ -34,17 +33,16 @@ decision is required), and acting accordingly.
    **Mechanical** — fix autonomously:
    - a renamed or moved type, package, or member with an evident successor;
    - a changed signature adaptable at the call site without behavioural choice;
-   - a deprecation replaced by the successor its `ReplaceWith`/KDoc names;
-   - a dependency that stopped leaking transitively and must now be declared
-     explicitly;
+   - a deprecation whose `ReplaceWith`/KDoc names an evident successor;
+   - a dependency that stopped leaking transitively and must now be declared explicitly;
    - a stricter compiler/validation check satisfiable without changing intent.
 
    **Semantic** — park, do not half-fix:
-   - the upstream changed behaviour and call sites must *choose* a response;
+   - the upstream changed behaviour, and call sites must *choose* a response;
    - an API was removed or redesigned with no named successor;
    - tests fail because the *intent* of the test is now unclear;
-   - the fix would require editing `buildSrc/**` (config-owned — the problem
-     belongs in the `config` repository, not here).
+   - the fix would require editing `buildSrc/**` (config-distributed — the
+     problem belongs in the `config` repository, not here).
 
 3. **Mechanical path:** apply the smallest fix that preserves intent, rebuild
    the affected module to confirm, then commit under the authorization below
@@ -65,8 +63,7 @@ decision is required), and acting accordingly.
 
 - Never edit `buildSrc/**` (distributed by `config`) or `version.gradle.kts`
   (owned by the `bump-version` skill).
-- Never bump versions, push, or open PRs — the `cascade` script sequences
-  those.
+- Never bump versions, push, or open PRs — the `cascade` script sequences those.
 - Respect the wave's adapt budget: the script parks the repository after three
   failed adapt→rebuild rounds; do not try to reset or work around that.
 
@@ -89,5 +86,4 @@ build round) surfaces new breakage in the same repository, a fresh invocation
 of this skill may commit again under the same constraints — one commit per
 invocation, never amending a previous one.
 
-If the failure is classified semantic, report, park, and stop — do not create
-a commit.
+If the failure is classified semantic, report, park, and stop — do not create a commit.
