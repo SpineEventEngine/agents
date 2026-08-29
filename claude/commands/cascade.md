@@ -2,7 +2,7 @@
 description: >
   Drive the active cascade wave one iteration (status → next → act → await)
 argument-hint: "[wave-slug]"
-allowed-tools: Read, Write, Edit, Grep, Glob, Agent, Bash
+allowed-tools: Read, Write, Edit, Grep, Glob, Agent, Bash(./cascade:*)
 ---
 
 **Summit-only.** This command drives waves from the `summit` superproject; in any
@@ -17,9 +17,10 @@ single active manifest under `.agents/tasks/cascade-*.json` is used (export
 **Session grant (per `.agents/guidelines/safety-rules.md`, carried by this loop
 prompt):** for the branches of the active wave only, the commits produced by
 `./cascade` subcommands and by the skills it names on exit 3 (`bump-version`,
-`cascade-adapt`) are authorized. (`pre-pr` writes its sentinel file, not a commit,
-and needs no grant.) No history rewriting, no merges: `gh pr merge` stays with
-humans.
+`cascade-adapt`) are authorized, as are the `git push` and `gh pr create`
+operations that `./cascade ship` and `./cascade close --ship` perform for those
+same branches. (`pre-pr` writes its sentinel file, not a commit, and needs no
+grant.) No history rewriting, no merges: `gh pr merge` stays with humans.
 
 One iteration:
 
