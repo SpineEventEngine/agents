@@ -432,6 +432,68 @@ class UpdateCopyrightTest(unittest.TestCase):
                 "package io.spine.logging\n",
             )
 
+    def test_source_package_named_build_is_updated(self) -> None:
+        # Regression test: `build` names both Gradle's output directory and an
+        # ordinary source package (`io.spine.dependency.build`). Matching the
+        # name at any depth skipped the package, so files there silently kept
+        # a stale header. Inside a source tree the name is a package.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            self.write_profile(root)
+            relative = "buildSrc/src/main/kotlin/io/spine/dependency/build/Pmd.kt"
+            source = root / relative
+            self.write_file(source, STALE_BLOCK + "object Pmd\n")
+
+            result = self.run_script(root, "--year", "2026", relative)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Updated 1 file(s).", result.stdout)
+            self.assertEqual(
+                source.read_text(encoding="utf-8"),
+                FRESH_BLOCK + "object Pmd\n",
+            )
+
+    def test_default_run_updates_source_package_named_build(self) -> None:
+        # The same case on the tracked-files path, which is how the repo-wide
+        # refresh reaches these files.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            self.write_profile(root)
+            relative = "buildSrc/src/main/kotlin/io/spine/dependency/build/Ksp.kt"
+            source = root / relative
+            self.write_file(source, STALE_BLOCK + "object Ksp\n")
+
+            subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+            subprocess.run(["git", "add", relative], cwd=root, check=True)
+
+            result = self.run_script(root, "--year", "2026")
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Updated 1 file(s).", result.stdout)
+            self.assertEqual(
+                source.read_text(encoding="utf-8"),
+                FRESH_BLOCK + "object Ksp\n",
+            )
+
+    def test_gradle_output_directory_is_still_skipped(self) -> None:
+        # The counterpart to the two tests above: outside a source tree the
+        # same name still denotes build output and must stay excluded.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            self.write_profile(root)
+            generated = "buildSrc/build/generated/Generated.kt"
+            source = root / generated
+            self.write_file(source, STALE_BLOCK + "object Generated\n")
+
+            result = self.run_script(root, "--year", "2026", generated)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Updated 0 file(s).", result.stdout)
+            self.assertEqual(
+                source.read_text(encoding="utf-8"),
+                STALE_BLOCK + "object Generated\n",
+            )
+
     @staticmethod
     def run_script(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(

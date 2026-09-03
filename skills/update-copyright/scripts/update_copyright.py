@@ -66,17 +66,30 @@ XML_EXTENSIONS = {
     ".xsl",
     ".xslt",
 }
+# Tool and VCS directories, matched at any depth: no source package is named
+# `.git` or `.idea`, so these names cannot collide with project sources.
 EXCLUDED_DIRS = {
     ".agents",
     ".git",
     ".gradle",
     ".idea",
     ".kotlin",
+}
+# Build output directories. Unlike the names above, these do collide with
+# ordinary package names — `io.spine.dependency.build` is a source package, not
+# Gradle's output directory. A build tool creates these beside a build script
+# and never inside a source tree, so the distinction is positional rather than
+# by name. The Spine `.gitignore` draws the same one, pairing `**/build/**`
+# with `!**/src/**/build/**`.
+OUTPUT_DIRS = {
     "build",
     "generated",
     "out",
     "tmp",
 }
+# The directory that opens a source tree. A name from `OUTPUT_DIRS` appearing
+# after it denotes a package rather than build output.
+SOURCE_ROOT = "src"
 EXCLUDED_FILES = {
     "gradlew",
     "gradlew.bat",
@@ -255,6 +268,20 @@ def config_distribution(root: Path) -> ConfigDistribution | None:
     return ConfigDistribution(workflows=distributed_workflow_names(root))
 
 
+def in_build_output(parts: tuple[str, ...]) -> bool:
+    """Tells whether *parts* points inside a build output directory.
+
+    A name from `OUTPUT_DIRS` marks build output only while no source tree has
+    been entered. Once a `src` segment precedes it, the name denotes a package:
+    `buildSrc/src/main/kotlin/io/spine/dependency/build/Pmd.kt` is the
+    `io.spine.dependency.build` package, not Gradle's `build` directory.
+    """
+    return any(
+        part in OUTPUT_DIRS and SOURCE_ROOT not in parts[:index]
+        for index, part in enumerate(parts)
+    )
+
+
 def is_excluded(path: Path, distribution: ConfigDistribution | None = None) -> bool:
     if path.name in EXCLUDED_FILES:
         return True
@@ -262,6 +289,8 @@ def is_excluded(path: Path, distribution: ConfigDistribution | None = None) -> b
     if len(parts) >= 2 and parts[0] == "gradle" and parts[1] == "wrapper":
         return True
     if any(part in EXCLUDED_DIRS for part in parts):
+        return True
+    if in_build_output(parts):
         return True
     return distribution is not None and distribution.covers(path)
 
