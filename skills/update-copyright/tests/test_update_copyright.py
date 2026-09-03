@@ -494,6 +494,27 @@ class UpdateCopyrightTest(unittest.TestCase):
                 STALE_BLOCK + "object Generated\n",
             )
 
+    def test_generated_tree_inside_source_root_is_skipped(self) -> None:
+        # `generated` is excluded by name, not by position: `coding.md` treats
+        # every `**/generated/**` path as generated, so a generated tree laid
+        # out inside a source root must stay excluded even though the
+        # positional rule would otherwise admit it.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            self.write_profile(root)
+            generated = "module/src/main/generated/Foo.java"
+            source = root / generated
+            self.write_file(source, STALE_BLOCK + "class Foo {}\n")
+
+            result = self.run_script(root, "--year", "2026", generated)
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Updated 0 file(s).", result.stdout)
+            self.assertEqual(
+                source.read_text(encoding="utf-8"),
+                STALE_BLOCK + "class Foo {}\n",
+            )
+
     @staticmethod
     def run_script(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(

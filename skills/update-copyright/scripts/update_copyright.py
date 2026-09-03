@@ -66,24 +66,27 @@ XML_EXTENSIONS = {
     ".xsl",
     ".xslt",
 }
-# Tool and VCS directories, matched at any depth: no source package is named
-# `.git` or `.idea`, so these names cannot collide with project sources.
+# Directories excluded wherever they appear. Tool and VCS state cannot collide
+# with project sources — no package is named `.git` — and `generated` is
+# excluded by name as well: `guidelines/coding.md` treats every `**/generated/**`
+# path as generated whatever its depth, so a generated tree laid out inside a
+# source root (`src/main/generated/`) stays out of scope.
 EXCLUDED_DIRS = {
     ".agents",
     ".git",
     ".gradle",
     ".idea",
     ".kotlin",
+    "generated",
 }
-# Build output directories. Unlike the names above, these do collide with
-# ordinary package names — `io.spine.dependency.build` is a source package, not
-# Gradle's output directory. A build tool creates these beside a build script
-# and never inside a source tree, so the distinction is positional rather than
-# by name. The Spine `.gitignore` draws the same one, pairing `**/build/**`
-# with `!**/src/**/build/**`.
+# Build output directories whose names double as ordinary package names:
+# `io.spine.dependency.build` is a source package, not Gradle's output. A build
+# tool creates these beside a build script and never inside a source tree, so
+# for these the distinction is positional rather than by name. The Spine
+# `.gitignore` draws the same one, pairing `**/build/**` with
+# `!**/src/**/build/**`.
 OUTPUT_DIRS = {
     "build",
-    "generated",
     "out",
     "tmp",
 }
@@ -274,12 +277,16 @@ def in_build_output(parts: tuple[str, ...]) -> bool:
     A name from `OUTPUT_DIRS` marks build output only while no source tree has
     been entered. Once a `src` segment precedes it, the name denotes a package:
     `buildSrc/src/main/kotlin/io/spine/dependency/build/Pmd.kt` is the
-    `io.spine.dependency.build` package, not Gradle's `build` directory.
+    `io.spine.dependency.build` package, not Gradle's `build` directory. The
+    first of the two markers to appear decides, so one pass over the segments
+    settles it.
     """
-    return any(
-        part in OUTPUT_DIRS and SOURCE_ROOT not in parts[:index]
-        for index, part in enumerate(parts)
-    )
+    for part in parts:
+        if part == SOURCE_ROOT:
+            return False
+        if part in OUTPUT_DIRS:
+            return True
+    return False
 
 
 def is_excluded(path: Path, distribution: ConfigDistribution | None = None) -> bool:
