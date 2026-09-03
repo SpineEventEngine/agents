@@ -66,17 +66,33 @@ XML_EXTENSIONS = {
     ".xsl",
     ".xslt",
 }
+# Directories excluded wherever they appear. Tool and VCS state cannot collide
+# with project sources — no package is named `.git` — and `generated` is
+# excluded by name as well: `guidelines/coding.md` treats every `**/generated/**`
+# path as generated whatever its depth, so a generated tree laid out inside a
+# source root (`src/main/generated/`) stays out of scope.
 EXCLUDED_DIRS = {
     ".agents",
     ".git",
     ".gradle",
     ".idea",
     ".kotlin",
-    "build",
     "generated",
+}
+# Build output directories whose names double as ordinary package names:
+# `io.spine.dependency.build` is a source package, not Gradle's output. A build
+# tool creates these beside a build script and never inside a source tree, so
+# for these the distinction is positional rather than by name. The Spine
+# `.gitignore` draws the same one, pairing `**/build/**` with
+# `!**/src/**/build/**`.
+OUTPUT_DIRS = {
+    "build",
     "out",
     "tmp",
 }
+# The directory that opens a source tree. A name from `OUTPUT_DIRS` appearing
+# after it denotes a package rather than build output.
+SOURCE_ROOT = "src"
 EXCLUDED_FILES = {
     "gradlew",
     "gradlew.bat",
@@ -255,6 +271,24 @@ def config_distribution(root: Path) -> ConfigDistribution | None:
     return ConfigDistribution(workflows=distributed_workflow_names(root))
 
 
+def in_build_output(parts: tuple[str, ...]) -> bool:
+    """Tells whether *parts* points inside a build output directory.
+
+    A name from `OUTPUT_DIRS` marks build output only while no source tree has
+    been entered. Once a `src` segment precedes it, the name denotes a package:
+    `buildSrc/src/main/kotlin/io/spine/dependency/build/Pmd.kt` is the
+    `io.spine.dependency.build` package, not Gradle's `build` directory. The
+    first of the two markers to appear decides, so one pass over the segments
+    settles it.
+    """
+    for part in parts:
+        if part == SOURCE_ROOT:
+            return False
+        if part in OUTPUT_DIRS:
+            return True
+    return False
+
+
 def is_excluded(path: Path, distribution: ConfigDistribution | None = None) -> bool:
     if path.name in EXCLUDED_FILES:
         return True
@@ -262,6 +296,8 @@ def is_excluded(path: Path, distribution: ConfigDistribution | None = None) -> b
     if len(parts) >= 2 and parts[0] == "gradle" and parts[1] == "wrapper":
         return True
     if any(part in EXCLUDED_DIRS for part in parts):
+        return True
+    if in_build_output(parts):
         return True
     return distribution is not None and distribution.covers(path)
 
