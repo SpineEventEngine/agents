@@ -73,6 +73,50 @@ class UpdateCopyrightTest(unittest.TestCase):
                 "class Foo {}\n",
             )
 
+    def test_html_header_is_updated(self) -> None:
+        # HTML files carry the same `<!-- ~ ... -->` header as XML files.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            self.write_profile(root)
+            source = root / "single.html"
+            source.write_text(
+                "<!--\n"
+                "  ~ Copyright 2024 ACME\n"
+                "  ~ All rights reserved\n"
+                "  -->\n"
+                "\n"
+                '{{ define "main" }}{{ .Content }}{{ end }}\n',
+                encoding="utf-8",
+            )
+
+            result = self.run_script(root, "--year", "2026", "single.html")
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Updated 1 file(s).", result.stdout)
+            self.assertEqual(
+                source.read_text(encoding="utf-8"),
+                "<!--\n"
+                "  ~ Copyright 2026 ACME\n"
+                "  ~ All rights reserved\n"
+                "  -->\n"
+                "\n"
+                '{{ define "main" }}{{ .Content }}{{ end }}\n',
+            )
+
+    def test_html_template_without_header_is_unchanged(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            self.write_profile(root)
+            source = root / "date.html"
+            original = '{{- /* Renders a date. */ -}}\n<p>{{ .Get "date" }}</p>\n'
+            source.write_text(original, encoding="utf-8")
+
+            result = self.run_script(root, "--year", "2026", "date.html")
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Updated 0 file(s).", result.stdout)
+            self.assertEqual(source.read_text(encoding="utf-8"), original)
+
     def test_hash_header_update_preserves_doc_comment_after_blank_line(self) -> None:
         # Regression test: a hash-style header followed by a blank line and
         # then an unrelated doc comment (e.g. script usage notes) must keep
