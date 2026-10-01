@@ -59,6 +59,7 @@ HASH_EXTENSIONS = {
 }
 XML_EXTENSIONS = {
     ".fxml",
+    ".html",
     ".pom",
     ".wsdl",
     ".xml",
