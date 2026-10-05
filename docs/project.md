@@ -31,7 +31,8 @@ their next pull. Treat `master` as production: land changes through reviewed PRs
   `.agents/guidelines/`); keep cross-references repo-rooted, e.g.
   `.agents/guidelines/<file>.md`.
 - **Edit a script** → `scripts/`; keep it POSIX `bash`, executable, and invoked by
-  the skill or agent hook that needs it.
+  the skill or agent hook that needs it. After changing a hook script, run its
+  tests: `python3 -m unittest discover -s scripts/tests`.
 - Follow the shared guidelines themselves — start at `.agents/guidelines/_TOC.md`.
 
 ## Safety

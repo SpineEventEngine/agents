@@ -90,6 +90,13 @@ blocks the command instead of allowing it.
 - [x] `scripts/git-hooks/pre-commit` resolves its own directory with
       `CDPATH=''`. Git runs it by a relative path, and an exported `CDPATH`
       made it skip the secret scan or run another tree's scanner.
+- [x] Commit the regression tests, as Codex's review asked and the maintainer
+      approved. `scripts/tests/test_hooks.py` follows the repo's existing style
+      (`unittest`, `tempfile`, `subprocess`).
+  - Port only the current-behavior checks. Drop the comparisons with historical
+    script versions, the machine-specific paths, and the `init-submodules`
+    cases, which belong to `config`.
+  - Point to the tests from `docs/project.md`.
 
 ## Log
 
@@ -153,3 +160,8 @@ blocks the command instead of allowing it.
   secret hook failed open: with `CDPATH=.` or a decoy entry exported, a staged
   private key was committed. Verified old against new in fresh repositories: all
   three cases are now blocked, and clean commits still pass.
+- 2026-10-05 — committed the regression suite `scripts/tests/test_hooks.py`: 44
+  tests, about 15 s, needing `bash`, `git`, `jq` and `python3`. It catches every
+  bug it guards against. Run against `master`'s scripts it reports 28 failures
+  and 9 errors; against the PR's first push it reports exactly the 6 failures
+  that the review fixes address. `docs/project.md` says how to run it.
