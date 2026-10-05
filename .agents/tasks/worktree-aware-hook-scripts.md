@@ -133,3 +133,15 @@ blocks the command instead of allowing it.
   the stamping script) take `$(pwd)` instead: the project root under Claude
   Code, the session `cwd` under Codex. No change for files in a Git work tree.
   Harness: 116/116, with a new non-Git project case.
+- 2026-10-05 — second review round on PR #45, from Codex:
+  - `session-work-tree.sh` unsets `CDPATH`. With `CDPATH=.` exported,
+    `cd .git` echoed the directory, so a `cwd` inside a worktree's submodule
+    resolved to the submodule. The hooks' lookups of their own directory are
+    hardened the same way.
+  - `update-copyright.sh` leaves files inside submodules to their own
+    repository. The repository the hook runs in stays in scope even when it is
+    itself a submodule.
+  - Committing the regression harness as repository tests is left to the
+    maintainer.
+
+  Harness: 126/126.

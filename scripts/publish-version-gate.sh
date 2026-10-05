@@ -60,7 +60,7 @@ done < <(printf '%s' "$cmd" | tr ';&|' '\n\n\n')
 # it to the work tree to check. Fall back to this process's directory only when
 # the runtime sends no `cwd`. A `cwd` that does not resolve blocks rather than
 # checking another checkout's branch.
-here=$(cd "$(dirname "$0")" && pwd)
+here=$(CDPATH='' cd "$(dirname "$0")" && pwd)
 cwd=$(printf '%s' "$input" | jq -r '.cwd // empty')
 if [ -n "$cwd" ]; then
   if ! repo_root=$("$here/session-work-tree.sh" "$cwd"); then

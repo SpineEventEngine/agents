@@ -26,11 +26,12 @@ cwd=$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null || true)
 # tree, and where to look for the stamping script should the copy beside this
 # hook be missing.
 project=$(pwd)
+project_tree=$(git -C "$project" rev-parse --show-toplevel 2>/dev/null)
 
 # Run the script shipped beside this hook, so the two always come from the same
 # checkout of the shared scripts; a work tree's own copy may be missing or stale
 # (checked out at the branch's pin).
-here=$(cd "$(dirname "$0")" && pwd)
+here=$(CDPATH='' cd "$(dirname "$0")" && pwd)
 script="$here/../skills/update-copyright/scripts/update_copyright.py"
 [ -f "$script" ] || script="$project/.agents/skills/update-copyright/scripts/update_copyright.py"
 
@@ -52,6 +53,13 @@ update_path() {
   # (skipped) or, nested under it, past the skip for `config`-distributed paths
   # such as `buildSrc/`.
   root=$(git -C "$(dirname "$path")" rev-parse --show-toplevel 2>/dev/null) || root=$project
+  # A file inside a submodule (`config`, `.agents/shared`, a vendored library)
+  # belongs to another repository: leave its header to that repository. The
+  # repository this hook runs in stays in scope even if it is itself a submodule.
+  if [ "$root" != "$project_tree" ] \
+      && [ -n "$(git -C "$root" rev-parse --show-superproject-working-tree 2>/dev/null)" ]; then
+    return 0
+  fi
   python3 "$script" --root "$root" "$path" >/dev/null 2>&1 || true
 }
 

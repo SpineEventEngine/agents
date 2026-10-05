@@ -48,7 +48,7 @@ block() {
 # it to the work tree to gate. Fall back to this process's directory only when
 # the runtime sends no `cwd`. A `cwd` that does not resolve blocks: another
 # checkout's sentinel would vouch for the wrong tree.
-here=$(cd "$(dirname "$0")" && pwd)
+here=$(CDPATH='' cd "$(dirname "$0")" && pwd)
 cwd=$(printf '%s' "$input" | jq -r '.cwd // empty')
 if [ -n "$cwd" ]; then
   repo_root=$("$here/session-work-tree.sh" "$cwd") || block <<EOF

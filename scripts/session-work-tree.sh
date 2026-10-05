@@ -23,6 +23,9 @@
 # Exit:  0 with the work tree on stdout; 1 when <dir> is not in a Git work tree.
 #
 set -u
+# With CDPATH set, a `cd` that resolves through it prints the directory to
+# stdout — `cd .git` in a main checkout, for one — corrupting captured paths.
+unset CDPATH
 
 dir="${1:?usage: session-work-tree.sh <dir>}"
 
