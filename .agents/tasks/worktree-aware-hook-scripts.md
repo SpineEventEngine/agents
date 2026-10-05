@@ -74,8 +74,8 @@ blocks the command instead of allowing it.
       it (`git -C "$(dirname "$file")"`), so the profile and ownership rules are
       that tree's own, whatever the agent's `cwd`. This came from a peer session
       report: a worktree with its own profile was stamped by the main checkout's.
-      A file outside any work tree falls back to the project directory, as
-      before.
+      A file outside any work tree falls back to the directory the hook runs in
+      (`$(pwd)`); the script no longer reads `CLAUDE_PROJECT_DIR`.
 - [x] Verify with simulated hook JSON against throwaway repositories and
       worktrees in a temp directory: the three gate scenarios from the task
       prompt, plus the other gates and `update-copyright.sh`.
@@ -127,3 +127,9 @@ blocks the command instead of allowing it.
   worktree-aware"). The patch base was rechecked against config `master`
   `94a9e08b` and still applies. The agents side is complete, uncommitted, and
   awaiting review.
+- 2026-10-05 — opened as PR #45. At the maintainer's request,
+  `update-copyright.sh` no longer reads `CLAUDE_PROJECT_DIR`. Its two remaining
+  uses (the root for a file outside any work tree, and the fallback location of
+  the stamping script) take `$(pwd)` instead: the project root under Claude
+  Code, the session `cwd` under Codex. No change for files in a Git work tree.
+  Harness: 116/116, with a new non-Git project case.

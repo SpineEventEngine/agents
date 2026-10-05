@@ -7,8 +7,8 @@
 #   - never adds a header to a file that does not already have one,
 #   - rewrites `today.year` to the current year per the IntelliJ profile.
 #
-# Input: hook JSON on stdin. Claude Code passes `tool_input.file_path` and
-# `cwd`; Codex `apply_patch` passes the patch text in `tool_input.command`.
+# Input: hook JSON on stdin. Claude Code passes `tool_input.file_path`; Codex
+# `apply_patch` passes the patch text in `tool_input.command`; both pass `cwd`.
 # Exit:  0 always (post-tool-use; never block).
 #
 set -u
@@ -22,9 +22,10 @@ file=$(printf '%s' "$input" | jq -r '.tool_input.file_path // empty' 2>/dev/null
 command=$(printf '%s' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
 cwd=$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null || true)
 
-# The root for a file outside any Git work tree, and where to look for the
-# stamping script should the copy beside this hook be missing.
-project="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+# The directory this hook runs in: the root for a file outside any Git work
+# tree, and where to look for the stamping script should the copy beside this
+# hook be missing.
+project=$(pwd)
 
 # Run the script shipped beside this hook, so the two always come from the same
 # checkout of the shared scripts; a work tree's own copy may be missing or stale
@@ -45,10 +46,11 @@ update_path() {
   esac
   [ ! -f "$path" ] && return 0
   # Stamp each file by the copyright profile and ownership rules of the work
-  # tree that contains it. A worktree session keeps `$CLAUDE_PROJECT_DIR` at the
-  # main checkout, whose profile may differ from the worktree's, and whose root
-  # puts a worktree file either outside it (skipped) or, nested under it, past
-  # the skip for `config`-distributed paths such as `buildSrc/`.
+  # tree that contains it, not of the directory this hook runs in. In a worktree
+  # session that directory can be the main checkout, whose profile may differ
+  # from the worktree's, and whose root puts a worktree file either outside it
+  # (skipped) or, nested under it, past the skip for `config`-distributed paths
+  # such as `buildSrc/`.
   root=$(git -C "$(dirname "$path")" rev-parse --show-toplevel 2>/dev/null) || root=$project
   python3 "$script" --root "$root" "$path" >/dev/null 2>&1 || true
 }
