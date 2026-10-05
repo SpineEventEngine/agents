@@ -13,7 +13,10 @@
 # wedge the user's commits. The PreToolUse gate and the .gitignore patterns still
 # apply in that window, and the next session bootstrap restores this hook.
 
-hook_dir=$(cd "$(dirname "$0")" && pwd)
+# Git runs this hook by a relative path. With CDPATH exported, `cd` would
+# resolve that path through CDPATH, echoing the directory into the capture or
+# landing in another tree, so the scan would be skipped or run the wrong scanner.
+hook_dir=$(CDPATH='' cd "$(dirname "$0")" && pwd)
 scanner="$hook_dir/../secret-scan.sh"
 
 [ -x "$scanner" ] || exit 0

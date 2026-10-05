@@ -87,6 +87,9 @@ blocks the command instead of allowing it.
         patch, the design decisions, and the verification checklist. Landing
         is tracked there.
 - [x] Hand off: summarize the diff; no commit without authorization.
+- [x] `scripts/git-hooks/pre-commit` resolves its own directory with
+      `CDPATH=''`. Git runs it by a relative path, and an exported `CDPATH`
+      made it skip the secret scan or run another tree's scanner.
 
 ## Log
 
@@ -145,3 +148,8 @@ blocks the command instead of allowing it.
     maintainer.
 
   Harness: 126/126.
+- 2026-10-05 — at the maintainer's request, PR #45 also carries a security fix
+  found while hardening the hooks against `CDPATH`. The shared Git `pre-commit`
+  secret hook failed open: with `CDPATH=.` or a decoy entry exported, a staged
+  private key was committed. Verified old against new in fresh repositories: all
+  three cases are now blocked, and clean commits still pass.
