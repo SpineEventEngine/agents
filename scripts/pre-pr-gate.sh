@@ -4,7 +4,7 @@
 # for the current HEAD. The hook is intentionally unaware of the repository's
 # versioning or build system; the /pre-pr skill decides which checks apply.
 #
-# Input: hook JSON on stdin (tool_name, tool_input.command).
+# Input: hook JSON on stdin (tool_name, tool_input.command, cwd).
 # Exit:  0 to allow, 2 to block (stderr is surfaced to Claude).
 #
 set -eu
@@ -37,29 +37,49 @@ if ! printf '%s' "$cmd" \
   exit 0
 fi
 
-repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+block() {
+  cat >&2
+  exit 2
+}
+
+# Gate the repository the agent is working in. A worktree session keeps this
+# process — like `$CLAUDE_PROJECT_DIR` — in the main checkout, while the hook
+# input's `cwd` follows the agent into the worktree; `session-work-tree.sh` maps
+# it to the work tree to gate. Fall back to this process's directory only when
+# the runtime sends no `cwd`. A `cwd` that does not resolve blocks: another
+# checkout's sentinel would vouch for the wrong tree.
+here=$(cd "$(dirname "$0")" && pwd)
+cwd=$(printf '%s' "$input" | jq -r '.cwd // empty')
+if [ -n "$cwd" ]; then
+  repo_root=$("$here/session-work-tree.sh" "$cwd") || block <<EOF
+'gh pr create' blocked: cannot resolve the Git work tree of the session's
+working directory
+  $cwd
+so the pre-PR checks cannot be verified.
+EOF
+else
+  repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+fi
 # Resolve the real git directory rather than assuming `$repo_root/.git` is one:
 # in a linked worktree `.git` is a file (a `gitdir:` pointer), so the sentinel
 # lives in the worktree's own git dir, not under `$repo_root/.git`.
 #
 # Prefer `--absolute-git-dir` (always absolute), but fall back to `--git-dir`
 # for Git < 2.13, where `--absolute-git-dir` is unknown — otherwise that single
-# failure would trip `|| exit 0` and let the gate fail open. `--git-dir` can be
-# relative (`.git` at the work-tree root), so make a relative result absolute
-# against `repo_root`; `--absolute-git-dir` output already matches `/*`.
+# failure would block every PR there. `--git-dir` can be relative (`.git` at the
+# work-tree root), so make a relative result absolute against `repo_root`;
+# `--absolute-git-dir` output already matches `/*`.
 git_dir=$(git -C "$repo_root" rev-parse --absolute-git-dir 2>/dev/null) \
   || git_dir=$(git -C "$repo_root" rev-parse --git-dir 2>/dev/null) \
-  || exit 0
+  || block <<EOF
+'gh pr create' blocked: cannot resolve the Git directory of
+  $repo_root
+EOF
 case "$git_dir" in
   /*) ;;
   *)  git_dir="$repo_root/$git_dir" ;;
 esac
 sentinel="$git_dir/pre-pr.ok"
-
-block() {
-  cat >&2
-  exit 2
-}
 
 if [ ! -f "$sentinel" ]; then
   block <<EOF
@@ -73,7 +93,10 @@ fi
 
 sentinel_status=$(awk -F= '/^status=/{print $2}' "$sentinel")
 sentinel_sha=$(awk -F= '/^head=/{print $2}' "$sentinel")
-head_sha=$(git -C "$repo_root" rev-parse HEAD)
+head_sha=$(git -C "$repo_root" rev-parse HEAD 2>/dev/null) || block <<EOF
+'gh pr create' blocked: cannot resolve HEAD in
+  $repo_root
+EOF
 
 if [ "$sentinel_status" != "PASS" ]; then
   block <<EOF
@@ -92,6 +115,7 @@ but HEAD is now
   $head_sha
 
 Re-run /pre-pr to revalidate the current tree.
+Sentinel: $sentinel
 EOF
 fi
 
