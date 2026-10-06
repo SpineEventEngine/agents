@@ -12,7 +12,7 @@
 # to overwriting a previously published snapshot that consuming repos
 # rely on.
 #
-# Input: hook JSON on stdin (tool_name, tool_input.command).
+# Input: hook JSON on stdin (tool_name, tool_input.command, cwd).
 # Exit:  0 to allow, 2 to block (stderr is surfaced to Claude).
 #
 set -eu
@@ -54,13 +54,44 @@ done < <(printf '%s' "$cmd" | tr ';&|' '\n\n\n')
 
 [ "$block_needed" -eq 0 ] && exit 0
 
-repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
-script="$repo_root/.agents/skills/version-bumped/scripts/version-bumped.sh"
+# Check the repository the agent is working in. A worktree session keeps this
+# process — like `$CLAUDE_PROJECT_DIR` — in the main checkout, while the hook
+# input's `cwd` follows the agent into the worktree; `session-work-tree.sh` maps
+# it to the work tree to check. Fall back to this process's directory only when
+# the runtime sends no `cwd`. A `cwd` that does not resolve blocks rather than
+# checking another checkout's branch.
+here=$(CDPATH='' cd "$(dirname "$0")" && pwd)
+cwd=$(printf '%s' "$input" | jq -r '.cwd // empty')
+if [ -n "$cwd" ]; then
+  if ! repo_root=$("$here/session-work-tree.sh" "$cwd"); then
+    cat >&2 <<EOF
+'./gradlew' blocked: cannot resolve the Git work tree of the session's
+working directory
+  $cwd
+so the version bump cannot be verified.
+EOF
+    exit 2
+  fi
+else
+  repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+fi
+
+# Run the helper shipped beside this gate, so the two always come from the same
+# checkout of the shared scripts. The session repository's own copy may be
+# missing (an uninitialized `.agents/shared`) or stale (checked out at the
+# branch's pin, while the copy beside this gate floats to the tip) — and a stale
+# helper that cannot parse `version.gradle.kts` reports a configuration error,
+# which this gate lets through.
+script="$here/../skills/version-bumped/scripts/version-bumped.sh"
+[ -x "$script" ] || script="$repo_root/.agents/skills/version-bumped/scripts/version-bumped.sh"
 
 # If the helper is missing (e.g. partial clone), don't pretend we gated.
 if [ ! -x "$script" ]; then
   exit 0
 fi
+
+# The helper resolves the repository from its working directory.
+cd "$repo_root" || exit 2
 
 # `&& rc=0 || rc=$?` captures the exit code regardless of success/failure.
 # After `if cmd; then ... fi`, $? reflects the if-fi structural exit (0),

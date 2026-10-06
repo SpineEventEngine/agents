@@ -5,7 +5,7 @@
 # mirror of the git `pre-commit` hook (which is the hard, runtime-agnostic
 # guarantee). Both delegate to `secret-scan.sh`.
 #
-# Input: hook JSON on stdin (tool_name, tool_input.command).
+# Input: hook JSON on stdin (tool_name, tool_input.command, cwd).
 # Exit:  0 to allow, 2 to block (stderr is surfaced to the agent).
 #
 set -eu
@@ -36,9 +36,38 @@ done < <(printf '%s' "$cmd" | tr ';&|' '\n\n\n')
 
 [ "$wants_add" -eq 0 ] && [ "$wants_commit" -eq 0 ] && exit 0
 
-repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
-scanner="$repo_root/.agents/scripts/secret-scan.sh"
+# Scan the repository the agent is working in. A worktree session keeps this
+# process — like `$CLAUDE_PROJECT_DIR` — in the main checkout, while the hook
+# input's `cwd` follows the agent into the worktree; `session-work-tree.sh` maps
+# it to the work tree to scan. Fall back to this process's directory only when
+# the runtime sends no `cwd`. A `cwd` that does not resolve blocks rather than
+# scanning another checkout.
+here=$(CDPATH='' cd "$(dirname "$0")" && pwd)
+cwd=$(printf '%s' "$input" | jq -r '.cwd // empty')
+if [ -n "$cwd" ]; then
+  if ! repo_root=$("$here/session-work-tree.sh" "$cwd"); then
+    {
+      echo "Blocked: cannot resolve the Git work tree of the session's working directory"
+      echo "  $cwd"
+      echo "so it cannot be scanned for secrets."
+    } >&2
+    exit 2
+  fi
+else
+  repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+fi
+
+# Run the scanner shipped beside this gate, so the two always come from the same
+# checkout of the shared scripts. The session repository's own copy may be
+# missing (an uninitialized `.agents/shared`, which leaves the git hook inactive
+# as well) or stale (checked out at the branch's pin, while the copy beside this
+# gate floats to the tip).
+scanner="$here/secret-scan.sh"
+[ -x "$scanner" ] || scanner="$repo_root/.agents/scripts/secret-scan.sh"
 [ -x "$scanner" ] || exit 0   # fail-open on a partial clone; the git hook still guards
+
+# The scanner resolves the repository from its working directory.
+cd "$repo_root" || exit 2
 
 report=""
 rc=0
