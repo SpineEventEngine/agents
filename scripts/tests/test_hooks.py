@@ -111,6 +111,9 @@ class Fixture:
         self.git(self.summit, "submodule", "add", "-q",
                  str(self.consumer(base / "src" / "repo", self.agents_src)), "repo")
         self.git(self.summit, "submodule", "update", "-q", "--init", "--recursive", "--", "repo")
+        # Shared tooling under a name and path with a space, which Git allows.
+        self.git(self.summit, "submodule", "add", "-q", "-b", "master", "--name", "shared tools",
+                 str(self.agents_src), "shared tools")
         self.commit_all(self.summit, "summit")
         self.summit_wt = self.worktree(self.summit, "wt")
         self.git(self.summit_wt, "submodule", "update", "-q", "--init", "--", "repo")
@@ -321,7 +324,7 @@ class SessionWorkTreeTest(unittest.TestCase):
         # Config's own `.agents/shared` is uninitialized: an empty directory.
         self.assertEqual(self.resolve(FX.main / "config" / ".agents" / "shared"), str(FX.main))
         self.assertEqual(self.resolve(FX.wt2 / ".agents" / "shared" / "scripts"), str(FX.wt2))
-        for shared in ("config", ".agents/shared"):
+        for shared in ("config", ".agents/shared", "shared tools"):
             with self.subTest(shared=shared):
                 self.assertEqual(self.resolve(FX.summit / shared, anchor=FX.summit),
                                  str(FX.summit))

@@ -48,12 +48,13 @@ common_git_dir() {
 # is_config_managed <super> <sub>: succeeds when the work tree <sub> is a
 # config-managed submodule of the work tree <super>; fails for an empty <super>.
 # Git reports both as physical paths, so <sub> is <super>/<the submodule's path>.
+# Keys are read whole (`--name-only`): a submodule's name may contain spaces.
 is_config_managed() {
   [ -n "$1" ] || return 1
   local path=${2#"$1"/}
   [ "$path" = config ] && return 0
-  git config -f "$1/.gitmodules" --get-regexp '^submodule\..*\.branch$' 2>/dev/null \
-    | while read -r key _branch; do
+  git config -f "$1/.gitmodules" --name-only --get-regexp '^submodule\..*\.branch$' 2>/dev/null \
+    | while IFS= read -r key; do
         name=${key#submodule.}; name=${name%.branch}
         git config -f "$1/.gitmodules" --get "submodule.$name.path" 2>/dev/null
       done \
