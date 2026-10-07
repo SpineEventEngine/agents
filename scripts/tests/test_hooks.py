@@ -6,7 +6,8 @@ agent works in as `cwd` in the hook input JSON; in a worktree session the two
 differ. These tests build throwaway, consumer-shaped repositories — the
 `.agents/shared` and `config` submodules, the `.agents/{scripts,skills}`
 symlinks, worktrees nested at `.claude/worktrees/<name>` as the desktop app
-creates them — and run the hooks that way.
+creates them, a `summit`-like superproject of such repositories — and run the
+hooks that way.
 
 They need `bash`, `git`, `jq`, and `python3`. From the repository root:
 
@@ -102,6 +103,20 @@ class Fixture:
         self.wt3 = self.worktree(self.main, "wt3")
         write_file(self.wt3 / "x.txt", "x\n")
         self.commit_all(self.wt3, "x")
+
+        # A superproject of repositories, like `summit`: its own `config` and
+        # `.agents/shared` are config-managed, its repositories — each with
+        # its own, initialized — are not. A worktree has one initialized too.
+        self.summit = self.consumer(base / "summit", self.agents_src)
+        self.git(self.summit, "submodule", "add", "-q",
+                 str(self.consumer(base / "src" / "repo", self.agents_src)), "repo")
+        self.git(self.summit, "submodule", "update", "-q", "--init", "--recursive", "--", "repo")
+        # Shared tooling under a name and path with a space, which Git allows.
+        self.git(self.summit, "submodule", "add", "-q", "-b", "master", "--name", "shared tools",
+                 str(self.agents_src), "shared tools")
+        self.commit_all(self.summit, "summit")
+        self.summit_wt = self.worktree(self.summit, "wt")
+        self.git(self.summit_wt, "submodule", "update", "-q", "--init", "--", "repo")
 
         # A repository that is itself a submodule of another.
         self.meta = self.new_repo(base / "meta")
@@ -304,20 +319,50 @@ class SessionWorkTreeTest(unittest.TestCase):
         self.assertEqual(self.resolve(FX.wt1), str(FX.wt1))
         self.assertEqual(self.resolve(FX.wt1 / "src"), str(FX.wt1))
 
-    def test_submodule_resolves_to_the_work_tree_around_it(self) -> None:
+    def test_config_managed_submodule_resolves_to_the_work_tree_around_it(self) -> None:
         self.assertEqual(self.resolve(FX.main / "config"), str(FX.main))
         # Config's own `.agents/shared` is uninitialized: an empty directory.
         self.assertEqual(self.resolve(FX.main / "config" / ".agents" / "shared"), str(FX.main))
         self.assertEqual(self.resolve(FX.wt2 / ".agents" / "shared" / "scripts"), str(FX.wt2))
+        for shared in ("config", ".agents/shared", "shared tools"):
+            with self.subTest(shared=shared):
+                self.assertEqual(self.resolve(FX.summit / shared, anchor=FX.summit),
+                                 str(FX.summit))
+
+    def test_repository_submodule_resolves_to_itself(self) -> None:
+        repo = FX.summit / "repo"
+        self.assertEqual(self.resolve(repo, anchor=FX.summit), str(repo))
+        self.assertEqual(self.resolve(repo / "src", anchor=FX.summit), str(repo))
+        # So is a third-party one.
+        self.assertEqual(self.resolve(FX.main / "docs" / "theme"), str(FX.main / "docs" / "theme"))
+
+    def test_repository_submodules_own_shared_tooling(self) -> None:
+        repo = FX.summit / "repo"
+        # Nested twice for `config/.agents/shared`.
+        for shared in ("config", ".agents/shared", "config/.agents/shared"):
+            with self.subTest(shared=shared):
+                # Outside the project: a repository of its own, like any other.
+                self.assertEqual(self.resolve(repo / shared, anchor=FX.summit), str(repo / shared))
+                # In a session opened in the repository, it is the project's.
+                self.assertEqual(self.resolve(repo / shared, anchor=repo), str(repo))
+
+    def test_repository_submodule_of_a_worktree_resolves_to_itself(self) -> None:
+        self.assertEqual(self.resolve(FX.summit_wt, anchor=FX.summit), str(FX.summit_wt))
+        repo = FX.summit_wt / "repo"
+        self.assertEqual(self.resolve(repo / "src", anchor=FX.summit), str(repo))
 
     def test_unrelated_repository_resolves_to_itself(self) -> None:
         self.assertEqual(self.resolve(FX.theme_src), str(FX.theme_src))
-        # Its superproject is not the project, so the climb does not apply.
         self.assertEqual(self.resolve(FX.meta / "proj"), str(FX.meta / "proj"))
+        # The climb only leads to the project: a config-managed submodule of
+        # another repository is not folded into that repository.
+        self.assertEqual(self.resolve(FX.main / "config", anchor=FX.theme_src),
+                         str(FX.main / "config"))
 
     def test_project_that_is_itself_a_submodule_is_not_escaped(self) -> None:
-        project = FX.meta / "proj"
-        self.assertEqual(self.resolve(project, anchor=project), str(project))
+        for project in (FX.meta / "proj", FX.main / "config"):
+            with self.subTest(project=project):
+                self.assertEqual(self.resolve(project, anchor=project), str(project))
 
     def test_current_directory_anchors_without_claude_project_dir(self) -> None:
         self.assertEqual(self.resolve(FX.main / "config", unset_anchor=True), str(FX.main))
@@ -340,7 +385,7 @@ class PrePrGateTest(HookTest):
     CREATE = "gh pr create --title x"
 
     def setUp(self) -> None:
-        for repo in (FX.main, FX.wt1, FX.wt2, FX.unborn):
+        for repo in (FX.main, FX.wt1, FX.wt2, FX.unborn, FX.summit, FX.summit / "repo"):
             sentinel_path(repo).unlink(missing_ok=True)
 
     def gate(self, cwd: Path | None, **kwargs) -> subprocess.CompletedProcess[str]:
@@ -378,6 +423,19 @@ class PrePrGateTest(HookTest):
         for cdpath in (None, "."):
             with self.subTest(cdpath=cdpath):
                 result = self.gate(FX.wt2 / ".agents" / "shared", cdpath=cdpath)
+                self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_repository_submodule_is_gated_by_its_own_sentinel(self) -> None:
+        repo = FX.summit / "repo"
+        write_sentinel(FX.summit)
+        result = self.gate(repo, project=FX.summit)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn(str(sentinel_path(repo)), result.stderr)
+        write_sentinel(repo)
+        sentinel_path(FX.summit).unlink()
+        for cwd in (repo, repo / "src"):
+            with self.subTest(cwd=cwd):
+                result = self.gate(cwd, project=FX.summit)
                 self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_unresolvable_cwd_blocks(self) -> None:
@@ -457,6 +515,14 @@ class SecretScanGateTest(HookTest):
         self.plant(FX.main / "main-leak.pem")
         result = self.run_hook(bash_input(f"cd {FX.main} && git add -A", FX.main / "config"))
         self.assertEqual(result.returncode, 2)
+
+    def test_key_in_a_repository_submodule_is_caught(self) -> None:
+        # Its superproject's scan does not see into it.
+        repo = FX.summit / "repo"
+        self.plant(repo / "leak.pem")
+        result = self.run_hook(bash_input("git add .", repo), project=FX.summit)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("leak.pem", result.stderr)
 
 
 class PublishVersionGateTest(HookTest):
