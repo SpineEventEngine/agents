@@ -114,10 +114,10 @@ control, and the secret-scan gate covers credentials only.
   push even under a valid session grant. In `dontAsk` mode, which
   never prompts, it denies the call instead.
 - The same settings keep `ask` rules for the usual force-push
-  spellings (`--force`, `--force-with-lease`, `-f`, and a `+`-prefixed
-  refspec after the remote) and for `git rebase`. A grant never covers
-  these, so the dialog is intended. The rules do not catch every way
-  to overwrite remote history — `git push --mirror` is one — so the
+  spellings (`--force`, `--force-with-lease`, `-f`, `--mirror`, and a
+  `+`-prefixed refspec after the remote) and for `git rebase`. A grant
+  never covers these, so the dialog is intended. The rules do not
+  catch every spelling — `git -C . push --force` is one — so the
   authorization rule remains the control there. `git merge` and
   `git cherry-pick` have `ask` rules too: a grant may cover them,
   but each one still needs the user's confirmation. The settings
