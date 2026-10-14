@@ -96,13 +96,34 @@ If none of the three holds, the agent:
 3. **Stops.** The user runs the commit themselves, or replies with
    explicit authorization in the next prompt.
 
-Do not add `Bash(git commit:*)` to `permissions.ask` in a repo's
-checked-in `.claude/settings.json`. In Claude Code, an `ask` rule
-outranks every `allow` rule from every settings file, so such an entry
-forces a confirmation dialog on each commit — even under a valid
-session grant — and makes autonomous sessions impossible. The primary
-enforcement is this rule plus the secret-scan gate; leave harness
-prompting at Claude Code's defaults, so each developer decides once
-per repository whether `git commit` may run without a dialog. Agents
-still must not attempt a commit that relies on the user clicking a
-permission prompt.
+### Claude Code permissions
+
+The shared Claude Code settings that `config` distributes let
+`git commit` and `git push` run without a confirmation dialog, so an
+authorized agent — under a session grant in particular — can work
+autonomously. The permission system therefore does **not** stop an
+unauthorized commit or push: the authorization rule above is the only
+control, and the secret-scan gate covers credentials only.
+
+- A permission dialog is not authorization. Do not attempt an
+  operation on the expectation that the user will approve the prompt.
+- Do not put `Bash(git commit:*)` or `Bash(git push:*)` into the
+  `permissions.ask` list of a checked-in `.claude/settings.json`. In
+  Claude Code, an `ask` rule outranks every `allow` rule from every
+  settings file, so such an entry forces a dialog on each commit or
+  push even under a valid session grant. In `dontAsk` mode, which
+  never prompts, it denies the call instead.
+- The same settings keep `ask` rules for the usual force-push
+  spellings (`--force`, `--force-with-lease`, `-f`, `--mirror`, and a
+  `+`-prefixed refspec after the remote) and for `git rebase`. A grant
+  never covers these, so the dialog is intended. The rules do not
+  catch every spelling — `git -C . push --force` is one — so the
+  authorization rule remains the control there. `git merge` and
+  `git cherry-pick` have `ask` rules too: a grant may cover them,
+  but each one still needs the user's confirmation. The settings
+  also deny `gh pr merge` and `gh release create`, among others, so
+  the user runs those.
+- The rules match the command as written. Run `git commit` and
+  `git push` from the repository (or worktree) root. The form
+  `git -C <dir> commit` does not match the `allow` rules, and a `git`
+  command after a `cd` into another directory may prompt as well.
