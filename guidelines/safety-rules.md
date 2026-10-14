@@ -110,16 +110,20 @@ control, and the secret-scan gate covers credentials only.
 - Do not put `Bash(git commit:*)` or `Bash(git push:*)` into the
   `permissions.ask` list of a checked-in `.claude/settings.json`. In
   Claude Code, an `ask` rule outranks every `allow` rule from every
-  settings file, in every permission mode, so such an entry forces a
-  dialog on each commit or push even under a valid session grant.
-- The same settings keep `ask` rules for force-pushes (`--force`,
-  `--force-with-lease`, `-f`, and a `+`-prefixed refspec) and for
-  `git rebase`. A grant never covers these, so the dialog is intended.
-  `git merge` and `git cherry-pick` have `ask` rules too: a grant may
-  cover them, but each one still needs the user's confirmation. The
-  settings also deny `gh pr merge` and `gh release create`, among
-  others, so the user runs those.
+  settings file, so such an entry forces a dialog on each commit or
+  push even under a valid session grant. In `dontAsk` mode, which
+  never prompts, it denies the call instead.
+- The same settings keep `ask` rules for the usual force-push
+  spellings (`--force`, `--force-with-lease`, `-f`, and a `+`-prefixed
+  refspec after the remote) and for `git rebase`. A grant never covers
+  these, so the dialog is intended. The rules do not catch every way
+  to overwrite remote history — `git push --mirror` is one — so the
+  authorization rule remains the control there. `git merge` and
+  `git cherry-pick` have `ask` rules too: a grant may cover them,
+  but each one still needs the user's confirmation. The settings
+  also deny `gh pr merge` and `gh release create`, among others, so
+  the user runs those.
 - The rules match the command as written. Run `git commit` and
   `git push` from the repository (or worktree) root. The form
-  `git -C <dir> commit` does not match the `allow` rules, and Claude
-  Code prompts whenever a command runs `git` after a `cd`.
+  `git -C <dir> commit` does not match the `allow` rules, and a `git`
+  command after a `cd` into another directory may prompt as well.
