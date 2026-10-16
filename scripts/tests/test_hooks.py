@@ -613,21 +613,49 @@ class PrePrGateTest(HookTest):
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertIn("other/repo", result.stderr.splitlines()[0])
 
-    def test_a_segment_with_substitution_is_gated(self) -> None:
-        """Command substitution runs its own command first, and that may be a
-        create for this repository: `-R other/repo --title "$(gh pr create …)"`
-        opens one here before the outer one goes elsewhere. The hook evaluates
-        nothing, so such a segment is gated."""
-        nested = ('gh pr create -R other/repo '
-                  '--title "$(gh pr create --title local --body local)" --body remote')
-        for command in (nested,
-                        "gh pr create -R other/repo --title `gh pr create -t x`",
-                        "gh pr create -R other/repo --body-file <(gh pr view)"):
+    def test_a_segment_the_shell_would_still_change_is_gated(self) -> None:
+        """A segment is exempted only when its text cannot change under anything
+        the shell does after the hook sees it. Each of these reads as a
+        cross-repository create but is not one: the expansion carries a second
+        `-R` naming this repository, the braces expand to two options with this
+        repository last, the substitution runs a create here first, and the
+        escaped separator left a fragment of a longer command whose final `-R`
+        is ours."""
+        for command in (
+                # Command and process substitution: the inner command runs first.
+                'gh pr create -R other/repo '
+                '--title "$(gh pr create --title local --body local)" --body remote',
+                "gh pr create -R other/repo --title `gh pr create -t x`",
+                "gh pr create -R other/repo --body-file <(gh pr view)",
+                # Expansions, scalar and array, holding another `-R`.
+                "gh pr create -R other/repo --title x $EXTRA",
+                'gh pr create -R other/repo --title x "${extra[@]}"',
+                # Brace expansion: two `-R` options, the local one last.
+                "gh pr create --title x -R{other/repo,SpineEventEngine/main}",
+                # A substitution whose contents merely look like a target.
+                "gh pr create --title x --body $(printf '%s' '--repo=other/repo')",
+                # `tr` split this at the escaped pipe; the rest of the real
+                # command, including a later `-R` of ours, is on no line here.
+                "gh pr create -R other/repo --title a\\|b --body x "
+                "-R SpineEventEngine/main"):
             with self.subTest(command=command):
                 sentinel_path(FX.wt1).unlink(missing_ok=True)
                 self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 2)
                 write_sentinel(FX.wt1)
                 self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 0)
+
+    def test_an_in_word_continuation_is_removed_as_the_shell_removes_it(self) -> None:
+        """The shell drops the `\\` and the newline and joins the halves, so
+        `-R SpineEventEngine/ma\\` + `in` targets `SpineEventEngine/main`.
+        Replacing the pair with a space would read `SpineEventEngine/ma`,
+        match no remote, and exempt a pull request meant for this repository."""
+        FX.git(FX.main, "remote", "add", "origin",
+               "https://github.com/SpineEventEngine/main.git")
+        self.addCleanup(FX.git, FX.main, "remote", "remove", "origin")
+        command = f"{self.CREATE} -R SpineEventEngine/ma\\\nin"
+        self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 2)
+        write_sentinel(FX.wt1)
+        self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 0)
 
     def test_an_unexpanded_target_is_gated_not_exempted(self) -> None:
         """A target the shell has yet to expand is unknown, not different: read

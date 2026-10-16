@@ -37,14 +37,22 @@
 #     `[HOST/]OWNER/REPO`: `enterprise.example/acme/app` is not the `acme/app`
 #     of a github.com remote. A target that carries no host is resolved by `gh`
 #     against this repository's own host, so it is compared without one.
-#   * Line continuations are joined before the split, so a `-R` carried onto
-#     the next line is seen rather than silently dropped.
-#   * A segment carrying command or process substitution is gated: the inner
-#     command runs first and may be a `gh pr create` for this repository, and
-#     nothing here evaluates command text to find out.
-#   * A target the shell has yet to expand — `-R "$REPO"`, `-R $(…)`, a glob —
-#     is unknown rather than different, and is gated. Comparing it literally
-#     would hand an exemption to every target the hook cannot resolve.
+#   * Line continuations are removed the way the shell removes them — the `\`
+#     and the newline both, adding nothing in their place — so a `-R` split
+#     across lines, even in mid-word, reads as the one word the shell builds.
+#   * A segment is then exempted only if its text cannot change under anything
+#     the shell does after this hook sees it. A `$`, a backtick, `{`, `}`, `*`,
+#     `?`, `[`, `]`, `~`, `<(` or `>(` — expansion, substitution, globbing — or
+#     any `\` still left once continuations are gone, which means the split on
+#     `;&|` cut an escaped separator and left a fragment, gates the segment.
+#     Enumerating dangerous syntax instead was tried and kept failing: `$EXTRA`
+#     holding a second `-R`, `-R{a,b}` expanding to two options with the local
+#     one last, `--title a\|b` leaving `… --title a\` that reads as a whole
+#     command, `--title "$(gh pr create …)"` creating a pull request here
+#     before the outer one goes elsewhere. The cost of gating all of it is that
+#     such a cross-repository create needs this repository's sentinel — the
+#     behaviour before this change — and the benefit is that an exemption never
+#     rests on text whose meaning this hook had to guess.
 #   * Any remote counts as the session's own, so `-R upstream/repo` from a fork
 #     — where the checks did run on the head branch — is gated as usual.
 #
@@ -70,12 +78,14 @@ tool=$(printf '%s' "$input" | jq -r '.tool_name // empty')
 
 cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // empty')
 
-# Join shell line continuations: a `\` at end of line continues the command, so
-# `gh pr create --title x \` + `-R other/repo` is one segment. A bare newline
-# stays a separator, which is what the line-wise matching below treats it as.
+# Remove shell line continuations, `\` and newline both and nothing in their
+# place, as the shell does: `-R SpineEventEngine/ma\` + `in` is the single word
+# `-R SpineEventEngine/main`, not two. Inserting a space here would read it as
+# `SpineEventEngine/ma` and exempt a pull request meant for this repository. A
+# bare newline stays a separator, which is what the matching below treats it as.
 newline='
 '
-cmd=${cmd//\\$newline/ }
+cmd=${cmd//\\$newline/}
 
 # Split the command on shell separators (`;`, `&`, `|` — `&&`/`||` collapse
 # to repeated newlines, which is fine) and keep every segment that STARTS
@@ -260,12 +270,11 @@ gate_own=0
 cross_targets=''
 while IFS= read -r segment; do
   [ -n "$segment" ] || continue
-  # Command or process substitution can run another command before this one:
-  # `-R other/repo --title "$(gh pr create …)"` opens a pull request HERE, then
-  # one elsewhere, and only the outer command is on this line. Nothing is
-  # evaluated to find out what it would do, so the segment is gated.
+  # Exempt a segment only when its text cannot change under anything the shell
+  # does after this hook sees it (see the header). Expansion, substitution,
+  # globbing or a leftover escape all gate it, unevaluated and unparsed.
   case $segment in
-    *'$('*|*'`'*|*'<('*|*'>('*)
+    *'$'*|*'`'*|*'{'*|*'}'*|*'*'*|*'?'*|*'['*|*']'*|*'~'*|*'<('*|*'>('*|*'\'*)
       gate_own=1
       continue ;;
   esac
@@ -277,14 +286,6 @@ while IFS= read -r segment; do
     gate_own=1
     continue
   fi
-  # A target the shell would still expand — `-R "$REPO"`, `-R $(…)`, a glob — is
-  # unknown, not different: compared literally it matches no remote and would
-  # buy an exemption it has not earned. Nothing here expands it, so gate.
-  case $target in
-    *'$'*|*'`'*|*'*'*|*'?'*|*'['*|'~'*)
-      gate_own=1
-      continue ;;
-  esac
   identity=$(identity_of "$target")
   case $identity in
     /*) known=$own_slugs;      wanted=${identity#/} ;;

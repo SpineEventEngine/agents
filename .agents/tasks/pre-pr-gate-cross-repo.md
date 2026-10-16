@@ -148,6 +148,37 @@ the whole segment as `gh pr create`'s grammar.
       it would do. The repeated-`-R` finding from the same round was already
       fixed above, found independently. 63 tests, all pass.
 
+## Review round 3 (Copilot on #49, commit `df0f506`) — approach changed
+
+Four more divergences between the hand-written parsing and the shell:
+`-R Spine/ma\` + `in` (an in-word continuation the shell joins, where joining
+with a space read `Spine/ma`), `--title a\|b` (split at the escaped pipe,
+leaving `… --title a\` that read as a whole command while the real one ended
+with a local `-R`), `$EXTRA` or `"${extra[@]}"` carrying a second `-R`, and
+`-R{other/repo,ours}` expanding to two options with ours last.
+
+Each was a fix in itself, but five rounds of the same shape settled the
+approach: enumerating dangerous syntax is only as good as one's knowledge of
+the shell, and this is the one path in the hook that fails open. The burden is
+inverted now — a segment is exempted only when its text **cannot change** under
+anything the shell does after the hook sees it.
+
+- [x] Continuations are removed as the shell removes them: the `\` and the
+      newline, nothing in their place. This is also what makes an in-word
+      continuation read as the one word the shell builds.
+- [x] Everything else that could change the text gates the segment, before any
+      parsing: `$`, a backtick, `{`, `}`, `*`, `?`, `[`, `]`, `~`, `<(`, `>(`,
+      and any `\` still left once continuations are gone (which means the
+      `;&|` split cut an escaped separator and left a fragment).
+- [x] The two narrower guards this subsumes — substitution in the segment, an
+      unexpanded target — are gone; one check in front of the parser replaces
+      them.
+- [x] The cost is stated in the header: a cross-repository create carrying any
+      of that syntax needs this repository's sentinel, which is the behaviour
+      that predates the whole change. The exemption never rests on text whose
+      meaning the hook had to guess.
+- [x] `python3 -m unittest discover -s scripts/tests` — 64 tests, all pass.
+
 ## Follow-ups
 
 - `gh pr create` in a *subdirectory* of another checkout (`cd ../config &&
