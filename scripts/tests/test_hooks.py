@@ -789,6 +789,36 @@ class PrePrGateTest(HookTest):
         self.assertEqual(self.run_hook(payload).returncode, 2)
         write_sentinel(FX.wt1)
         self.assertEqual(self.run_hook(payload).returncode, 0)
+        # `gh` reads `git remote -v` and identifies the repository by the LAST
+        # push URL, so a backup pushed to first must not hide it.
+        FX.git(FX.main, "remote", "set-url", "--push", "origin",
+               "git@backup.example:archive/main.git")
+        FX.git(FX.main, "remote", "set-url", "--push", "--add", "origin",
+               "git@github.com:SpineEventEngine/main.git")
+        sentinel_path(FX.wt1).unlink()
+        self.assertEqual(self.run_hook(payload).returncode, 2)
+        write_sentinel(FX.wt1)
+        self.assertEqual(self.run_hook(payload).returncode, 0)
+
+    def test_a_query_or_fragment_is_not_part_of_the_remote_identity(self) -> None:
+        """`gh` reads a URL's path only (`ghrepo.FromURL` through `net/url`), so
+        `…/main.git?mirror=1` is `SpineEventEngine/main` there. Keeping the
+        suffix here would make this repository look like another one and exempt
+        its own pull requests."""
+        payload = bash_input(f"{self.CREATE} -R SpineEventEngine/main", FX.wt1)
+        for remote in ("https://github.com/SpineEventEngine/main.git?mirror=1",
+                       "https://github.com/SpineEventEngine/main.git#mirror",
+                       "https://github.com/SpineEventEngine/main?mirror=1"):
+            FX.git(FX.main, "remote", "add", "origin", remote)
+            try:
+                with self.subTest(remote=remote):
+                    sentinel_path(FX.wt1).unlink(missing_ok=True)
+                    self.assertEqual(self.run_hook(payload).returncode, 2)
+                    write_sentinel(FX.wt1)
+                    self.assertEqual(self.run_hook(payload).returncode, 0)
+            finally:
+                FX.git(FX.main, "remote", "remove", "origin")
+                sentinel_path(FX.wt1).unlink(missing_ok=True)
 
     def test_percent_encoding_on_either_side_withholds_the_exemption(self) -> None:
         """`gh` decodes URL paths and this hook does not, so `%6dain` and `main`

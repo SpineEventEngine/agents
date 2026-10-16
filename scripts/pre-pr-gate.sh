@@ -219,7 +219,12 @@ EOF
 # exempted. For a gate whose whole job is this repository, that is the safe side
 # to be wrong on.
 slug_of() (
-  value=$(printf '%s' "$1" | sed -e 's#[[:space:]]*$##' -e 's#/*$##' -e 's#\.git$##')
+  # A fragment and a query are not part of the path, which is all `gh` reads
+  # (`ghrepo.FromURL` through `net/url`): a remote of
+  # `https://github.com/OWNER/Repo.git?mirror=1` is `owner/repo` there, and
+  # keeping the suffix here would make this repository look like another one.
+  value=$(printf '%s' "$1" | sed -e 's#[[:space:]]*$##' -e 's/#.*$//' -e 's/?.*$//' \
+                                 -e 's#/*$##' -e 's#\.git$##')
   case $value in
     *://*) value=${value#*://}; value=${value#*@}; value=${value#*/} ;;
     *@*:*) value=${value#*@}; value=${value#*:} ;;
@@ -250,13 +255,11 @@ else
   repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 fi
 
-# This repository's `owner/repo`, from every remote, fetch URL and push URL
-# both. `get-url` applies `url.<base>.insteadOf`, so it reports the URL Git and
-# `gh` really use; `config --get` is the fallback for Git < 2.13, where
-# `get-url` does not exist. The push URL counts because `gh` falls back to it
-# when the fetch URL names no hosted repository — a remote that fetches from a
-# local mirror and pushes to GitHub is this repository to `gh`, and reading the
-# fetch URL alone would make its own pull request look foreign.
+# This repository's `owner/repo`, from every URL of every remote, fetch and push
+# alike. Push URLs count because `gh` falls back to them when the fetch URL
+# names no hosted repository — a remote that fetches from a local mirror and
+# pushes to GitHub is this repository to `gh`, and reading the fetch URL alone
+# would make its own pull request look foreign.
 #
 # Anything that leaves this list incomplete — a URL that cannot be read, or one
 # carrying percent-encoding, which `gh` decodes and this hook does not — must
@@ -265,16 +268,27 @@ fi
 own_slugs=''
 remotes_known=1
 for remote in $(git -C "$repo_root" remote 2>/dev/null || true); do
-  fetch_url=$(git -C "$repo_root" remote get-url "$remote" 2>/dev/null) \
-    || fetch_url=$(git -C "$repo_root" config --get "remote.$remote.url" 2>/dev/null) \
-    || { remotes_known=0; fetch_url=''; }
-  push_url=$(git -C "$repo_root" remote get-url --push "$remote" 2>/dev/null) || push_url=''
-  for url in "$fetch_url" "$push_url"; do
+  # `--all` because a remote may carry several URLs and `gh` identifies the
+  # repository by the LAST push URL — it reads `git remote -v` — so a remote
+  # pushing first to a backup and then to GitHub is this repository there while
+  # the first push URL alone would miss it. `get-url` also applies
+  # `url.<base>.insteadOf`, reporting the URL Git and `gh` really use;
+  # `config --get-all` is the fallback for Git < 2.7, which has no `get-url`.
+  urls=$(git -C "$repo_root" remote get-url --all "$remote" 2>/dev/null) \
+    || urls=$(git -C "$repo_root" config --get-all "remote.$remote.url" 2>/dev/null) \
+    || { remotes_known=0; urls=''; }
+  push_urls=$(git -C "$repo_root" remote get-url --push --all "$remote" 2>/dev/null) \
+    || push_urls=$(git -C "$repo_root" config --get-all "remote.$remote.pushurl" 2>/dev/null) \
+    || push_urls=''
+  while IFS= read -r url; do
     [ -n "$url" ] || continue
     case $url in *%*) remotes_known=0 ;; esac
     own_slugs="$own_slugs$(slug_of "$url")
 "
-  done
+  done <<EOF
+$urls
+$push_urls
+EOF
 done
 
 # Exempt the request only when the WHOLE of it, as received, is one plain

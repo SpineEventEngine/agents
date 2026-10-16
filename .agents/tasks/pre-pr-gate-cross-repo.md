@@ -302,6 +302,28 @@ Four findings. The first is the worst defect of the whole task, and it was mine:
       existing tests changed expectation by design: a continued create and a
       same-name-other-host target are now gated.
 
+## Review round 9 (Copilot on #49, commit `8992e80`)
+
+Two remote-identity gaps, both verified in a throwaway repository first.
+
+- [x] **Only the first push URL was read.** `git remote get-url --push` returns
+      one URL, while a remote may carry several and `gh` identifies the
+      repository by the *last* (it reads `git remote -v`). Confirmed: with
+      `pushurl` to `backup.example` and then to GitHub, `--push` printed the
+      backup, `--push --all` printed both. Every URL of every remote is
+      collected now, fetch and push, via `--all` (with `config --get-all` as
+      the Git < 2.7 fallback). Since only `owner/repo` is compared, more URLs
+      can only ever add gating, never an exemption.
+- [x] **A query or fragment stayed in the identity.** `gh` reads a URL's path
+      only (`ghrepo.FromURL` through `net/url`), so
+      `…/main.git?mirror=1` is `owner/main` there while `slug_of` kept the
+      suffix — making this repository look like another one and exempting its
+      own pull requests. Both are stripped now, which is what `gh` does, rather
+      than withholding the exemption.
+- [x] Corrected a stale comment: `git remote get-url` arrived in Git 2.7, not
+      2.13 (2.13 is the `--absolute-git-dir` threshold used further down).
+- [x] `python3 -m unittest discover -s scripts/tests` — 70 tests, all pass.
+
 ## Note for the reviewer of this PR
 
 The original defect — a `compiler` sentinel demanded for a `config` pull request
