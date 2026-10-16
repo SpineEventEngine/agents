@@ -227,20 +227,21 @@ identity_of() (
     *@*:*) value=${value#*@}; host=${value%%:*}; value=${value#*:} ;;
     *:*)   host=${value%%:*}; value=${value#*:} ;;
   esac
-  host=${host%%:*}
-  # `gh` drops a leading `www.` before comparing hosts (`ghrepo`'s
-  # `normalizeHostname`, verified: `gh pr list -R www.github.com/<slug>` lists
-  # that repository), so the two spellings are one host here as well. Without
-  # this, a `www.` remote and a bare target would read as two repositories and
-  # exempt a pull request `gh` opens in this one.
-  case $host in
-    [Ww][Ww][Ww].*) host=${host#???.} ;;
-  esac
   # More than two components: `gh`'s own `HOST/OWNER/REPO` spelling when no host
   # was parsed above, otherwise a URL with a path beyond the repository.
   case $value in
     */*/*) [ -n "$host" ] || host=${value%%/*}
            value=$(printf '%s' "$value" | sed 's#.*/\([^/][^/]*/[^/][^/]*\)$#\1#') ;;
+  esac
+  # Normalize the host last, so it is normalized however it was found — from a
+  # URL above or from `HOST/OWNER/REPO` just now. Drop a port, and drop a
+  # leading `www.` as `gh` does (`ghrepo`'s `normalizeHostname`, verified:
+  # `gh pr list -R www.github.com/<slug>` lists that repository). Otherwise
+  # `www.github.com/owner/repo` and a github.com remote read as two
+  # repositories, exempting a pull request `gh` opens in this one.
+  host=${host%%:*}
+  case $host in
+    [Ww][Ww][Ww].*) host=${host#???.} ;;
   esac
   printf '%s/%s\n' "$host" "$value" | tr '[:upper:]' '[:lower:]'
 )
@@ -269,8 +270,20 @@ fi
 # for one that does not.
 own_identities=''
 own_slugs=''
+remotes_known=1
 for remote in $(git -C "$repo_root" remote 2>/dev/null || true); do
-  url=$(git -C "$repo_root" config --get "remote.$remote.url" 2>/dev/null) || continue
+  # `get-url` applies `url.<base>.insteadOf`, so it reports the URL Git and
+  # `gh` really use: with `url.https://github.com/.insteadOf=gh:` and a remote
+  # of `gh:owner/repo`, the raw config value would record the host as `gh` and
+  # read a `-R github.com/owner/repo` as another repository. `config --get` is
+  # the fallback for Git < 2.13, where `get-url` does not exist.
+  #
+  # A remote whose URL cannot be read at all leaves this repository's identity
+  # incomplete, which would make a target naming it look foreign: remember that
+  # and let no exemption be granted.
+  url=$(git -C "$repo_root" remote get-url "$remote" 2>/dev/null) \
+    || url=$(git -C "$repo_root" config --get "remote.$remote.url" 2>/dev/null) \
+    || { remotes_known=0; continue; }
   identity=$(identity_of "$url")
   own_identities="$own_identities$identity
 "
@@ -297,7 +310,7 @@ if [ "$(printf '%s' "$cmd" | tr ';&|' '\n\n\n' | grep -c '[^[:space:]]')" -eq 1 
   esac
 fi
 
-if [ -n "$target" ]; then
+if [ -n "$target" ] && [ "$remotes_known" -eq 1 ]; then
   identity=$(identity_of "$target")
   case $identity in
     /*) known=$own_slugs;      wanted=${identity#/} ;;

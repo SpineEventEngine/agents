@@ -240,6 +240,31 @@ a pull request `gh` opens in this one.
 - [x] `identity_of` strips a leading `www.` from the host, case-insensitively.
 - [x] `python3 -m unittest discover -s scripts/tests` — 66 tests, all pass.
 
+## Review round 7 (Copilot on #49, commit `42a40f0`)
+
+Both items valid; the first is a flaw in round 6's own fix.
+
+- [x] **Normalization order.** The `www.` strip ran *before* the
+      `HOST/OWNER/REPO` branch that assigns the host, so it normalized a host
+      taken from a URL but not one taken from the argument itself:
+      `-R www.github.com/owner/repo` against a plain github.com remote still
+      read as another repository. The host is normalized last now, however it
+      was found, and the test covers both directions — round 6's covered only
+      the `www.` remote.
+- [x] **`insteadOf` rewriting.** `git config --get remote.<name>.url` returns
+      the raw value, so with `url.https://github.com/.insteadOf=gh:` and a
+      remote of `gh:owner/repo` this recorded the host as `gh` while Git and
+      `gh` use github.com — and an explicit `-R github.com/owner/repo` read as
+      foreign. Verified both commands in a throwaway repository: `get-url`
+      prints the rewritten URL, `config --get` the raw one. `get-url` is used
+      now, with `config --get` kept as the fallback for Git < 2.13 (noted as a
+      residual gap there).
+- [x] Also fixed while there, unreported: a remote whose URL could not be read
+      was skipped, leaving this repository's identity incomplete so that a
+      target naming it would look foreign — fail-open. Such a failure now
+      blocks any exemption.
+- [x] `python3 -m unittest discover -s scripts/tests` — 67 tests, all pass.
+
 ## Note for the reviewer of this PR
 
 The original defect — a `compiler` sentinel demanded for a `config` pull request

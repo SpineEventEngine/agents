@@ -696,15 +696,43 @@ class PrePrGateTest(HookTest):
                 self.assertEqual(self.run_hook(payload).returncode, 0)
 
     def test_a_www_host_is_the_same_host(self) -> None:
-        """`gh` drops a leading `www.` before comparing hosts, so a `www.`
-        remote and a bare target are one repository. Keeping the prefix would
-        read them as two and exempt a PR `gh` opens in this one."""
-        FX.git(FX.main, "remote", "add", "origin",
-               "https://www.github.com/SpineEventEngine/main.git")
+        """`gh` drops a leading `www.` before comparing hosts, so the two
+        spellings are one repository — whichever side carries the prefix. The
+        host is normalized after it is extracted, so a `HOST/OWNER/REPO`
+        target is normalized too, not only a URL."""
+        for remote, targets in (
+                ("https://www.github.com/SpineEventEngine/main.git",
+                 ("github.com/SpineEventEngine/main",
+                  "https://github.com/SpineEventEngine/main",
+                  "SpineEventEngine/main")),
+                ("https://github.com/SpineEventEngine/main.git",
+                 ("www.github.com/SpineEventEngine/main",
+                  "https://www.github.com/SpineEventEngine/main",
+                  "WWW.GitHub.com/SpineEventEngine/main"))):
+            FX.git(FX.main, "remote", "add", "origin", remote)
+            try:
+                for target in targets:
+                    with self.subTest(remote=remote, target=target):
+                        payload = bash_input(f"{self.CREATE} -R {target}", FX.wt1)
+                        sentinel_path(FX.wt1).unlink(missing_ok=True)
+                        self.assertEqual(self.run_hook(payload).returncode, 2)
+                        write_sentinel(FX.wt1)
+                        self.assertEqual(self.run_hook(payload).returncode, 0)
+            finally:
+                FX.git(FX.main, "remote", "remove", "origin")
+                sentinel_path(FX.wt1).unlink(missing_ok=True)
+
+    def test_a_rewritten_remote_is_matched_by_the_url_git_really_uses(self) -> None:
+        """`url.<base>.insteadOf` makes `gh:owner/repo` a github.com remote for
+        Git and `gh`. Reading the raw config value would record the host as
+        `gh` and read an explicit `github.com/owner/repo` as another
+        repository, exempting a PR `gh` opens in this one."""
+        FX.git(FX.main, "config", "url.https://github.com/.insteadOf", "gh:")
+        FX.git(FX.main, "remote", "add", "origin", "gh:SpineEventEngine/main.git")
+        self.addCleanup(FX.git, FX.main, "config", "--remove-section",
+                        "url.https://github.com/")
         self.addCleanup(FX.git, FX.main, "remote", "remove", "origin")
-        for target in ("github.com/SpineEventEngine/main",
-                       "https://github.com/SpineEventEngine/main",
-                       "SpineEventEngine/main"):
+        for target in ("github.com/SpineEventEngine/main", "SpineEventEngine/main"):
             with self.subTest(target=target):
                 payload = bash_input(f"{self.CREATE} -R {target}", FX.wt1)
                 sentinel_path(FX.wt1).unlink(missing_ok=True)
