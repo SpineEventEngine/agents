@@ -630,7 +630,13 @@ class PrePrGateTest(HookTest):
                         # comments before joining is what sees it, and the two
                         # cases above do not cover this one between them.
                         "# note \\\ngh pr \\\ncreate --title local --body local",
-                        ": '\n' ; gh pr \\\ncreate --title local"):
+                        ": '\n' ; gh pr \\\ncreate --title local",
+                        # A `\` escaping another `\` ends the command too, so
+                        # the create that follows it is a command of its own.
+                        # Joining from every line in turn is what sees these:
+                        # no judgement about which line-endings continue.
+                        ": \\\\\ngh pr \\\ncreate --title local --body local",
+                        'printf "x\\\\"\ngh pr \\\ncreate --title local'):
             with self.subTest(command=command):
                 sentinel_path(FX.wt1).unlink(missing_ok=True)
                 self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 2)

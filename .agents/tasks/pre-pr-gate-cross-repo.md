@@ -348,6 +348,32 @@ the fix.
       single-quoted newline (`: '\n' ; gh pr \` + `create …`).
 - [x] `python3 -m unittest discover -s scripts/tests` — 70 tests, all pass.
 
+## Review round 11 (Copilot on #49, commit `483c706`)
+
+One finding, the same shape as round 10 but with an escaped backslash ending
+the first command instead of a comment:
+
+    : \\
+    gh pr \
+    create --title local --body local
+
+`\\` is a literal backslash, so the line does not continue; the shell runs the
+create. Verified: the hook returned **0**. All three readings glued the create
+onto `:`.
+
+- [x] Instead of a fourth special reading, the readings are replaced by one
+      general rule: a create is detected when it **starts** a segment of the
+      command as received, or of the text from **any one line onward** with
+      continuations removed. What defeats detection is always what *precedes*
+      the create, and starting the join at each line in turn needs no judgement
+      about which line-endings continue.
+- [x] That subsumes the joined reading and the comment-stripping pass added in
+      round 10, both of which are gone: the fix removes code and is strictly
+      stronger. The loop runs only for a multi-line command in which the plain
+      reading found nothing, so the common path is unchanged.
+- [x] Regressions for the escaped-backslash composition and its `printf`
+      variant, alongside the round-10 cases. 70 tests, all pass.
+
 ## Note for the reviewer of this PR
 
 The original defect — a `compiler` sentinel demanded for a `config` pull request

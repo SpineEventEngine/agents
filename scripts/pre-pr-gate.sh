@@ -95,26 +95,44 @@ creating_segments() {
 
 newline='
 '
+# A create is detected when it STARTS a segment of some reading of the command:
+# the command as received, or the text from any one line onward with shell line
+# continuations removed. The second rule is general, and it has to be, because
+# what defeats detection is always what PRECEDES the create — a blanket join of
+# continuations glues that text onto it:
+#
+#     # note \              : \                    printf 'x\\'
+#     gh pr \               gh pr \                 gh pr create --title x
+#     create --title x      create --title x
+#
+# In each of these the shell runs a create: a `\` ending a comment does not
+# continue the line, nor does one that escapes another `\`. Yet read as
+# received no line starts with `gh pr create`, and read with every continuation
+# removed the create is swallowed by the comment, by `:`, or by the `printf`.
+# Starting the join at each line in turn needs no judgement about which
+# line-endings continue, and it finds the create in all of them.
+#
+# Detection may overshoot — it only gates — but it may never undershoot, which
+# would leave a create ungated altogether. The exemption, further down, is
+# where the narrow reading belongs.
 segments=$(creating_segments "$cmd") || true
-joined=$(creating_segments "${cmd//\\$newline/}") || true
-# A third reading, because a comment's `\` and a real continuation compose into
-# a create that neither of the first two can see:
-#
-#     # note \
-#     gh pr \
-#     create --title local --body local
-#
-# The shell ends the comment at the newline and continues line two into line
-# three, so the create runs; read as received, no line starts with
-# `gh pr create`, and read with every continuation removed, all three fold into
-# the comment. Dropping each line's `#` to its end BEFORE removing
-# continuations leaves `gh pr create …` in view. The `#` is dropped whether or
-# not it is quoted: over-dropping can only add a match, and a detection that
-# matches too much merely gates, while one that matches too little gates
-# nothing at all.
-comment_free=$(printf '%s' "$cmd" | sed 's/#.*$//')
-uncommented=$(creating_segments "${comment_free//\\$newline/}") || true
-[ -z "$segments" ] && [ -z "$joined" ] && [ -z "$uncommented" ] && exit 0
+creates_elsewhere=''
+if [ -z "$segments" ]; then
+  case $cmd in
+    *"$newline"*)
+      total=$(printf '%s\n' "$cmd" | grep -c '')
+      line=1
+      while [ "$line" -le "$total" ]; do
+        suffix=$(printf '%s' "$cmd" | tail -n "+$line")
+        if creating_segments "${suffix//\\$newline/}" >/dev/null; then
+          creates_elsewhere=1
+          break
+        fi
+        line=$((line + 1))
+      done ;;
+  esac
+fi
+[ -z "$segments" ] && [ -z "$creates_elsewhere" ] && exit 0
 
 block() {
   cat >&2
