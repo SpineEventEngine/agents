@@ -871,6 +871,35 @@ class PrePrGateTest(HookTest):
                 FX.git(FX.main, "remote", "remove", "origin")
                 sentinel_path(FX.wt1).unlink(missing_ok=True)
 
+    def test_the_configured_default_repository_is_this_checkout(self) -> None:
+        """`gh repo set-default` records the repository `gh` works against in
+        `remote.<name>.gh-resolved`, and it need not be any remote's own: a fork
+        checkout can have `origin` at the fork and that key at the upstream. A
+        target naming it is this checkout's own default pull-request repository
+        and must be gated. `base` means the remote itself, already covered by
+        its URLs."""
+        FX.git(FX.main, "remote", "add", "origin",
+               "https://github.com/contributor/fork.git")
+        self.addCleanup(FX.git, FX.main, "remote", "remove", "origin")
+        FX.git(FX.main, "config", "remote.origin.gh-resolved", "SpineEventEngine/upstream")
+        self.addCleanup(FX.git, FX.main, "config", "--unset",
+                        "remote.origin.gh-resolved")
+        for target, expected in (("SpineEventEngine/upstream", 2),
+                                 ("contributor/fork", 2),
+                                 ("other/repo", 1)):
+            with self.subTest(target=target):
+                sentinel_path(FX.wt1).unlink(missing_ok=True)
+                payload = bash_input(f"{self.CREATE} -R {target}", FX.wt1)
+                self.assertEqual(self.run_hook(payload).returncode, expected)
+        # `base` names the remote itself, so the upstream slug is foreign again.
+        FX.git(FX.main, "config", "remote.origin.gh-resolved", "base")
+        write_sentinel(FX.wt1)
+        self.assertEqual(self.run_hook(bash_input(
+            f"{self.CREATE} -R contributor/fork", FX.wt1)).returncode, 0)
+        sentinel_path(FX.wt1).unlink()
+        self.assertEqual(self.run_hook(bash_input(
+            f"{self.CREATE} -R SpineEventEngine/upstream", FX.wt1)).returncode, 1)
+
     def test_percent_encoding_on_either_side_withholds_the_exemption(self) -> None:
         """`gh` decodes URL paths and this hook does not, so `%6dain` and `main`
         are one repository there and two here. Neither side may carry encoding

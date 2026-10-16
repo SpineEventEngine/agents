@@ -335,6 +335,21 @@ for remote in $(git -C "$repo_root" remote 2>/dev/null || true); do
 $urls
 $push_urls
 EOF
+  # `gh repo set-default` records the repository `gh` works against in
+  # `remote.<name>.gh-resolved`, and it need not be any remote's own: in a fork
+  # checkout `gh repo set-default upstream/project` stores that slug while
+  # `origin` still points at the fork, and `gh repo set-default --view` then
+  # reports it (verified). A `-R upstream/project` there names the checkout's
+  # own default pull-request repository, so it must be gated, not exempted. The
+  # value `base` means the remote itself, which its URLs already cover.
+  resolved=$(git -C "$repo_root" config --get "remote.$remote.gh-resolved" 2>/dev/null) \
+    || resolved=''
+  case $resolved in
+    ''|base) ;;
+    *%*)     remotes_known=0 ;;
+    *)       own_slugs="$own_slugs$(slug_of "$resolved")
+" ;;
+  esac
 done
 
 # Exempt the request only when the WHOLE of it, as received, is one plain

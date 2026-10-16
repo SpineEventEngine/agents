@@ -417,6 +417,24 @@ A second performance finding, in the word splitter this time, and correct.
       reaches the splitter.
 - [x] `python3 -m unittest discover -s scripts/tests` — 72 tests, all pass.
 
+## Review round 14 (Copilot on #49, commit `2d39d5b`)
+
+One finding, verified before acting: `gh repo set-default` records the
+repository `gh` works against in `remote.<name>.gh-resolved`, and it need not be
+any remote's own. In a throwaway repository with `origin` at
+`contributor/fork` and that key set to `upstream/project` — no upstream remote —
+`gh repo set-default --view` reported `upstream/project`. So `-R upstream/project`
+there names the checkout's own default pull-request repository, and the identity
+list, built from remote URLs alone, exempted it.
+
+- [x] Non-`base` `gh-resolved` values join the identities, with the same
+      percent-encoding guard. `base` means the remote itself, which its URLs
+      already cover.
+- [x] Regression with only a fork remote plus the configured upstream default,
+      covering the fork slug, the upstream slug, a genuinely foreign one, and
+      the `base` spelling.
+- [x] `python3 -m unittest discover -s scripts/tests` — 73 tests, all pass.
+
 ## Note for the reviewer of this PR
 
 The original defect — a `compiler` sentinel demanded for a `config` pull request
