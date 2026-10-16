@@ -16,50 +16,33 @@
 # says loudly that nothing here verified the target repository. Without an
 # explicit target the behaviour is unchanged: the session's repository is gated.
 #
-# Stepping aside is the only path here that does not gate, so everything it
-# rests on is deliberately conservative:
+# Stepping aside is the only path here that does not gate, so what it rests on
+# is deliberately narrow:
 #
-#   * The exemption is decided from the WHOLE request, which must be one plain
-#     `gh pr create` and nothing else. `gh pr create -R other/repo && gh pr
-#     create` creates one pull request elsewhere and one here, and text the
-#     splitting discards — a `(gh pr create …)` in a subshell, a substitution
-#     `tr` moved to another line, a create swallowed by a comment's `\` — was
-#     never examined at all, so no exemption may rest on what survived it.
-#   * A segment is split into words with quotes, backslashes and an unquoted
-#     `#` comment honoured, so `--title 'Document --repo behaviour'` is a title
-#     and not a target. A segment that cannot be read that way — an unterminated
-#     quote, which the split on `;&|` can also produce out of a quoted string —
-#     is gated rather than waved through.
-#   * The words are then read as `gh pr create`'s own grammar, not scanned for
-#     anything that looks like `-R`: each known flag's value is consumed, so
-#     `--title '--repo=other/repo'` is a title too. A flag in neither list is
-#     ambiguous — its value could be anything — and gates the segment, which is
-#     also what a `gh` flag newer than this hook does: it makes the gate
-#     stricter, never looser.
-#   * The target is compared with the host included, because `gh` takes
-#     `[HOST/]OWNER/REPO`: `enterprise.example/acme/app` is not the `acme/app`
-#     of a github.com remote. A target that carries no host is resolved by `gh`
-#     against this repository's own host, so it is compared without one.
-#   * Line continuations are removed the way the shell removes them — the `\`
-#     and the newline both, adding nothing in their place — so a `-R` split
-#     across lines, even in mid-word, reads as the one word the shell builds.
-#   * A segment is then exempted only if its text cannot change under anything
-#     the shell does after this hook sees it. A `$`, a backtick, `{`, `}`, `*`,
-#     `?`, `[`, `]`, `~`, `<`, `>` or `#` — expansion, substitution, globbing,
-#     redirection, a comment — or any `\` still left once continuations are
-#     gone, which means the split on `;&|` cut an escaped separator and left a
-#     fragment, gates the request.
-#     Enumerating dangerous syntax instead was tried and kept failing: `$EXTRA`
-#     holding a second `-R`, `-R{a,b}` expanding to two options with the local
-#     one last, `--title a\|b` leaving `… --title a\` that reads as a whole
-#     command, `--title "$(gh pr create …)"` creating a pull request here
-#     before the outer one goes elsewhere, `> -Rlog` naming a file that read as
-#     a target. The cost of gating all of it is that
-#     such a cross-repository create needs this repository's sentinel — the
-#     behaviour before this change — and the benefit is that an exemption never
-#     rests on text whose meaning this hook had to guess.
-#   * Any remote counts as the session's own, so `-R upstream/repo` from a fork
-#     — where the checks did run on the head branch — is gated as usual.
+#   * The request must be, as received, ONE line that is ONE `gh pr create`.
+#     Anything more is gated. Text the splitting discards is text this hook
+#     never examined, and every kind of it proved able to hide a create that
+#     ran here: `&& (gh pr create …)` in a subshell the start-anchored match
+#     skips, `&> "$(gh pr create …)"` whose substitution `tr` moves to another
+#     line, a create swallowed by a comment whose `\` the joining removed. One
+#     line, one command, is what makes that whole class moot — a multi-line
+#     create is gated rather than read across lines.
+#   * That line must carry nothing the shell would still change: `$`, a
+#     backtick, `{`, `}`, `*`, `?`, `[`, `]`, `~`, `<`, `>`, `#`, `%`, or a
+#     `\`. Expansion, substitution, globbing, redirection, a comment and
+#     percent-encoding each gave a way to read the line differently from the
+#     way the shell runs it.
+#   * The words of that line are read as `gh pr create`'s own grammar, not
+#     scanned for anything `-R`-shaped: each known flag's value is consumed,
+#     so `--title '--repo=other/repo'` is a title. A flag in neither list is
+#     ambiguous and gates, so a `gh` flag newer than this hook makes the gate
+#     stricter, never looser; so does a flag left without its value.
+#   * The target is compared by `owner/repo` alone, against every remote's
+#     fetch and push URL. Hosts are left out on purpose — see `slug_of`.
+#
+# Detection, by contrast, is as wide as possible: both readings of the command,
+# with and without continuations, are searched for a create. It is the gating
+# that must never be missed.
 #
 # Input: hook JSON on stdin (tool_name, tool_input.command, cwd).
 # Exit:  0 to allow, 2 to block (stderr is surfaced to Claude), 1 to allow with
@@ -83,28 +66,38 @@ tool=$(printf '%s' "$input" | jq -r '.tool_name // empty')
 
 cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // empty')
 
-# Remove shell line continuations, `\` and newline both and nothing in their
-# place, as the shell does: `-R SpineEventEngine/ma\` + `in` is the single word
-# `-R SpineEventEngine/main`, not two. Inserting a space here would read it as
-# `SpineEventEngine/ma` and exempt a pull request meant for this repository. A
-# bare newline stays a separator, which is what the matching below treats it as.
+# Find the pull-request-creating segments, in the command as received AND with
+# shell line continuations removed. Either reading can be the one that holds a
+# create, and neither alone is safe:
+#
+#   * Removing every `\`-newline pair can erase a create. A `\` at the end of a
+#     comment does not continue the line in the shell, nor does one that
+#     escapes another `\`, so `# note \` + `gh pr create …` and
+#     `printf 'x\\'` + `gh pr create …` both run that create — while joining
+#     the lines buries it in the comment or the `printf`, leaving nothing that
+#     starts with `gh pr create` and no gate at all.
+#   * Not removing them hides a create whose own first words are split, as in
+#     `gh pr \` + `create …`.
+#
+# Taking the union of both readings is the fail-closed choice: a create found in
+# either is gated. Each reading splits on the shell separators (`;`, `&`, `|` —
+# `&&`/`||` collapse to repeated newlines, which is fine) and keeps the segments
+# that START (after optional whitespace) with `gh pr create`. Requiring that
+# start avoids false positives like `echo "gh pr create"` or test fixtures that
+# mention the string, while still catching `cd dir && gh pr create` and
+# `cat body | gh pr create`. `tr` is used (not `sed s///`) because BSD `sed` on
+# macOS does not interpret `\n` in the replacement string.
+creating_segments() {
+  printf '%s' "$1" \
+    | tr ';&|' '\n\n\n' \
+    | grep -E '^[[:space:]]*gh[[:space:]]+pr[[:space:]]+create([[:space:]]|$)'
+}
+
 newline='
 '
-cmd=${cmd//\\$newline/}
-
-# Split the command on shell separators (`;`, `&`, `|` — `&&`/`||` collapse
-# to repeated newlines, which is fine) and keep every segment that STARTS
-# (after optional whitespace) with `gh pr create`; with no such segment there is
-# nothing to gate. Requiring the segment to start with the command avoids false
-# positives like `echo "gh pr create"` or test fixtures that mention the string,
-# while still catching `cd dir && gh pr create` and `cat body | gh pr create`.
-# `tr` is used (not `sed s///`) because BSD `sed` on macOS does not interpret
-# `\n` in the replacement string. The segments are kept, not just counted,
-# because each one's target repository is read back out of it below.
-segments=$(printf '%s' "$cmd" \
-  | tr ';&|' '\n\n\n' \
-  | grep -E '^[[:space:]]*gh[[:space:]]+pr[[:space:]]+create([[:space:]]|$)') || true
-[ -z "$segments" ] && exit 0
+segments=$(creating_segments "$cmd") || true
+joined=$(creating_segments "${cmd//\\$newline/}") || true
+[ -z "$segments" ] && [ -z "$joined" ] && exit 0
 
 block() {
   cat >&2
@@ -212,38 +205,30 @@ EOF
   return 0
 )
 
-# The `host/owner/repo` of a `gh` repository argument or a remote URL,
-# lowercased, so that the two sides compare as Git and GitHub see them:
-# `OWNER/Repo`, `https://github.com/OWNER/Repo.git` and `git@github.com:OWNER/Repo`
-# all fold to the same `owner/repo`. The host is empty — the identity then
-# starts with `/` — for an argument that carries none, which `gh` resolves
-# against the repository's own host.
-identity_of() (
+# The `owner/repo` of a `gh` repository argument or a remote URL, lowercased, so
+# that `OWNER/Repo`, `https://github.com/OWNER/Repo.git`, `git@github.com:OWNER/Repo`
+# and `gh`'s own `HOST/OWNER/REPO` all fold to the same `owner/repo`.
+#
+# The host is deliberately not part of it. `gh` canonicalizes hosts in ways this
+# hook cannot replicate — an `ssh.github.com:443` transport host, a `HostName`
+# alias out of the user's SSH config, a `www.` prefix — and every difference
+# between its answer and ours would make THIS repository look like another one
+# and buy an exemption, which is the direction that matters. Comparing the name
+# alone errs the other way: a repository with the same owner and name on another
+# host is treated as this one, so its pull request is gated here rather than
+# exempted. For a gate whose whole job is this repository, that is the safe side
+# to be wrong on.
+slug_of() (
   value=$(printf '%s' "$1" | sed -e 's#[[:space:]]*$##' -e 's#/*$##' -e 's#\.git$##')
-  host=''
   case $value in
-    *://*) value=${value#*://}; value=${value#*@}
-           host=${value%%/*}; value=${value#*/} ;;
-    *@*:*) value=${value#*@}; host=${value%%:*}; value=${value#*:} ;;
-    *:*)   host=${value%%:*}; value=${value#*:} ;;
+    *://*) value=${value#*://}; value=${value#*@}; value=${value#*/} ;;
+    *@*:*) value=${value#*@}; value=${value#*:} ;;
+    *:*)   value=${value#*:} ;;
   esac
-  # More than two components: `gh`'s own `HOST/OWNER/REPO` spelling when no host
-  # was parsed above, otherwise a URL with a path beyond the repository.
-  case $value in
-    */*/*) [ -n "$host" ] || host=${value%%/*}
-           value=$(printf '%s' "$value" | sed 's#.*/\([^/][^/]*/[^/][^/]*\)$#\1#') ;;
-  esac
-  # Normalize the host last, so it is normalized however it was found — from a
-  # URL above or from `HOST/OWNER/REPO` just now. Drop a port, and drop a
-  # leading `www.` as `gh` does (`ghrepo`'s `normalizeHostname`, verified:
-  # `gh pr list -R www.github.com/<slug>` lists that repository). Otherwise
-  # `www.github.com/owner/repo` and a github.com remote read as two
-  # repositories, exempting a pull request `gh` opens in this one.
-  host=${host%%:*}
-  case $host in
-    [Ww][Ww][Ww].*) host=${host#???.} ;;
-  esac
-  printf '%s/%s\n' "$host" "$value" | tr '[:upper:]' '[:lower:]'
+  # Keep the last two components: `OWNER/REPO` out of `HOST/OWNER/REPO` or a URL
+  # path with anything before the repository.
+  value=$(printf '%s' "$value" | sed 's#.*/\([^/][^/]*/[^/][^/]*\)$#\1#')
+  printf '%s\n' "$value" | tr '[:upper:]' '[:lower:]'
 )
 
 # Gate the repository the agent is working in. A worktree session keeps this
@@ -265,58 +250,58 @@ else
   repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 fi
 
-# The identities of the session repository, from its remotes: the full
-# `host/owner/repo` for a target that names a host, and the bare `owner/repo`
-# for one that does not.
-own_identities=''
+# This repository's `owner/repo`, from every remote, fetch URL and push URL
+# both. `get-url` applies `url.<base>.insteadOf`, so it reports the URL Git and
+# `gh` really use; `config --get` is the fallback for Git < 2.13, where
+# `get-url` does not exist. The push URL counts because `gh` falls back to it
+# when the fetch URL names no hosted repository — a remote that fetches from a
+# local mirror and pushes to GitHub is this repository to `gh`, and reading the
+# fetch URL alone would make its own pull request look foreign.
+#
+# Anything that leaves this list incomplete — a URL that cannot be read, or one
+# carrying percent-encoding, which `gh` decodes and this hook does not — must
+# not end in an exemption, because a target naming such a remote would read as
+# another repository.
 own_slugs=''
 remotes_known=1
 for remote in $(git -C "$repo_root" remote 2>/dev/null || true); do
-  # `get-url` applies `url.<base>.insteadOf`, so it reports the URL Git and
-  # `gh` really use: with `url.https://github.com/.insteadOf=gh:` and a remote
-  # of `gh:owner/repo`, the raw config value would record the host as `gh` and
-  # read a `-R github.com/owner/repo` as another repository. `config --get` is
-  # the fallback for Git < 2.13, where `get-url` does not exist.
-  #
-  # A remote whose URL cannot be read at all leaves this repository's identity
-  # incomplete, which would make a target naming it look foreign: remember that
-  # and let no exemption be granted.
-  url=$(git -C "$repo_root" remote get-url "$remote" 2>/dev/null) \
-    || url=$(git -C "$repo_root" config --get "remote.$remote.url" 2>/dev/null) \
-    || { remotes_known=0; continue; }
-  identity=$(identity_of "$url")
-  own_identities="$own_identities$identity
+  fetch_url=$(git -C "$repo_root" remote get-url "$remote" 2>/dev/null) \
+    || fetch_url=$(git -C "$repo_root" config --get "remote.$remote.url" 2>/dev/null) \
+    || { remotes_known=0; fetch_url=''; }
+  push_url=$(git -C "$repo_root" remote get-url --push "$remote" 2>/dev/null) || push_url=''
+  for url in "$fetch_url" "$push_url"; do
+    [ -n "$url" ] || continue
+    case $url in *%*) remotes_known=0 ;; esac
+    own_slugs="$own_slugs$(slug_of "$url")
 "
-  own_slugs="$own_slugs${identity#*/}
-"
+  done
 done
 
-# Exempt the request only when the WHOLE of it is one plain `gh pr create` for
-# another repository — not when some segment of it looks that way. Whatever the
-# splitting above discards is text this hook never examined, and each kind of
-# discarded text turned out to hide a create that ran HERE: a
-# `&& (gh pr create …)` the start-anchored match skips, a
+# Exempt the request only when the WHOLE of it, as received, is one plain
+# `gh pr create` for a repository of another name — not when some segment of it
+# looks that way. Whatever the splitting discards is text this hook never
+# examined, and every kind of discarded text turned out able to hide a create
+# that ran HERE: a `&& (gh pr create …)` the start-anchored match skips, a
 # `&> "$(gh pr create …)"` whose substitution `tr` moved to another line, a
-# `# note \` whose comment swallowed the next line's create. So a request
-# holding anything beyond that one command — a second command, a subshell, a
-# comment, a redirection, an expansion, a leftover escape — is gated as usual,
-# and only a request whose every character this hook has accounted for can
-# step the gate aside.
+# create a comment's `\` swallowed. Requiring the request to be a single line
+# that is a single create is what makes all of that moot, continuations
+# included: a multi-line create is gated, not read across lines.
+#
+# The line must also carry nothing the shell would still change (`$`, a
+# backtick, `{`, `}`, `*`, `?`, `[`, `]`, `~`, `<`, `>`, `#`, `\`, `%`), so the
+# text this hook reads is the text the shell runs.
 target=''
-if [ "$(printf '%s' "$cmd" | tr ';&|' '\n\n\n' | grep -c '[^[:space:]]')" -eq 1 ]; then
+if [ "$(printf '%s' "$cmd" | tr ';&|' "$newline$newline$newline" \
+          | grep -c '[^[:space:]]')" -eq 1 ] && [ -n "$segments" ]; then
   case $cmd in
-    *'$'*|*'`'*|*'{'*|*'}'*|*'*'*|*'?'*|*'['*|*']'*|*'~'*|*'<'*|*'>'*|*'\'*|*'#'*) ;;
+    *'$'*|*'`'*|*'{'*|*'}'*|*'*'*|*'?'*|*'['*|*']'*|*'~'*|*'<'*|*'>'*|*'\'*|*'#'*|*'%'*) ;;
     *) target=$(target_repo_arg "$segments") || target='' ;;
   esac
 fi
 
 if [ -n "$target" ] && [ "$remotes_known" -eq 1 ]; then
-  identity=$(identity_of "$target")
-  case $identity in
-    /*) known=$own_slugs;      wanted=${identity#/} ;;
-    *)  known=$own_identities; wanted=$identity ;;
-  esac
-  printf '%s' "$known" | grep -qxF "$wanted" || note_unverified "$target"
+  printf '%s' "$own_slugs" | grep -qxF "$(slug_of "$target")" \
+    || note_unverified "$target"
 fi
 
 # Resolve the real git directory rather than assuming `$repo_root/.git` is one:

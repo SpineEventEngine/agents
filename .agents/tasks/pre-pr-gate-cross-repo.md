@@ -265,6 +265,43 @@ Both items valid; the first is a flaw in round 6's own fix.
       blocks any exemption.
 - [x] `python3 -m unittest discover -s scripts/tests` — 67 tests, all pass.
 
+## Review round 8 (Copilot on #49, commit `7a8e887`)
+
+Four findings. The first is the worst defect of the whole task, and it was mine:
+
+- [x] **Detection lost to the continuation join.** A `\` at the end of a
+      *comment* does not continue the line in the shell, nor does one escaping
+      another `\`. Removing every `\`-newline pair therefore joined a real
+      create into the comment — `# note \` + `gh pr create --title local` left
+      nothing starting with `gh pr create`, so the hook **exited 0 and gated
+      nothing at all**. Verified: it returned 0 before the fix, 2 after.
+      Detection now searches both readings, as received and with continuations
+      removed, and gates on a create found in either: detection must be wide,
+      only the exemption must be narrow.
+- [x] **One line, one create.** With detection widened, the exemption no longer
+      reasons about continuations at all: the request must be, as received, one
+      line that is one plain create. A continued create is gated. This makes
+      the whole class of continuation subtleties moot rather than answering
+      them one at a time, and `%` joins the characters that withhold it.
+- [x] **The host is out of the identity.** `gh` canonicalizes hosts in ways this
+      hook cannot replicate — `ssh.github.com:443` → `github.com`, `HostName`
+      aliases from the user's SSH config, `www.` — and *each* difference makes
+      this repository look foreign, which is the dangerous direction. Only
+      `owner/repo` is compared now, so all of those fold together and
+      `identity_of` collapses back to `slug_of`. The cost, stated in the
+      script: a same-named repository on another host is gated here rather than
+      exempted, reversing round 4's P2 in the conservative direction.
+- [x] **Push URLs count.** `gh` falls back to the push URL when the fetch URL
+      names no hosted repository, so a remote fetching from a local mirror and
+      pushing to GitHub *is* this repository to `gh`. Both URLs of every remote
+      are collected now.
+- [x] **Percent-encoding.** `gh` decodes URL paths; this hook does not. Encoding
+      on either side — in the target or in a remote URL — withholds the
+      exemption rather than being decoded here.
+- [x] `python3 -m unittest discover -s scripts/tests` — 69 tests, all pass. Two
+      existing tests changed expectation by design: a continued create and a
+      same-name-other-host target are now gated.
+
 ## Note for the reviewer of this PR
 
 The original defect — a `compiler` sentinel demanded for a `config` pull request
