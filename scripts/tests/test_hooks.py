@@ -459,7 +459,8 @@ class PrePrGateTest(HookTest):
 
     def test_other_commands_and_tools_pass_whatever_the_cwd(self) -> None:
         missing = str(FX.base / "missing")
-        for command in ('echo "gh pr create"', "ls -la"):
+        for command in ('echo "gh pr create"', 'echo "gh pr create -R other/repo"',
+                        "ls -la"):
             with self.subTest(command=command):
                 payload = bash_input(command)
                 payload["cwd"] = missing
@@ -473,6 +474,49 @@ class PrePrGateTest(HookTest):
         self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 0)
         sentinel_path(FX.wt1).unlink()
         self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 2)
+
+    def test_fork_head_does_not_change_the_gated_repository(self) -> None:
+        command = f"{self.CREATE} --head owner:branch"
+        write_sentinel(FX.wt1)
+        self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 0)
+        sentinel_path(FX.wt1).unlink()
+        self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 2)
+
+    def test_another_target_repository_is_not_gated_but_named(self) -> None:
+        """This session's sentinel attests nothing about another repository, so
+        the gate steps aside (exit 1, a non-blocking error) and says so — with
+        or without a sentinel of its own, which is inapplicable either way."""
+        for target in ("-R other/repo", "--repo other/repo", "-R=other/repo",
+                       "--repo=other/repo", '-R "other/repo"'):
+            for sentinel in (False, True):
+                with self.subTest(target=target, sentinel=sentinel):
+                    if sentinel:
+                        write_sentinel(FX.wt1)
+                    else:
+                        sentinel_path(FX.wt1).unlink(missing_ok=True)
+                    result = self.run_hook(bash_input(f"{self.CREATE} {target}", FX.wt1))
+                    self.assertEqual(result.returncode, 1, result.stderr)
+                    first_line = result.stderr.splitlines()[0]
+                    self.assertIn("NOT verified", first_line)
+                    self.assertIn("other/repo", first_line)
+                    self.assertIn(str(FX.wt1), first_line)
+
+    def test_the_session_repository_as_the_target_is_gated_as_usual(self) -> None:
+        """A target that is one of the session repository's own remotes, in any
+        spelling of the same `owner/repo`, gates exactly as no target does."""
+        FX.git(FX.main, "remote", "add", "origin",
+               "git@github.com:SpineEventEngine/Main.git")
+        self.addCleanup(FX.git, FX.main, "remote", "remove", "origin")
+        for target in ("SpineEventEngine/main", "spineeventengine/Main",
+                       "https://github.com/SpineEventEngine/main"):
+            with self.subTest(target=target):
+                payload = bash_input(f"{self.CREATE} -R {target}", FX.wt1)
+                write_sentinel(FX.wt1)
+                self.assertEqual(self.run_hook(payload).returncode, 0)
+                sentinel_path(FX.wt1).unlink()
+                result = self.run_hook(payload)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn(str(sentinel_path(FX.wt1)), result.stderr)
 
 
 class SecretScanGateTest(HookTest):
