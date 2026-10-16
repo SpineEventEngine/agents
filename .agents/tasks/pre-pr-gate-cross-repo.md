@@ -102,6 +102,16 @@ conservative parsing.
       spellings folded into the existing ones.
 - [x] `python3 -m unittest discover -s scripts/tests` — 56 tests, all pass.
 
+Copilot reported the same two P1s independently, plus one more:
+
+- [x] **P2 — unexpanded target.** `-R "$REPO"` reaches the hook as the literal
+      `$REPO` (nothing here expands it, by design). Compared literally it
+      matches no remote, so it bought an exemption — even when `$REPO` *is* this
+      repository. Such a target is now unknown rather than different and is
+      gated: `$`, a backtick, a glob character or a leading `~` in the target
+      sends the segment down the gating path.
+- [x] `python3 -m unittest discover -s scripts/tests` — 57 tests, all pass.
+
 ## Follow-ups
 
 - `gh pr create` in a *subdirectory* of another checkout (`cd ../config &&

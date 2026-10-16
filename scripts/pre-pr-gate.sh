@@ -31,6 +31,9 @@
 #     `[HOST/]OWNER/REPO`: `enterprise.example/acme/app` is not the `acme/app`
 #     of a github.com remote. A target that carries no host is resolved by `gh`
 #     against this repository's own host, so it is compared without one.
+#   * A target the shell has yet to expand — `-R "$REPO"`, `-R $(…)`, a glob —
+#     is unknown rather than different, and is gated. Comparing it literally
+#     would hand an exemption to every target the hook cannot resolve.
 #   * Any remote counts as the session's own, so `-R upstream/repo` from a fork
 #     — where the checks did run on the head branch — is gated as usual.
 #
@@ -222,6 +225,14 @@ while IFS= read -r segment; do
     gate_own=1
     continue
   fi
+  # A target the shell would still expand — `-R "$REPO"`, `-R $(…)`, a glob — is
+  # unknown, not different: compared literally it matches no remote and would
+  # buy an exemption it has not earned. Nothing here expands it, so gate.
+  case $target in
+    *'$'*|*'`'*|*'*'*|*'?'*|*'['*|'~'*)
+      gate_own=1
+      continue ;;
+  esac
   identity=$(identity_of "$target")
   case $identity in
     /*) known=$own_slugs;      wanted=${identity#/} ;;

@@ -552,6 +552,18 @@ class PrePrGateTest(HookTest):
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertIn("other/repo", result.stderr.splitlines()[0])
 
+    def test_an_unexpanded_target_is_gated_not_exempted(self) -> None:
+        """A target the shell has yet to expand is unknown, not different: read
+        literally it matches no remote, so exempting it would hand every
+        `-R "$REPO"` a free pass — including one naming this repository."""
+        for target in ('-R "$REPO"', "-R $(cat slug)", "--repo=$REPO", "-R repo*"):
+            with self.subTest(target=target):
+                payload = bash_input(f"{self.CREATE} {target}", FX.wt1)
+                sentinel_path(FX.wt1).unlink(missing_ok=True)
+                self.assertEqual(self.run_hook(payload).returncode, 2)
+                write_sentinel(FX.wt1)
+                self.assertEqual(self.run_hook(payload).returncode, 0)
+
     def test_a_target_on_another_host_is_not_the_session_repository(self) -> None:
         """`gh` takes `[HOST/]OWNER/REPO`, so the host is part of the identity:
         the same `owner/repo` on another host is another repository."""
