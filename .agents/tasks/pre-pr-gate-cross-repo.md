@@ -69,6 +69,39 @@ Findings:
       still ignored.
 - [x] `python3 -m unittest discover -s scripts/tests` — 52 tests, all pass.
 
+## Review round 1 (Codex on #49, commit `144e9d0`)
+
+Three findings, all real; the first two were bypasses introduced by the first
+cut of the parser, which is why the fail-open branch is now reached only through
+conservative parsing.
+
+- [x] **P1 — quoting.** `set -- $1` re-split raw source text, so
+      `gh pr create --title 'Document --repo behavior'` surfaced `--repo` as a
+      flag and a *local* PR skipped its sentinel. Replaced with `tokenize()`, a
+      character-wise splitter that honours single quotes, double quotes and
+      backslashes and still evaluates nothing. A segment it cannot read — an
+      unterminated quote, which the `;&|` split itself can produce out of
+      `--title "a|b"` — is gated, never read as naming another repository.
+- [x] **P1 — attached shorthand.** `gh pr` accepts `-Rowner/repo` (verified:
+      `gh pr list -RSpineEventEngine/agents` works on gh 2.102.0, and `-R=slug`
+      too). Added the `-R?*` form. Missing it only ever failed closed, but it
+      left the original defect in place for that spelling.
+- [x] **P1 — only the first segment.** `gh pr create -R other/repo &&
+      gh pr create` classified just the first segment and exited 1, running the
+      second, ungated create. Every creating segment is now classified: no
+      explicit target, our own repository, or an unreadable segment ⇒ gate here;
+      the gate steps aside only when no segment creates a PR in this repository.
+      When it does gate and another target is also named, the note is printed
+      after the sentinel passes — the only exit that can still carry it.
+- [x] **P2 — host.** `gh` takes `[HOST/]OWNER/REPO`, so `slug_of` dropping the
+      host made `enterprise.example/acme/app` equal to a github.com
+      `acme/app`. `identity_of` now yields `host/owner/repo`; a target with no
+      host compares bare, as `gh` resolves it against this repository's host.
+- [x] Four more test cases (quoted values, unsplittable segment, local-beside-
+      cross-repo, another host) and the `-Rother/repo` and `HOST/OWNER/REPO`
+      spellings folded into the existing ones.
+- [x] `python3 -m unittest discover -s scripts/tests` — 56 tests, all pass.
+
 ## Follow-ups
 
 - `gh pr create` in a *subdirectory* of another checkout (`cd ../config &&

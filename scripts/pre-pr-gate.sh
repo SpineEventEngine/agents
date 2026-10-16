@@ -16,6 +16,24 @@
 # says loudly that nothing here verified the target repository. Without an
 # explicit target the behaviour is unchanged: the session's repository is gated.
 #
+# Stepping aside is the only path here that does not gate, so everything it
+# rests on is deliberately conservative:
+#
+#   * EVERY segment that creates a pull request is classified, not just the
+#     first. `gh pr create -R other/repo && gh pr create` creates one pull
+#     request elsewhere and one here; the second must still be gated.
+#   * A segment is split into words with quotes and backslashes honoured, so
+#     `--title 'Document --repo behaviour'` is a title and not a target. A
+#     segment that cannot be read that way — an unterminated quote, which the
+#     split on `;&|` can also produce out of a quoted string — is gated rather
+#     than waved through.
+#   * The target is compared with the host included, because `gh` takes
+#     `[HOST/]OWNER/REPO`: `enterprise.example/acme/app` is not the `acme/app`
+#     of a github.com remote. A target that carries no host is resolved by `gh`
+#     against this repository's own host, so it is compared without one.
+#   * Any remote counts as the session's own, so `-R upstream/repo` from a fork
+#     — where the checks did run on the head branch — is gated as usual.
+#
 # Input: hook JSON on stdin (tool_name, tool_input.command, cwd).
 # Exit:  0 to allow, 2 to block (stderr is surfaced to Claude), 1 to allow with
 #        a note — a non-blocking error, whose first line reaches the transcript;
@@ -39,57 +57,119 @@ tool=$(printf '%s' "$input" | jq -r '.tool_name // empty')
 cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // empty')
 
 # Split the command on shell separators (`;`, `&`, `|` — `&&`/`||` collapse
-# to repeated newlines, which is fine) and keep the first segment that STARTS
+# to repeated newlines, which is fine) and keep every segment that STARTS
 # (after optional whitespace) with `gh pr create`; with no such segment there is
 # nothing to gate. Requiring the segment to start with the command avoids false
 # positives like `echo "gh pr create"` or test fixtures that mention the string,
 # while still catching `cd dir && gh pr create` and `cat body | gh pr create`.
 # `tr` is used (not `sed s///`) because BSD `sed` on macOS does not interpret
-# `\n` in the replacement string. The segment is kept, not just counted, because
-# the target repository is read back out of it below.
-segment=$(printf '%s' "$cmd" \
+# `\n` in the replacement string. The segments are kept, not just counted,
+# because each one's target repository is read back out of it below.
+segments=$(printf '%s' "$cmd" \
   | tr ';&|' '\n\n\n' \
-  | grep -E '^[[:space:]]*gh[[:space:]]+pr[[:space:]]+create([[:space:]]|$)' \
-  | head -n 1)
-[ -z "$segment" ] && exit 0
+  | grep -E '^[[:space:]]*gh[[:space:]]+pr[[:space:]]+create([[:space:]]|$)') || true
+[ -z "$segments" ] && exit 0
 
 block() {
   cat >&2
   exit 2
 }
 
-# The value of the segment's `-R`/`--repo` argument, in every spelling `gh`
-# accepts (`-R x`, `--repo x`, `-R=x`, `--repo=x`); empty when the segment names
-# no target repository. The command text is only ever word-split, never
-# evaluated — globbing is off, so nothing in it expands, and no command
-# substitution it contains can run.
-target_repo_arg() (
-  set -f
-  # shellcheck disable=SC2086 # deliberate word splitting of the command text
-  set -- $1
-  while [ "$#" -gt 0 ]; do
-    case $1 in
-      -R|--repo)     [ "$#" -gt 1 ] && printf '%s' "$2"; return 0 ;;
-      -R=*|--repo=*) printf '%s' "${1#*=}"; return 0 ;;
+# Allow the command, saying unmistakably that the pull requests for <targets>
+# are not covered by anything this session ran.
+note_unverified() {
+  cat >&2 <<EOF
+pre-PR checks NOT verified for $1: 'gh pr create' names a repository other than this session's ($repo_root), whose pre-PR sentinel attests nothing about it.
+Nothing in this session built, checked or reviewed $1, and the pre-PR checklist
+cannot be run for it from here. Run /pre-pr in a session working in that
+repository, or state in the pull request that the checks were not run.
+EOF
+  exit 1
+}
+
+# Splits one command segment into shell words, one per line, honouring single
+# quotes, double quotes and backslash escapes the way the shell does. Nothing is
+# evaluated: no expansion runs, and no command substitution in the text can
+# execute. Fails on an unterminated quote, so a segment this cannot read is
+# never the reason the gate steps aside.
+tokenize() (
+  rest=$(printf '%s' "$1" | tr '\t' ' ')
+  word=''
+  started=0
+  quote=''
+  while [ -n "$rest" ]; do
+    char=${rest%"${rest#?}"}
+    rest=${rest#?}
+    case $quote in
+      "'")
+        if [ "$char" = "'" ]; then quote=''; else word=$word$char; fi
+        continue ;;
+      '"')
+        case $char in
+          '"') quote='' ;;
+          \\)  next=${rest%"${rest#?}"}; rest=${rest#?}; word=$word$next ;;
+          *)   word=$word$char ;;
+        esac
+        continue ;;
     esac
-    shift
+    case $char in
+      "'"|'"') quote=$char; started=1 ;;
+      \\)      next=${rest%"${rest#?}"}; rest=${rest#?}; word=$word$next; started=1 ;;
+      ' ')     if [ "$started" -eq 1 ]; then printf '%s\n' "$word"; word=''; started=0; fi ;;
+      *)       word=$word$char; started=1 ;;
+    esac
   done
+  [ -z "$quote" ] || return 1
+  [ "$started" -eq 1 ] && printf '%s\n' "$word"
+  return 0
 )
 
-# The `owner/repo` of a `gh` repository argument or a remote URL, lowercased, so
-# that the two sides compare as Git and GitHub see them: `OWNER/Repo`,
-# `https://github.com/OWNER/Repo.git` and `git@github.com:OWNER/Repo` all fold
-# to `owner/repo`. Command substitution drops the trailing newline each stage
-# adds, so the single newline printed at the end is the only one.
-slug_of() (
-  slug=$(printf '%s' "$1" | sed -e "s#[\"']##g" -e 's#[[:space:]]*$##' \
-                                -e 's#/*$##' -e 's#\.git$##')
-  case $slug in
-    *://*) slug=${slug#*://}; slug=${slug#*/} ;;
-    *:*)   slug=${slug##*:} ;;
+# The value of a segment's `-R`/`--repo` argument, in every spelling `gh`
+# accepts — `-R x`, `-Rx`, `-R=x`, `--repo x`, `--repo=x` — and empty when the
+# segment names no target repository. Fails when the segment cannot be split
+# into words at all.
+target_repo_arg() (
+  words=$(tokenize "$1") || return 1
+  expecting=0
+  while IFS= read -r word; do
+    if [ "$expecting" -eq 1 ]; then
+      printf '%s\n' "$word"
+      return 0
+    fi
+    case $word in
+      -R|--repo)     expecting=1 ;;
+      -R=*|--repo=*) printf '%s\n' "${word#*=}"; return 0 ;;
+      -R?*)          printf '%s\n' "${word#-R}"; return 0 ;;
+    esac
+  done <<EOF
+$words
+EOF
+  return 0
+)
+
+# The `host/owner/repo` of a `gh` repository argument or a remote URL,
+# lowercased, so that the two sides compare as Git and GitHub see them:
+# `OWNER/Repo`, `https://github.com/OWNER/Repo.git` and `git@github.com:OWNER/Repo`
+# all fold to the same `owner/repo`. The host is empty — the identity then
+# starts with `/` — for an argument that carries none, which `gh` resolves
+# against the repository's own host.
+identity_of() (
+  value=$(printf '%s' "$1" | sed -e 's#[[:space:]]*$##' -e 's#/*$##' -e 's#\.git$##')
+  host=''
+  case $value in
+    *://*) value=${value#*://}; value=${value#*@}
+           host=${value%%/*}; value=${value#*/} ;;
+    *@*:*) value=${value#*@}; host=${value%%:*}; value=${value#*:} ;;
+    *:*)   host=${value%%:*}; value=${value#*:} ;;
   esac
-  slug=$(printf '%s' "$slug" | sed 's#.*/\([^/][^/]*/[^/][^/]*\)$#\1#')
-  printf '%s\n' "$slug" | tr '[:upper:]' '[:lower:]'
+  host=${host%%:*}
+  # More than two components: `gh`'s own `HOST/OWNER/REPO` spelling when no host
+  # was parsed above, otherwise a URL with a path beyond the repository.
+  case $value in
+    */*/*) [ -n "$host" ] || host=${value%%/*}
+           value=$(printf '%s' "$value" | sed 's#.*/\([^/][^/]*/[^/][^/]*\)$#\1#') ;;
+  esac
+  printf '%s/%s\n' "$host" "$value" | tr '[:upper:]' '[:lower:]'
 )
 
 # Gate the repository the agent is working in. A worktree session keeps this
@@ -110,28 +190,53 @@ EOF
 else
   repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 fi
-# An explicit target repository other than the session's own is outside what
-# this gate can attest (see the header): name it unmistakably and step aside.
-# Every remote counts as "the session's own", so that `-R upstream/repo` from a
-# fork — where the checks did run on the head branch — is gated as usual.
-target=$(target_repo_arg "$segment")
-if [ -n "$target" ]; then
-  target_slug=$(slug_of "$target")
-  own_slugs=$(git -C "$repo_root" remote 2>/dev/null \
-    | while IFS= read -r remote; do
-        url=$(git -C "$repo_root" config --get "remote.$remote.url" 2>/dev/null) || continue
-        slug_of "$url"
-      done)
-  if ! printf '%s\n' "$own_slugs" | grep -qxF "$target_slug"; then
-    cat >&2 <<EOF
-pre-PR checks NOT verified for $target: 'gh pr create' names a repository other than this session's ($repo_root), whose pre-PR sentinel attests nothing about it.
-Nothing in this session built, checked or reviewed $target, and the pre-PR
-checklist cannot be run for it from here. Run /pre-pr in a session working in
-that repository, or state in the pull request that the checks were not run.
-EOF
-    exit 1
+
+# The identities of the session repository, from its remotes: the full
+# `host/owner/repo` for a target that names a host, and the bare `owner/repo`
+# for one that does not.
+own_identities=''
+own_slugs=''
+for remote in $(git -C "$repo_root" remote 2>/dev/null || true); do
+  url=$(git -C "$repo_root" config --get "remote.$remote.url" 2>/dev/null) || continue
+  identity=$(identity_of "$url")
+  own_identities="$own_identities$identity
+"
+  own_slugs="$own_slugs${identity#*/}
+"
+done
+
+# Classify every pull-request-creating segment. A segment with no explicit
+# target, one naming the session's repository, or one that cannot be read at all
+# means this repository is being gated as usual; the rest are reported as
+# unverified. Only when no segment creates a pull request here is the sentinel
+# wholly inapplicable.
+gate_own=0
+cross_targets=''
+while IFS= read -r segment; do
+  [ -n "$segment" ] || continue
+  if ! target=$(target_repo_arg "$segment"); then
+    gate_own=1
+    continue
   fi
-fi
+  if [ -z "$target" ]; then
+    gate_own=1
+    continue
+  fi
+  identity=$(identity_of "$target")
+  case $identity in
+    /*) known=$own_slugs;      wanted=${identity#/} ;;
+    *)  known=$own_identities; wanted=$identity ;;
+  esac
+  if printf '%s' "$known" | grep -qxF "$wanted"; then
+    gate_own=1
+  else
+    cross_targets="$cross_targets $target"
+  fi
+done <<EOF
+$segments
+EOF
+
+[ "$gate_own" -eq 0 ] && note_unverified "${cross_targets# }"
 
 # Resolve the real git directory rather than assuming `$repo_root/.git` is one:
 # in a linked worktree `.git` is a file (a `gitdir:` pointer), so the sentinel
@@ -191,5 +296,9 @@ Re-run /pre-pr to revalidate the current tree.
 Sentinel: $sentinel
 EOF
 fi
+
+# The session's own pull request is covered; a target elsewhere in the same
+# command is not, and this is the only exit that can still say so.
+[ -n "$cross_targets" ] && note_unverified "${cross_targets# }"
 
 exit 0

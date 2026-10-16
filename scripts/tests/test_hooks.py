@@ -487,7 +487,7 @@ class PrePrGateTest(HookTest):
         the gate steps aside (exit 1, a non-blocking error) and says so — with
         or without a sentinel of its own, which is inapplicable either way."""
         for target in ("-R other/repo", "--repo other/repo", "-R=other/repo",
-                       "--repo=other/repo", '-R "other/repo"'):
+                       "--repo=other/repo", "-Rother/repo", '-R "other/repo"'):
             for sentinel in (False, True):
                 with self.subTest(target=target, sentinel=sentinel):
                     if sentinel:
@@ -508,6 +508,7 @@ class PrePrGateTest(HookTest):
                "git@github.com:SpineEventEngine/Main.git")
         self.addCleanup(FX.git, FX.main, "remote", "remove", "origin")
         for target in ("SpineEventEngine/main", "spineeventengine/Main",
+                       "github.com/SpineEventEngine/main",
                        "https://github.com/SpineEventEngine/main"):
             with self.subTest(target=target):
                 payload = bash_input(f"{self.CREATE} -R {target}", FX.wt1)
@@ -517,6 +518,51 @@ class PrePrGateTest(HookTest):
                 result = self.run_hook(payload)
                 self.assertEqual(result.returncode, 2)
                 self.assertIn(str(sentinel_path(FX.wt1)), result.stderr)
+
+    def test_a_quoted_value_is_not_mistaken_for_a_target(self) -> None:
+        """Words are split with quotes honoured, so a `--repo` inside a title is
+        a title. Re-splitting the raw text would let any PR whose body mentions
+        the flag skip its sentinel."""
+        for title in ("'Document --repo behavior'", '"Document --repo behavior"',
+                      "'Explain -R other/repo'"):
+            with self.subTest(title=title):
+                payload = bash_input(f"gh pr create --title {title}", FX.wt1)
+                write_sentinel(FX.wt1)
+                self.assertEqual(self.run_hook(payload).returncode, 0)
+                sentinel_path(FX.wt1).unlink()
+                self.assertEqual(self.run_hook(payload).returncode, 2)
+
+    def test_a_segment_that_cannot_be_split_into_words_is_gated(self) -> None:
+        """The split on `;&|` can cut a quoted string in two, leaving the
+        segment with an unterminated quote. Such a segment is gated, never
+        read as naming another repository."""
+        payload = bash_input('gh pr create --title "a|b" -R other/repo', FX.wt1)
+        self.assertEqual(self.run_hook(payload).returncode, 2)
+        write_sentinel(FX.wt1)
+        self.assertEqual(self.run_hook(payload).returncode, 0)
+
+    def test_a_local_create_beside_a_cross_repo_one_is_still_gated(self) -> None:
+        """Every creating segment is classified, not just the first: the second
+        create here is for this repository and needs its sentinel. Once it has
+        one, the other repository is still reported as unverified."""
+        payload = bash_input(f"{self.CREATE} -R other/repo && {self.CREATE}", FX.wt1)
+        self.assertEqual(self.run_hook(payload).returncode, 2)
+        write_sentinel(FX.wt1)
+        result = self.run_hook(payload)
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("other/repo", result.stderr.splitlines()[0])
+
+    def test_a_target_on_another_host_is_not_the_session_repository(self) -> None:
+        """`gh` takes `[HOST/]OWNER/REPO`, so the host is part of the identity:
+        the same `owner/repo` on another host is another repository."""
+        FX.git(FX.main, "remote", "add", "origin",
+               "https://github.com/SpineEventEngine/main.git")
+        self.addCleanup(FX.git, FX.main, "remote", "remove", "origin")
+        write_sentinel(FX.wt1)
+        target = "enterprise.example/SpineEventEngine/main"
+        result = self.run_hook(bash_input(f"{self.CREATE} -R {target}", FX.wt1))
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn(target, result.stderr.splitlines()[0])
 
 
 class SecretScanGateTest(HookTest):
