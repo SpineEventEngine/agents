@@ -397,6 +397,26 @@ every multi-line request with no detected create. Measured here before the fix:
       cost cannot creep back.
 - [x] `python3 -m unittest discover -s scripts/tests` — 71 tests, all pass.
 
+## Review round 13 (Copilot on #49, commit `a3f1b00`)
+
+A second performance finding, in the word splitter this time, and correct.
+
+- [x] The shell-loop tokenizer was quadratic: every character copied the rest
+      of the segment through `${rest#?}`. Measured here: 4 KiB took 4s, 16 KiB
+      about a minute — and since every create reaches the splitter, a create
+      for *this* repository paid it before being gated anyway. Pull request
+      bodies are routinely kilobytes, so this was a real cost on ordinary work.
+- [x] Rewritten as a single `awk` pass that walks the text by index: 4 KiB
+      0.141s, 16 KiB 0.165s. `awk` is already required further down for reading
+      the sentinel, so no new dependency, and it still evaluates nothing. The
+      shell-loop version's behaviour is unchanged — the suite covers quoting,
+      escapes, comments, flag-shaped values and unterminated quotes, and all of
+      it passes, plus the edge cases probed by hand.
+- [x] A timing test on 4 KiB and 16 KiB bodies, for both a local and a
+      cross-repository create, since the heredoc test from round 12 never
+      reaches the splitter.
+- [x] `python3 -m unittest discover -s scripts/tests` — 72 tests, all pass.
+
 ## Note for the reviewer of this PR
 
 The original defect — a `compiler` sentinel demanded for a `config` pull request

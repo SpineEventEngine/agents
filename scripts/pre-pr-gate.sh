@@ -165,39 +165,42 @@ EOF
 # execute. An unquoted `#` that starts a word begins a comment and ends the
 # segment. Fails on an unterminated quote, so a segment this cannot read is
 # never the reason the gate steps aside.
+#
+# `awk` walks the text once, by index. Written as a shell loop this was
+# quadratic — every character copied the rest of the segment through
+# `${rest#?}` — and a pull request body is routinely kilobytes: 4 KiB measured
+# 4s, and a create for this repository paid it before being gated anyway.
+# `awk` is already required further down, for reading the sentinel.
 tokenize() (
-  rest=$(printf '%s' "$1" | tr '\t' ' ')
-  word=''
-  started=0
-  quote=''
-  while [ -n "$rest" ]; do
-    char=${rest%"${rest#?}"}
-    rest=${rest#?}
-    case $quote in
-      "'")
-        if [ "$char" = "'" ]; then quote=''; else word=$word$char; fi
-        continue ;;
-      '"')
-        case $char in
-          '"') quote='' ;;
-          \\)  next=${rest%"${rest#?}"}; rest=${rest#?}; word=$word$next ;;
-          *)   word=$word$char ;;
-        esac
-        continue ;;
-    esac
-    case $char in
-      "'"|'"') quote=$char; started=1 ;;
-      \\)      next=${rest%"${rest#?}"}; rest=${rest#?}; word=$word$next; started=1 ;;
-      ' ')     if [ "$started" -eq 1 ]; then printf '%s\n' "$word"; word=''; started=0; fi ;;
-      '#')     # Only at the start of a word, as the shell does: `a#b` is a word.
-               if [ "$started" -eq 0 ]; then break; fi
-               word=$word$char ;;
-      *)       word=$word$char; started=1 ;;
-    esac
-  done
-  [ -z "$quote" ] || return 1
-  [ "$started" -eq 1 ] && printf '%s\n' "$word"
-  return 0
+  printf '%s' "$1" | awk -v sq="'" -v dq='"' '
+    {
+      word = ""; started = 0; quote = ""
+      for (i = 1; i <= length($0); i++) {
+        c = substr($0, i, 1)
+        if (quote == sq) {
+          if (c == sq) quote = ""; else word = word c
+          continue
+        }
+        if (quote == dq) {
+          if (c == dq) quote = ""
+          else if (c == "\\") { i++; word = word substr($0, i, 1) }
+          else word = word c
+          continue
+        }
+        if (c == sq || c == dq) { quote = c; started = 1; continue }
+        if (c == "\\") { i++; word = word substr($0, i, 1); started = 1; continue }
+        if (c == " " || c == "\t") {
+          if (started) { print word; word = ""; started = 0 }
+          continue
+        }
+        # A `#` only starts a comment at the start of a word, as in the shell:
+        # `a#b` is one word.
+        if (c == "#" && !started) break
+        word = word c; started = 1
+      }
+      if (quote != "") exit 1
+      if (started) print word
+    }'
 )
 
 # `gh pr create`'s flags: those taking a separate value, and those taking none.

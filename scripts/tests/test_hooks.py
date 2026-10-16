@@ -542,6 +542,23 @@ class PrePrGateTest(HookTest):
         write_sentinel(FX.wt1)
         self.assertEqual(self.run_hook(payload).returncode, 0)
 
+    def test_a_long_single_line_body_is_parsed_in_linear_time(self) -> None:
+        """Every create reaches the word splitter, so a kilobyte-scale body —
+        ordinary for a pull request — must not cost seconds. As a shell loop it
+        was quadratic (4 KiB took 4s, 16 KiB about a minute) and a create for
+        this repository paid it before being gated at all."""
+        for size in (4096, 16384):
+            body = "word " * (size // 5)
+            for command, expected in (
+                    (f'gh pr create --title x --body "{body}"', 2),
+                    (f'gh pr create -R other/repo --title x --body "{body}"', 1)):
+                with self.subTest(size=size, expected=expected):
+                    sentinel_path(FX.wt1).unlink(missing_ok=True)
+                    started = time.monotonic()
+                    result = self.run_hook(bash_input(command, FX.wt1))
+                    self.assertEqual(result.returncode, expected, result.stderr)
+                    self.assertLess(time.monotonic() - started, 2.0)
+
     def test_an_ordinary_multi_line_request_is_not_rescanned(self) -> None:
         """Only a `\\` before a newline can make a joined reading differ, and
         only from the line carrying it, so the per-line scan is limited to those
