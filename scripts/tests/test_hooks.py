@@ -637,7 +637,26 @@ class PrePrGateTest(HookTest):
                 # `tr` split this at the escaped pipe; the rest of the real
                 # command, including a later `-R` of ours, is on no line here.
                 "gh pr create -R other/repo --title a\\|b --body x "
-                "-R SpineEventEngine/main"):
+                "-R SpineEventEngine/main",
+                # Redirection: the operand is a filename, not a target, and a
+                # here-string is stdin.
+                "gh pr create --title x --body y > -Rlog",
+                "gh pr create --title x <<< '--repo=other/repo'",
+                "gh pr create -R other/repo --title x 2>/dev/null"):
+            with self.subTest(command=command):
+                sentinel_path(FX.wt1).unlink(missing_ok=True)
+                self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 2)
+                write_sentinel(FX.wt1)
+                self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 0)
+
+    def test_a_flag_left_without_its_value_is_gated(self) -> None:
+        """`--repo ""` ends the segment with an empty word, which capturing the
+        words drops; the scanner would have answered with the earlier `-R` while
+        `gh` falls back to this repository. A value-taking flag still waiting
+        when the words run out means the segment was not understood."""
+        for command in (f'{self.CREATE} -R other/repo --body y --repo ""',
+                        f"{self.CREATE} -R other/repo --repo",
+                        f"{self.CREATE} -R other/repo --title"):
             with self.subTest(command=command):
                 sentinel_path(FX.wt1).unlink(missing_ok=True)
                 self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 2)

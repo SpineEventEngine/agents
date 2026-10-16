@@ -179,6 +179,23 @@ anything the shell does after the hook sees it.
       meaning the hook had to guess.
 - [x] `python3 -m unittest discover -s scripts/tests` — 64 tests, all pass.
 
+## Review round 4 (Copilot on #49, commit `df0f506`)
+
+Three findings, reported against the commit before the inverted rule landed.
+The brace-expansion one (`-RSpineEventEngine/{ag,agents}`) was already closed by
+`4f73d5c`, verified rather than assumed. Two were live on the new rule:
+
+- [x] **Redirection.** `> -Rlog` had its *filename* read as a target, and
+      `<<< '--repo=other/repo'` its stdin. `<` and `>` join the gating set,
+      which makes the earlier `<(`/`>(` entries redundant.
+- [x] **A flag left without its value.** `--repo ""` ends the segment with an
+      empty word, and capturing the tokenizer's output drops trailing newlines,
+      so the scanner stopped waiting and answered with the *earlier* `-R` —
+      while `gh` falls back to this repository for an empty override. A
+      value-taking flag still waiting when the words run out now means the
+      segment was not understood, so it earns no exemption.
+- [x] `python3 -m unittest discover -s scripts/tests` — 65 tests, all pass.
+
 ## Follow-ups
 
 - `gh pr create` in a *subdirectory* of another checkout (`cd ../config &&

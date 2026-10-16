@@ -42,14 +42,16 @@
 #     across lines, even in mid-word, reads as the one word the shell builds.
 #   * A segment is then exempted only if its text cannot change under anything
 #     the shell does after this hook sees it. A `$`, a backtick, `{`, `}`, `*`,
-#     `?`, `[`, `]`, `~`, `<(` or `>(` — expansion, substitution, globbing — or
-#     any `\` still left once continuations are gone, which means the split on
-#     `;&|` cut an escaped separator and left a fragment, gates the segment.
+#     `?`, `[`, `]`, `~`, `<` or `>` — expansion, substitution, globbing,
+#     redirection — or any `\` still left once continuations are gone, which
+#     means the split on `;&|` cut an escaped separator and left a fragment,
+#     gates the segment.
 #     Enumerating dangerous syntax instead was tried and kept failing: `$EXTRA`
 #     holding a second `-R`, `-R{a,b}` expanding to two options with the local
 #     one last, `--title a\|b` leaving `… --title a\` that reads as a whole
 #     command, `--title "$(gh pr create …)"` creating a pull request here
-#     before the outer one goes elsewhere. The cost of gating all of it is that
+#     before the outer one goes elsewhere, `> -Rlog` naming a file that read as
+#     a target. The cost of gating all of it is that
 #     such a cross-repository create needs this repository's sentinel — the
 #     behaviour before this change — and the benefit is that an exemption never
 #     rests on text whose meaning this hook had to guess.
@@ -199,6 +201,10 @@ target_repo_arg() (
   done <<EOF
 $words
 EOF
+  # A flag still waiting for its value: `--repo ""` ends the segment with an
+  # empty word, which capturing the words drops, and `gh` falls back to this
+  # repository. The segment is not understood, so it earns no exemption.
+  [ "$mode" -eq 0 ] || return 1
   printf '%s\n' "$target"
   return 0
 )
@@ -274,7 +280,7 @@ while IFS= read -r segment; do
   # does after this hook sees it (see the header). Expansion, substitution,
   # globbing or a leftover escape all gate it, unevaluated and unparsed.
   case $segment in
-    *'$'*|*'`'*|*'{'*|*'}'*|*'*'*|*'?'*|*'['*|*']'*|*'~'*|*'<('*|*'>('*|*'\'*)
+    *'$'*|*'`'*|*'{'*|*'}'*|*'*'*|*'?'*|*'['*|*']'*|*'~'*|*'<'*|*'>'*|*'\'*)
       gate_own=1
       continue ;;
   esac
