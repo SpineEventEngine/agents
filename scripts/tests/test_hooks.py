@@ -550,11 +550,19 @@ class PublishVersionGateTest(HookTest):
         result = self.build(FX.wt1, process_dir=FX.wt2)
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_without_cwd_the_process_directory_is_checked(self) -> None:
-        result = self.build(None)  # The main checkout is on master.
-        self.assertEqual(result.returncode, 0, result.stderr)
-        # The helper beside the gate runs, although wt3's own is uninitialized.
-        self.assertEqual(self.build(None, process_dir=FX.wt3).returncode, 2)
+    def test_without_cwd_nothing_is_gated_and_the_directory_is_named(self) -> None:
+        """Without `cwd` the session's repository is unknown. The process
+        directory is `$CLAUDE_PROJECT_DIR` — in a worktree session a different
+        checkout on an unrelated branch — so gating it would be arbitrary with
+        respect to the branch being built. The gate steps aside (exit 1, a
+        non-blocking error) and names what it did not gate."""
+        for process_dir in (None, FX.wt3):
+            with self.subTest(process_dir=process_dir):
+                result = self.build(None, process_dir=process_dir)
+                self.assertEqual(result.returncode, 1, result.stderr)
+                first_line = result.stderr.splitlines()[0]
+                self.assertIn(str(process_dir or FX.main), first_line)
+                self.assertIn("no 'cwd'", first_line)
 
     def test_unresolvable_cwd_blocks(self) -> None:
         self.assertEqual(self.build(FX.base / "missing").returncode, 2)
