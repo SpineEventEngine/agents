@@ -552,6 +552,67 @@ class PrePrGateTest(HookTest):
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertIn("other/repo", result.stderr.splitlines()[0])
 
+    def test_a_flag_shaped_option_value_is_not_a_target(self) -> None:
+        """Words are read as `gh pr create`'s grammar, so each flag's value is
+        consumed rather than examined: a title that looks like `--repo` is a
+        title. Scanning for anything `-R`-shaped would exempt such a PR."""
+        for command in ("""gh pr create --title '--repo=other/repo' --body x""",
+                        """gh pr create --title '-Rother/repo'""",
+                        """gh pr create --body '--repo other/repo'""",
+                        """gh pr create -t '--repo=other/repo'"""):
+            with self.subTest(command=command):
+                payload = bash_input(command, FX.wt1)
+                sentinel_path(FX.wt1).unlink(missing_ok=True)
+                self.assertEqual(self.run_hook(payload).returncode, 2)
+                write_sentinel(FX.wt1)
+                self.assertEqual(self.run_hook(payload).returncode, 0)
+
+    def test_a_commented_out_target_is_not_a_target(self) -> None:
+        """An unquoted `#` starts a comment, as in the shell; a `#` inside a
+        word does not."""
+        for command in (f"{self.CREATE} --body y # --repo other/repo",
+                        f"{self.CREATE} #-R other/repo",
+                        f"{self.CREATE} --body 'fixes #49'"):
+            with self.subTest(command=command):
+                payload = bash_input(command, FX.wt1)
+                sentinel_path(FX.wt1).unlink(missing_ok=True)
+                self.assertEqual(self.run_hook(payload).returncode, 2)
+                write_sentinel(FX.wt1)
+                self.assertEqual(self.run_hook(payload).returncode, 0)
+
+    def test_a_flag_the_hook_does_not_know_gates_the_segment(self) -> None:
+        """Whether the word after an unknown flag is its value or a flag of its
+        own cannot be told, so the segment is gated — including when the
+        unknown flag follows the target. A newer `gh` flag therefore makes this
+        gate stricter, never looser."""
+        for command in (f"{self.CREATE} -R other/repo --brand-new-flag v",
+                        f"{self.CREATE} --brand-new-flag=v -R other/repo"):
+            with self.subTest(command=command):
+                self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 2)
+
+    def test_the_last_repository_flag_wins_as_it_does_in_gh(self) -> None:
+        """`gh` takes the last `-R`, so a trailing one naming this repository
+        must be gated however many foreign ones precede it."""
+        FX.git(FX.main, "remote", "add", "origin",
+               "https://github.com/SpineEventEngine/main.git")
+        self.addCleanup(FX.git, FX.main, "remote", "remove", "origin")
+        ours = f"{self.CREATE} -R other/repo -R SpineEventEngine/main"
+        self.assertEqual(self.run_hook(bash_input(ours, FX.wt1)).returncode, 2)
+        theirs = f"{self.CREATE} -R SpineEventEngine/main -R other/repo"
+        write_sentinel(FX.wt1)
+        result = self.run_hook(bash_input(theirs, FX.wt1))
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("other/repo", result.stderr.splitlines()[0])
+
+    def test_a_target_on_a_continuation_line_is_seen(self) -> None:
+        """A `\\` at end of line continues the command; dropping the rest left
+        the gate demanding this repository's sentinel for someone else's PR."""
+        command = f"{self.CREATE} \\\n  -R other/repo"
+        write_sentinel(FX.wt1)
+        result = self.run_hook(bash_input(command, FX.wt1))
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("other/repo", result.stderr.splitlines()[0])
+
     def test_an_unexpanded_target_is_gated_not_exempted(self) -> None:
         """A target the shell has yet to expand is unknown, not different: read
         literally it matches no remote, so exempting it would hand every

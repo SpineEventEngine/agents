@@ -112,6 +112,35 @@ Copilot reported the same two P1s independently, plus one more:
       sends the segment down the gating path.
 - [x] `python3 -m unittest discover -s scripts/tests` — 57 tests, all pass.
 
+## Review round 2 (Copilot on #49, commit `c14a7b7`)
+
+Three more, two of them bypasses the tokenizer had not closed. The lesson the
+round makes explicit: a *token scan* can never be safe, because any option
+value can be made to look like `-R`. The exemption now requires understanding
+the whole segment as `gh pr create`'s grammar.
+
+- [x] **Flag-shaped option values.** `--title '--repo=other/repo'` was read as a
+      target, so a PR *here* skipped its sentinel. The scanner now consumes each
+      known flag's value instead of examining it, from two lists (value-taking
+      and boolean). A flag in neither is ambiguous — the next word may be its
+      value or a flag — and gates the segment, so a `gh` flag newer than this
+      hook makes the gate stricter, never looser.
+- [x] **Shell comments.** `… --body y # --repo other/repo` had the commented-out
+      target read as real. `tokenize()` now ends the segment at an unquoted `#`
+      that starts a word, as the shell does; `fixes #49` stays a word.
+- [x] **Line continuations.** A `\` at end of line left the `-R` on a line the
+      line-wise `grep` dropped, so the gate demanded this repository's sentinel
+      for someone else's PR. Continuations are joined before the split; a bare
+      newline stays a separator.
+- [x] Found while fixing the above, not reported: the scanner returned at the
+      first `-R`, so neither an unknown flag after the target nor a **repeated**
+      `-R` was seen — and `gh` takes the *last* `-R` (verified with
+      `gh pr list -R SpineEventEngine/agents -R cli/cli`, which lists cli/cli).
+      `-R other/repo -R <ours>` would therefore have been exempted while `gh`
+      opened the PR here. The whole segment is now read, last `-R` wins.
+- [x] Five more test cases; `python3 -m unittest discover -s scripts/tests` —
+      62 tests, all pass.
+
 ## Follow-ups
 
 - `gh pr create` in a *subdirectory* of another checkout (`cd ../config &&

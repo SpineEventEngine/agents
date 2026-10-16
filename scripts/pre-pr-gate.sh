@@ -22,15 +22,23 @@
 #   * EVERY segment that creates a pull request is classified, not just the
 #     first. `gh pr create -R other/repo && gh pr create` creates one pull
 #     request elsewhere and one here; the second must still be gated.
-#   * A segment is split into words with quotes and backslashes honoured, so
-#     `--title 'Document --repo behaviour'` is a title and not a target. A
-#     segment that cannot be read that way — an unterminated quote, which the
-#     split on `;&|` can also produce out of a quoted string — is gated rather
-#     than waved through.
+#   * A segment is split into words with quotes, backslashes and an unquoted
+#     `#` comment honoured, so `--title 'Document --repo behaviour'` is a title
+#     and not a target. A segment that cannot be read that way — an unterminated
+#     quote, which the split on `;&|` can also produce out of a quoted string —
+#     is gated rather than waved through.
+#   * The words are then read as `gh pr create`'s own grammar, not scanned for
+#     anything that looks like `-R`: each known flag's value is consumed, so
+#     `--title '--repo=other/repo'` is a title too. A flag in neither list is
+#     ambiguous — its value could be anything — and gates the segment, which is
+#     also what a `gh` flag newer than this hook does: it makes the gate
+#     stricter, never looser.
 #   * The target is compared with the host included, because `gh` takes
 #     `[HOST/]OWNER/REPO`: `enterprise.example/acme/app` is not the `acme/app`
 #     of a github.com remote. A target that carries no host is resolved by `gh`
 #     against this repository's own host, so it is compared without one.
+#   * Line continuations are joined before the split, so a `-R` carried onto
+#     the next line is seen rather than silently dropped.
 #   * A target the shell has yet to expand — `-R "$REPO"`, `-R $(…)`, a glob —
 #     is unknown rather than different, and is gated. Comparing it literally
 #     would hand an exemption to every target the hook cannot resolve.
@@ -58,6 +66,13 @@ tool=$(printf '%s' "$input" | jq -r '.tool_name // empty')
 [ "$tool" != "Bash" ] && exit 0
 
 cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // empty')
+
+# Join shell line continuations: a `\` at end of line continues the command, so
+# `gh pr create --title x \` + `-R other/repo` is one segment. A bare newline
+# stays a separator, which is what the line-wise matching below treats it as.
+newline='
+'
+cmd=${cmd//\\$newline/ }
 
 # Split the command on shell separators (`;`, `&`, `|` — `&&`/`||` collapse
 # to repeated newlines, which is fine) and keep every segment that STARTS
@@ -93,7 +108,8 @@ EOF
 # Splits one command segment into shell words, one per line, honouring single
 # quotes, double quotes and backslash escapes the way the shell does. Nothing is
 # evaluated: no expansion runs, and no command substitution in the text can
-# execute. Fails on an unterminated quote, so a segment this cannot read is
+# execute. An unquoted `#` that starts a word begins a comment and ends the
+# segment. Fails on an unterminated quote, so a segment this cannot read is
 # never the reason the gate steps aside.
 tokenize() (
   rest=$(printf '%s' "$1" | tr '\t' ' ')
@@ -119,6 +135,9 @@ tokenize() (
       "'"|'"') quote=$char; started=1 ;;
       \\)      next=${rest%"${rest#?}"}; rest=${rest#?}; word=$word$next; started=1 ;;
       ' ')     if [ "$started" -eq 1 ]; then printf '%s\n' "$word"; word=''; started=0; fi ;;
+      '#')     # Only at the start of a word, as the shell does: `a#b` is a word.
+               if [ "$started" -eq 0 ]; then break; fi
+               word=$word$char ;;
       *)       word=$word$char; started=1 ;;
     esac
   done
@@ -127,26 +146,47 @@ tokenize() (
   return 0
 )
 
+# `gh pr create`'s flags: those taking a separate value, and those taking none.
+# A flag in neither list is ambiguous — whether the word after it is its value
+# or a flag of its own is unknown — so the segment is gated instead of read.
+value_flags=' -t --title -b --body -F --body-file -B --base -H --head -a --assignee -l --label -m --milestone -p --project -r --reviewer -T --template -R --repo '
+boolean_flags=' -d --draft -f --fill --fill-first --fill-verbose -w --web --no-maintainer-edit --dry-run -h --help '
+
 # The value of a segment's `-R`/`--repo` argument, in every spelling `gh`
 # accepts — `-R x`, `-Rx`, `-R=x`, `--repo x`, `--repo=x` — and empty when the
-# segment names no target repository. Fails when the segment cannot be split
-# into words at all.
+# segment names no target repository. Each other flag's value is consumed rather
+# than examined, so a value that looks like a flag (`--title '--repo=x'`) is not
+# mistaken for one. Fails when the segment cannot be split into words, or
+# carries a flag this does not know: either way its target is not established.
+#
+# The whole segment is read before answering, for two reasons: a flag this does
+# not know may come after the target, and a repeated `-R` means the LAST one,
+# which is the value `gh` itself uses.
 target_repo_arg() (
   words=$(tokenize "$1") || return 1
-  expecting=0
+  target=''
+  mode=0
   while IFS= read -r word; do
-    if [ "$expecting" -eq 1 ]; then
-      printf '%s\n' "$word"
-      return 0
-    fi
+    case $mode in
+      2) target=$word; mode=0; continue ;;
+      1) mode=0; continue ;;
+    esac
     case $word in
-      -R|--repo)     expecting=1 ;;
-      -R=*|--repo=*) printf '%s\n' "${word#*=}"; return 0 ;;
-      -R?*)          printf '%s\n' "${word#-R}"; return 0 ;;
+      -R|--repo)     mode=2 ;;
+      -R=*|--repo=*) target=${word#*=} ;;
+      -R?*)          target=${word#-R} ;;
+      --?*=*)        case "$value_flags$boolean_flags" in
+                       *" ${word%%=*} "*) ;;
+                       *) return 1 ;;
+                     esac ;;
+      -?*)           case "$value_flags" in *" $word "*) mode=1; continue ;; esac
+                     case "$boolean_flags" in *" $word "*) continue ;; esac
+                     return 1 ;;
     esac
   done <<EOF
 $words
 EOF
+  printf '%s\n' "$target"
   return 0
 )
 
