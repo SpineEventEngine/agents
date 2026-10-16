@@ -374,6 +374,29 @@ onto `:`.
 - [x] Regressions for the escaped-backslash composition and its `printf`
       variant, alongside the round-10 cases. 70 tests, all pass.
 
+## Review round 12 (Copilot on #49, commit `608e60a`)
+
+A performance finding, and correct: the per-line scan added by round 11 ran for
+every multi-line request with no detected create. Measured here before the fix:
+**4.5s** for an 800-line heredoc, which an agent pays on an unrelated tool call.
+
+- [x] The scan is limited to the lines that can matter. Only a `\` standing
+      immediately before a newline makes a joined reading differ from the plain
+      one, and only from the line carrying it: with no such pair every suffix
+      reads as the plain reading already read it, and a line not ending in `\`
+      glues nothing onto itself. 4.5s → 0.035s; a create whose first token is
+      split (`g\` + `h pr create`) is still detected, so the limit costs no
+      detection.
+- [x] Caught while verifying, before committing: writing the pair as
+      `${suffix//$continuation/}` broke detection. Unquoted, the pattern's `\`
+      escapes the newline, so only the newline was removed and the text read
+      `gh pr \create`. Quoting the pattern fixes it; `bash -x` on the failing
+      input is what found it, not the test suite, which had no case for that
+      spelling. A test now covers the split-token form.
+- [x] A test asserts the 800-line request stays well under two seconds, so the
+      cost cannot creep back.
+- [x] `python3 -m unittest discover -s scripts/tests` — 71 tests, all pass.
+
 ## Note for the reviewer of this PR
 
 The original defect — a `compiler` sentinel demanded for a `config` pull request

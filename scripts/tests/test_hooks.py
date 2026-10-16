@@ -23,6 +23,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -540,6 +541,25 @@ class PrePrGateTest(HookTest):
         self.assertEqual(self.run_hook(payload).returncode, 2)
         write_sentinel(FX.wt1)
         self.assertEqual(self.run_hook(payload).returncode, 0)
+
+    def test_an_ordinary_multi_line_request_is_not_rescanned(self) -> None:
+        """Only a `\\` before a newline can make a joined reading differ, and
+        only from the line carrying it, so the per-line scan is limited to those
+        lines. Without the limit an 800-line heredoc paid `tail`, `tr` and
+        `grep` per line — 4.5s, against milliseconds now. A token split across
+        lines is still found, so the limit costs no detection."""
+        heredoc = ("cat <<'EOF' > out\n"
+                   + "\n".join(f"harmless line {n}" for n in range(800))
+                   + "\nEOF")
+        for command in (heredoc, heredoc + " \\\n  --more flags"):
+            with self.subTest(lines=len(command.splitlines())):
+                started = time.monotonic()
+                result = self.run_hook(bash_input(command, FX.wt1))
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertLess(time.monotonic() - started, 2.0)
+        # The scan still sees a create whose very first token is split.
+        self.assertEqual(
+            self.run_hook(bash_input("g\\\nh pr create --title x", FX.wt1)).returncode, 2)
 
     def test_a_request_that_is_more_than_one_create_is_gated(self) -> None:
         """The exemption needs the whole request to be one plain create. Each of

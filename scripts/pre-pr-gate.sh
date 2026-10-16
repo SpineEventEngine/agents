@@ -115,20 +115,28 @@ newline='
 # Detection may overshoot — it only gates — but it may never undershoot, which
 # would leave a create ungated altogether. The exemption, further down, is
 # where the narrow reading belongs.
+#
+# Only a `\` standing immediately before a newline can make a joined reading
+# differ from the plain one, and then only from the line carrying it: with no
+# such pair every suffix reads exactly as the plain reading already read it, and
+# a line not ending in `\` glues nothing onto itself. So the scan is limited to
+# those lines, and an ordinary multi-line request has none — it would otherwise
+# pay `tail`, `tr` and `grep` for every line of, say, an 800-line heredoc, which
+# measured 4.5s here.
 segments=$(creating_segments "$cmd") || true
 creates_elsewhere=''
+continuation="\\$newline"
 if [ -z "$segments" ]; then
   case $cmd in
-    *"$newline"*)
-      total=$(printf '%s\n' "$cmd" | grep -c '')
-      line=1
-      while [ "$line" -le "$total" ]; do
+    *"$continuation"*)
+      for line in $(printf '%s\n' "$cmd" | grep -n '\\$' | cut -d: -f1); do
         suffix=$(printf '%s' "$cmd" | tail -n "+$line")
-        if creating_segments "${suffix//\\$newline/}" >/dev/null; then
+        # The pattern is quoted: unquoted, its `\` would escape the newline and
+        # only the newline would go, leaving `gh pr \create`.
+        if creating_segments "${suffix//"$continuation"/}" >/dev/null; then
           creates_elsewhere=1
           break
         fi
-        line=$((line + 1))
       done ;;
   esac
 fi
