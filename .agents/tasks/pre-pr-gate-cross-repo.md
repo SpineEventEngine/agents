@@ -140,6 +140,13 @@ the whole segment as `gh pr create`'s grammar.
       opened the PR here. The whole segment is now read, last `-R` wins.
 - [x] Five more test cases; `python3 -m unittest discover -s scripts/tests` —
       62 tests, all pass.
+- [x] **Nested create in command substitution.** Reported against `c14a7b7`:
+      `-R other/repo --title "$(gh pr create --title local …)"` runs the inner
+      create — in *this* repository — before the outer one goes elsewhere, and
+      only the outer command is on the line. A segment carrying `$(`, a
+      backtick, `<(` or `>(` is now gated; nothing is evaluated to find out what
+      it would do. The repeated-`-R` finding from the same round was already
+      fixed above, found independently. 63 tests, all pass.
 
 ## Follow-ups
 

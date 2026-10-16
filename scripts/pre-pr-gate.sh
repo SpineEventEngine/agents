@@ -39,6 +39,9 @@
 #     against this repository's own host, so it is compared without one.
 #   * Line continuations are joined before the split, so a `-R` carried onto
 #     the next line is seen rather than silently dropped.
+#   * A segment carrying command or process substitution is gated: the inner
+#     command runs first and may be a `gh pr create` for this repository, and
+#     nothing here evaluates command text to find out.
 #   * A target the shell has yet to expand — `-R "$REPO"`, `-R $(…)`, a glob —
 #     is unknown rather than different, and is gated. Comparing it literally
 #     would hand an exemption to every target the hook cannot resolve.
@@ -257,6 +260,15 @@ gate_own=0
 cross_targets=''
 while IFS= read -r segment; do
   [ -n "$segment" ] || continue
+  # Command or process substitution can run another command before this one:
+  # `-R other/repo --title "$(gh pr create …)"` opens a pull request HERE, then
+  # one elsewhere, and only the outer command is on this line. Nothing is
+  # evaluated to find out what it would do, so the segment is gated.
+  case $segment in
+    *'$('*|*'`'*|*'<('*|*'>('*)
+      gate_own=1
+      continue ;;
+  esac
   if ! target=$(target_repo_arg "$segment"); then
     gate_own=1
     continue

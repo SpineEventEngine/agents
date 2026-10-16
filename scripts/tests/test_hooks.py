@@ -613,6 +613,22 @@ class PrePrGateTest(HookTest):
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertIn("other/repo", result.stderr.splitlines()[0])
 
+    def test_a_segment_with_substitution_is_gated(self) -> None:
+        """Command substitution runs its own command first, and that may be a
+        create for this repository: `-R other/repo --title "$(gh pr create …)"`
+        opens one here before the outer one goes elsewhere. The hook evaluates
+        nothing, so such a segment is gated."""
+        nested = ('gh pr create -R other/repo '
+                  '--title "$(gh pr create --title local --body local)" --body remote')
+        for command in (nested,
+                        "gh pr create -R other/repo --title `gh pr create -t x`",
+                        "gh pr create -R other/repo --body-file <(gh pr view)"):
+            with self.subTest(command=command):
+                sentinel_path(FX.wt1).unlink(missing_ok=True)
+                self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 2)
+                write_sentinel(FX.wt1)
+                self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 0)
+
     def test_an_unexpanded_target_is_gated_not_exempted(self) -> None:
         """A target the shell has yet to expand is unknown, not different: read
         literally it matches no remote, so exempting it would hand every
