@@ -13,7 +13,9 @@
 # rely on.
 #
 # Input: hook JSON on stdin (tool_name, tool_input.command, cwd).
-# Exit:  0 to allow, 2 to block (stderr is surfaced to Claude).
+# Exit:  0 to allow, 2 to block (stderr is surfaced to Claude), 1 to allow
+#        without having gated anything — a non-blocking error, whose first
+#        stderr line reaches the transcript.
 #
 set -eu
 
@@ -57,23 +59,40 @@ done < <(printf '%s' "$cmd" | tr ';&|' '\n\n\n')
 # Check the repository the agent is working in. A worktree session keeps this
 # process — like `$CLAUDE_PROJECT_DIR` — in the main checkout, while the hook
 # input's `cwd` follows the agent into the worktree; `session-work-tree.sh` maps
-# it to the work tree to check. Fall back to this process's directory only when
-# the runtime sends no `cwd`. A `cwd` that does not resolve blocks rather than
+# it to the work tree to check. A `cwd` that does not resolve blocks rather than
 # checking another checkout's branch.
+#
+# Without `cwd` there is nothing to resolve, and this process's directory is no
+# substitute: it is `$CLAUDE_PROJECT_DIR`, which in a worktree session is a
+# different checkout on an unrelated branch. Gating that one is worse than not
+# gating, because its verdict says nothing about the branch being built — it
+# blocks a correctly bumped branch and waves an unbumped one through just as
+# readily. Every Claude Code `PreToolUse` payload carries `cwd`, so its absence
+# means the gate cannot tell which repository the session is in: it names the
+# directory it would have inspected and steps aside. Exiting neither 0 nor 2 is
+# a non-blocking error, so the command still runs and the first line of the
+# message reaches the transcript — stderr from a hook that exits 0 is never
+# shown at all.
 here=$(CDPATH='' cd "$(dirname "$0")" && pwd)
 cwd=$(printf '%s' "$input" | jq -r '.cwd // empty')
-if [ -n "$cwd" ]; then
-  if ! repo_root=$("$here/session-work-tree.sh" "$cwd"); then
-    cat >&2 <<EOF
+if [ -z "$cwd" ]; then
+  inspected=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+  cat >&2 <<EOF
+version gate skipped: no 'cwd' in the hook input; not gating $inspected, which need not be the session's repository.
+The version bump is therefore unverified. Check it with the branch's own
+checkout as the working directory:
+  .agents/skills/version-bumped/scripts/version-bumped.sh
+EOF
+  exit 1
+fi
+if ! repo_root=$("$here/session-work-tree.sh" "$cwd"); then
+  cat >&2 <<EOF
 './gradlew' blocked: cannot resolve the Git work tree of the session's
 working directory
   $cwd
 so the version bump cannot be verified.
 EOF
-    exit 2
-  fi
-else
-  repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+  exit 2
 fi
 
 # Run the helper shipped beside this gate, so the two always come from the same
