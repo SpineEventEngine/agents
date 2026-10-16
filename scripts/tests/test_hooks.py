@@ -541,16 +541,23 @@ class PrePrGateTest(HookTest):
         write_sentinel(FX.wt1)
         self.assertEqual(self.run_hook(payload).returncode, 0)
 
-    def test_a_local_create_beside_a_cross_repo_one_is_still_gated(self) -> None:
-        """Every creating segment is classified, not just the first: the second
-        create here is for this repository and needs its sentinel. Once it has
-        one, the other repository is still reported as unverified."""
-        payload = bash_input(f"{self.CREATE} -R other/repo && {self.CREATE}", FX.wt1)
-        self.assertEqual(self.run_hook(payload).returncode, 2)
-        write_sentinel(FX.wt1)
-        result = self.run_hook(payload)
-        self.assertEqual(result.returncode, 1, result.stderr)
-        self.assertIn("other/repo", result.stderr.splitlines()[0])
+    def test_a_request_that_is_more_than_one_create_is_gated(self) -> None:
+        """The exemption needs the whole request to be one plain create. Each of
+        these also creates a pull request HERE, in text the splitting discards —
+        a second command, a subshell the start-anchored match skips, a
+        substitution `tr` moves to another line, a create swallowed by a
+        comment's backslash — so the request is gated and no target is read
+        out of what survived."""
+        local = "gh pr create --title local --body local"
+        for command in (f"{self.CREATE} -R other/repo && {self.CREATE}",
+                        f"{self.CREATE} -R other/repo && ({local})",
+                        f'{self.CREATE} -R other/repo &> "$({local})"',
+                        f"{self.CREATE} -R other/repo --body remote # note \\\n{local}"):
+            with self.subTest(command=command):
+                sentinel_path(FX.wt1).unlink(missing_ok=True)
+                self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 2)
+                write_sentinel(FX.wt1)
+                self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 0)
 
     def test_a_flag_shaped_option_value_is_not_a_target(self) -> None:
         """Words are read as `gh pr create`'s grammar, so each flag's value is

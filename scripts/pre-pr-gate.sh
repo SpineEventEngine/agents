@@ -19,9 +19,12 @@
 # Stepping aside is the only path here that does not gate, so everything it
 # rests on is deliberately conservative:
 #
-#   * EVERY segment that creates a pull request is classified, not just the
-#     first. `gh pr create -R other/repo && gh pr create` creates one pull
-#     request elsewhere and one here; the second must still be gated.
+#   * The exemption is decided from the WHOLE request, which must be one plain
+#     `gh pr create` and nothing else. `gh pr create -R other/repo && gh pr
+#     create` creates one pull request elsewhere and one here, and text the
+#     splitting discards — a `(gh pr create …)` in a subshell, a substitution
+#     `tr` moved to another line, a create swallowed by a comment's `\` — was
+#     never examined at all, so no exemption may rest on what survived it.
 #   * A segment is split into words with quotes, backslashes and an unquoted
 #     `#` comment honoured, so `--title 'Document --repo behaviour'` is a title
 #     and not a target. A segment that cannot be read that way — an unterminated
@@ -42,10 +45,10 @@
 #     across lines, even in mid-word, reads as the one word the shell builds.
 #   * A segment is then exempted only if its text cannot change under anything
 #     the shell does after this hook sees it. A `$`, a backtick, `{`, `}`, `*`,
-#     `?`, `[`, `]`, `~`, `<` or `>` — expansion, substitution, globbing,
-#     redirection — or any `\` still left once continuations are gone, which
-#     means the split on `;&|` cut an escaped separator and left a fragment,
-#     gates the segment.
+#     `?`, `[`, `]`, `~`, `<`, `>` or `#` — expansion, substitution, globbing,
+#     redirection, a comment — or any `\` still left once continuations are
+#     gone, which means the split on `;&|` cut an escaped separator and left a
+#     fragment, gates the request.
 #     Enumerating dangerous syntax instead was tried and kept failing: `$EXTRA`
 #     holding a second `-R`, `-R{a,b}` expanding to two options with the local
 #     one last, `--title a\|b` leaving `… --title a\` that reads as a whole
@@ -267,46 +270,33 @@ for remote in $(git -C "$repo_root" remote 2>/dev/null || true); do
 "
 done
 
-# Classify every pull-request-creating segment. A segment with no explicit
-# target, one naming the session's repository, or one that cannot be read at all
-# means this repository is being gated as usual; the rest are reported as
-# unverified. Only when no segment creates a pull request here is the sentinel
-# wholly inapplicable.
-gate_own=0
-cross_targets=''
-while IFS= read -r segment; do
-  [ -n "$segment" ] || continue
-  # Exempt a segment only when its text cannot change under anything the shell
-  # does after this hook sees it (see the header). Expansion, substitution,
-  # globbing or a leftover escape all gate it, unevaluated and unparsed.
-  case $segment in
-    *'$'*|*'`'*|*'{'*|*'}'*|*'*'*|*'?'*|*'['*|*']'*|*'~'*|*'<'*|*'>'*|*'\'*)
-      gate_own=1
-      continue ;;
+# Exempt the request only when the WHOLE of it is one plain `gh pr create` for
+# another repository — not when some segment of it looks that way. Whatever the
+# splitting above discards is text this hook never examined, and each kind of
+# discarded text turned out to hide a create that ran HERE: a
+# `&& (gh pr create …)` the start-anchored match skips, a
+# `&> "$(gh pr create …)"` whose substitution `tr` moved to another line, a
+# `# note \` whose comment swallowed the next line's create. So a request
+# holding anything beyond that one command — a second command, a subshell, a
+# comment, a redirection, an expansion, a leftover escape — is gated as usual,
+# and only a request whose every character this hook has accounted for can
+# step the gate aside.
+target=''
+if [ "$(printf '%s' "$cmd" | tr ';&|' '\n\n\n' | grep -c '[^[:space:]]')" -eq 1 ]; then
+  case $cmd in
+    *'$'*|*'`'*|*'{'*|*'}'*|*'*'*|*'?'*|*'['*|*']'*|*'~'*|*'<'*|*'>'*|*'\'*|*'#'*) ;;
+    *) target=$(target_repo_arg "$segments") || target='' ;;
   esac
-  if ! target=$(target_repo_arg "$segment"); then
-    gate_own=1
-    continue
-  fi
-  if [ -z "$target" ]; then
-    gate_own=1
-    continue
-  fi
+fi
+
+if [ -n "$target" ]; then
   identity=$(identity_of "$target")
   case $identity in
     /*) known=$own_slugs;      wanted=${identity#/} ;;
     *)  known=$own_identities; wanted=$identity ;;
   esac
-  if printf '%s' "$known" | grep -qxF "$wanted"; then
-    gate_own=1
-  else
-    cross_targets="$cross_targets $target"
-  fi
-done <<EOF
-$segments
-EOF
-
-[ "$gate_own" -eq 0 ] && note_unverified "${cross_targets# }"
+  printf '%s' "$known" | grep -qxF "$wanted" || note_unverified "$target"
+fi
 
 # Resolve the real git directory rather than assuming `$repo_root/.git` is one:
 # in a linked worktree `.git` is a file (a `gitdir:` pointer), so the sentinel
@@ -366,9 +356,5 @@ Re-run /pre-pr to revalidate the current tree.
 Sentinel: $sentinel
 EOF
 fi
-
-# The session's own pull request is covered; a target elsewhere in the same
-# command is not, and this is the only exit that can still say so.
-[ -n "$cross_targets" ] && note_unverified "${cross_targets# }"
 
 exit 0

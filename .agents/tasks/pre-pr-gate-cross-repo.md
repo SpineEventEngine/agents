@@ -196,6 +196,48 @@ The brace-expansion one (`-RSpineEventEngine/{ag,agents}`) was already closed by
       segment was not understood, so it earns no exemption.
 - [x] `python3 -m unittest discover -s scripts/tests` — 65 tests, all pass.
 
+## Review round 5 (Copilot on #49, commit `ca803a0`) — scope of the decision
+
+Two findings, both structural rather than another missing character, and they
+name the real flaw: the exemption was decided from the fragments that *survived*
+`tr` and the start-anchored `grep`, while the text those discard was never
+examined. Each kind of discarded text could hide a create that ran here:
+
+- `… -R other/repo … # note \` + `gh pr create --title local` — a `\` inside a
+  comment does not continue the line in the shell, but removing every
+  `\`-newline pair joined the local create into the comment, erasing it.
+- `… -R other/repo … && (gh pr create …)` — the second segment starts with `(`,
+  which the deliberately start-anchored match skips.
+- `… -R other/repo … &> "$(gh pr create …)"` — `tr` splits at `&`, so the
+  substitution lands on a line of its own and the matched segment looks plain.
+
+- [x] The exemption is now decided from the **whole request**, which must be one
+      plain `gh pr create` and nothing else: one non-blank piece after splitting
+      on `;&|` and newlines, carrying none of `$`, backtick, `{`, `}`, `*`, `?`,
+      `[`, `]`, `~`, `<`, `>`, `#` or a leftover `\`. Anything more is gated as
+      usual, so no decision rests on text the hook discarded.
+- [x] This *removed* code rather than adding a guard: the per-segment loop, the
+      cross-target accumulation and the trailing note are gone (31 insertions,
+      45 deletions). A mixed request is no longer parsed for a target at all, so
+      it is gated silently instead of gated-with-a-note — the hook makes no
+      claim about text it did not account for.
+- [x] Checked that the realistic cross-repo create still earns the exemption:
+      `gh pr create -R owner/repo --base master --head b --title "…" --body "…"`,
+      and a continued one. A body carrying `$`, a backtick or `#` now needs this
+      repository's sentinel — the documented trade-off.
+- [x] `python3 -m unittest discover -s scripts/tests` — 65 tests, all pass.
+
+## Note for the reviewer of this PR
+
+The original defect — a `compiler` sentinel demanded for a `config` pull request
+— is fixed by the first commit. Everything after it hardens the fail-open path
+that design (b) introduces, across five review rounds. If that surface is not
+wanted in a hook that ships organisation-wide, the alternative is to drop the
+exemption and simply **block** a `gh pr create` that names another repository,
+telling the agent to run /pre-pr in that repository's own session: it needs only
+the detection of `-R`, not the understanding of it. That is a maintainer's call,
+not this task's.
+
 ## Follow-ups
 
 - `gh pr create` in a *subdirectory* of another checkout (`cd ../config &&
