@@ -227,6 +227,19 @@ examined. Each kind of discarded text could hide a create that ran here:
       repository's sentinel — the documented trade-off.
 - [x] `python3 -m unittest discover -s scripts/tests` — 65 tests, all pass.
 
+## Review round 6 (Copilot on #49) — host aliases
+
+Summary-only, no open issues, but it raised one previously missed point in the
+body: `gh` drops a leading `www.` before comparing hosts (`ghrepo`'s
+`normalizeHostname`) while `identity_of` kept it, so a `www.github.com` remote
+and a bare `github.com/owner/repo` target read as two repositories — exempting
+a pull request `gh` opens in this one.
+
+- [x] Verified rather than assumed: `gh pr list -R www.github.com/<slug>` lists
+      that repository's pull requests.
+- [x] `identity_of` strips a leading `www.` from the host, case-insensitively.
+- [x] `python3 -m unittest discover -s scripts/tests` — 66 tests, all pass.
+
 ## Note for the reviewer of this PR
 
 The original defect — a `compiler` sentinel demanded for a `config` pull request

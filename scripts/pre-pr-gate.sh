@@ -228,6 +228,14 @@ identity_of() (
     *:*)   host=${value%%:*}; value=${value#*:} ;;
   esac
   host=${host%%:*}
+  # `gh` drops a leading `www.` before comparing hosts (`ghrepo`'s
+  # `normalizeHostname`, verified: `gh pr list -R www.github.com/<slug>` lists
+  # that repository), so the two spellings are one host here as well. Without
+  # this, a `www.` remote and a bare target would read as two repositories and
+  # exempt a pull request `gh` opens in this one.
+  case $host in
+    [Ww][Ww][Ww].*) host=${host#???.} ;;
+  esac
   # More than two components: `gh`'s own `HOST/OWNER/REPO` spelling when no host
   # was parsed above, otherwise a URL with a path beyond the repository.
   case $value in
