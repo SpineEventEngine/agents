@@ -97,7 +97,24 @@ newline='
 '
 segments=$(creating_segments "$cmd") || true
 joined=$(creating_segments "${cmd//\\$newline/}") || true
-[ -z "$segments" ] && [ -z "$joined" ] && exit 0
+# A third reading, because a comment's `\` and a real continuation compose into
+# a create that neither of the first two can see:
+#
+#     # note \
+#     gh pr \
+#     create --title local --body local
+#
+# The shell ends the comment at the newline and continues line two into line
+# three, so the create runs; read as received, no line starts with
+# `gh pr create`, and read with every continuation removed, all three fold into
+# the comment. Dropping each line's `#` to its end BEFORE removing
+# continuations leaves `gh pr create …` in view. The `#` is dropped whether or
+# not it is quoted: over-dropping can only add a match, and a detection that
+# matches too much merely gates, while one that matches too little gates
+# nothing at all.
+comment_free=$(printf '%s' "$cmd" | sed 's/#.*$//')
+uncommented=$(creating_segments "${comment_free//\\$newline/}") || true
+[ -z "$segments" ] && [ -z "$joined" ] && [ -z "$uncommented" ] && exit 0
 
 block() {
   cat >&2

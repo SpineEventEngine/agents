@@ -324,6 +324,30 @@ Two remote-identity gaps, both verified in a throwaway repository first.
       2.13 (2.13 is the `--absolute-git-dir` threshold used further down).
 - [x] `python3 -m unittest discover -s scripts/tests` — 70 tests, all pass.
 
+## Review round 10 (Copilot on #49, commit `44eaf8f`)
+
+One finding, a composition of the two continuation cases that defeats both
+readings at once:
+
+    # note \
+    gh pr \
+    create --title local --body local
+
+The shell ends the comment at the newline and continues line two into line
+three, so the create runs. Read as received, no line starts with
+`gh pr create`; read with every continuation removed, all three lines fold into
+the comment. Verified: the hook returned **0** — no gate at all — and 2 after
+the fix.
+
+- [x] A third detection reading: each line's `#` to its end is dropped *before*
+      continuations are removed, which leaves `gh pr create …` in view. The `#`
+      is dropped whether or not it is quoted, because over-dropping can only
+      add a match — a detection that matches too much merely gates, while one
+      that matches too little gates nothing.
+- [x] Also covered a variant the report did not raise, found while testing: a
+      single-quoted newline (`: '\n' ; gh pr \` + `create …`).
+- [x] `python3 -m unittest discover -s scripts/tests` — 70 tests, all pass.
+
 ## Note for the reviewer of this PR
 
 The original defect — a `compiler` sentinel demanded for a `config` pull request

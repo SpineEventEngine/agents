@@ -622,7 +622,15 @@ class PrePrGateTest(HookTest):
                         f"{self.CREATE} -R SpineEventEngine/ma\\\nin",
                         "gh pr \\\ncreate --title x",
                         "# note \\\ngh pr create --title local --body local",
-                        'printf "x\\\\"\ngh pr create --title local'):
+                        'printf "x\\\\"\ngh pr create --title local',
+                        # A comment's backslash and a real continuation
+                        # compose: neither the text as received nor the text
+                        # with every continuation removed holds a complete
+                        # `gh pr create`, but the shell runs one. Dropping
+                        # comments before joining is what sees it, and the two
+                        # cases above do not cover this one between them.
+                        "# note \\\ngh pr \\\ncreate --title local --body local",
+                        ": '\n' ; gh pr \\\ncreate --title local"):
             with self.subTest(command=command):
                 sentinel_path(FX.wt1).unlink(missing_ok=True)
                 self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 2)
