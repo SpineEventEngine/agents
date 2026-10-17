@@ -28,10 +28,10 @@
 #     line, one command, is what makes that whole class moot — a multi-line
 #     create is gated rather than read across lines.
 #   * That line must carry nothing the shell would still change: `$`, a
-#     backtick, `{`, `}`, `*`, `?`, `[`, `]`, `~`, `<`, `>`, `#`, `%`, or a
-#     `\`. Expansion, substitution, globbing, redirection, a comment and
-#     percent-encoding each gave a way to read the line differently from the
-#     way the shell runs it.
+#     backtick, `{`, `}`, `(`, `)`, `*`, `?`, `[`, `]`, `~`, `<`, `>`, `#`,
+#     `%`, or a `\`. Expansion, substitution, globbing — `extglob`'s `@(…)`
+#     among it — redirection, a comment and percent-encoding each gave a way to
+#     read the line differently from the way the shell runs it.
 #   * The words of that line are read as `gh pr create`'s own grammar, not
 #     scanned for anything `-R`-shaped: each known flag's value is consumed,
 #     so `--title '--repo=other/repo'` is a title. A flag in neither list is
@@ -363,13 +363,16 @@ done
 # included: a multi-line create is gated, not read across lines.
 #
 # The line must also carry nothing the shell would still change (`$`, a
-# backtick, `{`, `}`, `*`, `?`, `[`, `]`, `~`, `<`, `>`, `#`, `\`, `%`), so the
-# text this hook reads is the text the shell runs.
+# backtick, `{`, `}`, `(`, `)`, `*`, `?`, `[`, `]`, `~`, `<`, `>`, `#`, `\`,
+# `%`), so the text this hook reads is the text the shell runs. Parentheses are
+# in that list for `extglob`: with it enabled and a matching path,
+# `-R @(OWNER)/repo` expands to `OWNER/repo`, which may well be this
+# repository, while the literal text reads as another one.
 target=''
 if [ "$(printf '%s' "$cmd" | tr ';&|' "$newline$newline$newline" \
           | grep -c '[^[:space:]]')" -eq 1 ] && [ -n "$segments" ]; then
   case $cmd in
-    *'$'*|*'`'*|*'{'*|*'}'*|*'*'*|*'?'*|*'['*|*']'*|*'~'*|*'<'*|*'>'*|*'\'*|*'#'*|*'%'*) ;;
+    *'$'*|*'`'*|*'{'*|*'}'*|*'('*|*')'*|*'*'*|*'?'*|*'['*|*']'*|*'~'*|*'<'*|*'>'*|*'\'*|*'#'*|*'%'*) ;;
     *) target=$(target_repo_arg "$segments") || target='' ;;
   esac
 fi

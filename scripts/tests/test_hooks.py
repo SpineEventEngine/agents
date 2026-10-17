@@ -694,6 +694,10 @@ class PrePrGateTest(HookTest):
                 '--title "$(gh pr create --title local --body local)" --body remote',
                 "gh pr create -R other/repo --title `gh pr create -t x`",
                 "gh pr create -R other/repo --body-file <(gh pr view)",
+                # `extglob`: with it on and a matching path, `@(OWNER)/repo`
+                # expands to `OWNER/repo`, which may be this repository.
+                "gh pr create -R @(SpineEventEngine)/main --title x",
+                "gh pr create -R !(other)/main --title x",
                 # Expansions, scalar and array, holding another `-R`.
                 "gh pr create -R other/repo --title x $EXTRA",
                 'gh pr create -R other/repo --title x "${extra[@]}"',

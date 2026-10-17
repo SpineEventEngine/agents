@@ -435,6 +435,25 @@ list, built from remote URLs alone, exempted it.
       the `base` spelling.
 - [x] `python3 -m unittest discover -s scripts/tests` — 73 tests, all pass.
 
+## Review round 15 (Copilot on #49, commit `36f4b6e`)
+
+One P2, and the premise checks out: with `extglob` enabled and a matching path,
+`@(OWNER)/repo` is a glob that expands to `OWNER/repo` — confirmed with
+`bash -O extglob -c 'echo @(Spine)/agents'`, which printed `Spine/agents`. The
+hook compared the literal `@(…)` text, so such a target read as another
+repository and was exempted even when it expands to this one.
+
+- [x] `(` and `)` join the characters that withhold the exemption, which is
+      exactly the rule from round 5 — the line must carry nothing the shell
+      would still change — applied to a form it had missed. `!(…)` and `+(…)`
+      fall under the same guard.
+- [x] Low exploitability (extglob is off by default in non-interactive shells,
+      and the expansion needs a matching path), but the cost of the guard is
+      only that a cross-repository create whose text contains parentheses needs
+      this repository's sentinel.
+- [x] Regressions for `@(…)` and `!(…)` in the gated-syntax family.
+- [x] `python3 -m unittest discover -s scripts/tests` — 73 tests, all pass.
+
 ## Note for the reviewer of this PR
 
 The original defect — a `compiler` sentinel demanded for a `config` pull request
