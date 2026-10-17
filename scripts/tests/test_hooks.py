@@ -23,6 +23,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -459,7 +460,8 @@ class PrePrGateTest(HookTest):
 
     def test_other_commands_and_tools_pass_whatever_the_cwd(self) -> None:
         missing = str(FX.base / "missing")
-        for command in ('echo "gh pr create"', "ls -la"):
+        for command in ('echo "gh pr create"', 'echo "gh pr create -R other/repo"',
+                        "ls -la"):
             with self.subTest(command=command):
                 payload = bash_input(command)
                 payload["cwd"] = missing
@@ -473,6 +475,450 @@ class PrePrGateTest(HookTest):
         self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 0)
         sentinel_path(FX.wt1).unlink()
         self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 2)
+
+    def test_fork_head_does_not_change_the_gated_repository(self) -> None:
+        command = f"{self.CREATE} --head owner:branch"
+        write_sentinel(FX.wt1)
+        self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 0)
+        sentinel_path(FX.wt1).unlink()
+        self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 2)
+
+    def test_another_target_repository_is_not_gated_but_named(self) -> None:
+        """This session's sentinel attests nothing about another repository, so
+        the gate steps aside (exit 1, a non-blocking error) and says so — with
+        or without a sentinel of its own, which is inapplicable either way."""
+        for target in ("-R other/repo", "--repo other/repo", "-R=other/repo",
+                       "--repo=other/repo", "-Rother/repo", '-R "other/repo"'):
+            for sentinel in (False, True):
+                with self.subTest(target=target, sentinel=sentinel):
+                    if sentinel:
+                        write_sentinel(FX.wt1)
+                    else:
+                        sentinel_path(FX.wt1).unlink(missing_ok=True)
+                    result = self.run_hook(bash_input(f"{self.CREATE} {target}", FX.wt1))
+                    self.assertEqual(result.returncode, 1, result.stderr)
+                    first_line = result.stderr.splitlines()[0]
+                    self.assertIn("NOT verified", first_line)
+                    self.assertIn("other/repo", first_line)
+                    self.assertIn(str(FX.wt1), first_line)
+
+    def test_the_session_repository_as_the_target_is_gated_as_usual(self) -> None:
+        """A target that is one of the session repository's own remotes, in any
+        spelling of the same `owner/repo`, gates exactly as no target does."""
+        FX.git(FX.main, "remote", "add", "origin",
+               "git@github.com:SpineEventEngine/Main.git")
+        self.addCleanup(FX.git, FX.main, "remote", "remove", "origin")
+        for target in ("SpineEventEngine/main", "spineeventengine/Main",
+                       "github.com/SpineEventEngine/main",
+                       "https://github.com/SpineEventEngine/main"):
+            with self.subTest(target=target):
+                payload = bash_input(f"{self.CREATE} -R {target}", FX.wt1)
+                write_sentinel(FX.wt1)
+                self.assertEqual(self.run_hook(payload).returncode, 0)
+                sentinel_path(FX.wt1).unlink()
+                result = self.run_hook(payload)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn(str(sentinel_path(FX.wt1)), result.stderr)
+
+    def test_a_quoted_value_is_not_mistaken_for_a_target(self) -> None:
+        """Words are split with quotes honoured, so a `--repo` inside a title is
+        a title. Re-splitting the raw text would let any PR whose body mentions
+        the flag skip its sentinel."""
+        for title in ("'Document --repo behavior'", '"Document --repo behavior"',
+                      "'Explain -R other/repo'"):
+            with self.subTest(title=title):
+                payload = bash_input(f"gh pr create --title {title}", FX.wt1)
+                write_sentinel(FX.wt1)
+                self.assertEqual(self.run_hook(payload).returncode, 0)
+                sentinel_path(FX.wt1).unlink()
+                self.assertEqual(self.run_hook(payload).returncode, 2)
+
+    def test_a_segment_that_cannot_be_split_into_words_is_gated(self) -> None:
+        """The split on `;&|` can cut a quoted string in two, leaving the
+        segment with an unterminated quote. Such a segment is gated, never
+        read as naming another repository."""
+        payload = bash_input('gh pr create --title "a|b" -R other/repo', FX.wt1)
+        self.assertEqual(self.run_hook(payload).returncode, 2)
+        write_sentinel(FX.wt1)
+        self.assertEqual(self.run_hook(payload).returncode, 0)
+
+    def test_a_long_single_line_body_is_parsed_in_linear_time(self) -> None:
+        """Every create reaches the word splitter, so a kilobyte-scale body —
+        ordinary for a pull request — must not cost seconds. As a shell loop it
+        was quadratic (4 KiB took 4s, 16 KiB about a minute) and a create for
+        this repository paid it before being gated at all."""
+        for size in (4096, 16384):
+            body = "word " * (size // 5)
+            for command, expected in (
+                    (f'gh pr create --title x --body "{body}"', 2),
+                    (f'gh pr create -R other/repo --title x --body "{body}"', 1)):
+                with self.subTest(size=size, expected=expected):
+                    sentinel_path(FX.wt1).unlink(missing_ok=True)
+                    started = time.monotonic()
+                    result = self.run_hook(bash_input(command, FX.wt1))
+                    self.assertEqual(result.returncode, expected, result.stderr)
+                    self.assertLess(time.monotonic() - started, 2.0)
+
+    def test_an_ordinary_multi_line_request_is_not_rescanned(self) -> None:
+        """Only a `\\` before a newline can make a joined reading differ, and
+        only from the line carrying it, so the per-line scan is limited to those
+        lines. Without the limit an 800-line heredoc paid `tail`, `tr` and
+        `grep` per line — 4.5s, against milliseconds now. A token split across
+        lines is still found, so the limit costs no detection."""
+        heredoc = ("cat <<'EOF' > out\n"
+                   + "\n".join(f"harmless line {n}" for n in range(800))
+                   + "\nEOF")
+        for command in (heredoc, heredoc + " \\\n  --more flags"):
+            with self.subTest(lines=len(command.splitlines())):
+                started = time.monotonic()
+                result = self.run_hook(bash_input(command, FX.wt1))
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertLess(time.monotonic() - started, 2.0)
+        # The scan still sees a create whose very first token is split.
+        self.assertEqual(
+            self.run_hook(bash_input("g\\\nh pr create --title x", FX.wt1)).returncode, 2)
+
+    def test_a_request_that_is_more_than_one_create_is_gated(self) -> None:
+        """The exemption needs the whole request to be one plain create. Each of
+        these also creates a pull request HERE, in text the splitting discards —
+        a second command, a subshell the start-anchored match skips, a
+        substitution `tr` moves to another line, a create swallowed by a
+        comment's backslash — so the request is gated and no target is read
+        out of what survived."""
+        local = "gh pr create --title local --body local"
+        for command in (f"{self.CREATE} -R other/repo && {self.CREATE}",
+                        f"{self.CREATE} -R other/repo && ({local})",
+                        f'{self.CREATE} -R other/repo &> "$({local})"',
+                        f"{self.CREATE} -R other/repo --body remote # note \\\n{local}"):
+            with self.subTest(command=command):
+                sentinel_path(FX.wt1).unlink(missing_ok=True)
+                self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 2)
+                write_sentinel(FX.wt1)
+                self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 0)
+
+    def test_a_flag_shaped_option_value_is_not_a_target(self) -> None:
+        """Words are read as `gh pr create`'s grammar, so each flag's value is
+        consumed rather than examined: a title that looks like `--repo` is a
+        title. Scanning for anything `-R`-shaped would exempt such a PR."""
+        for command in ("""gh pr create --title '--repo=other/repo' --body x""",
+                        """gh pr create --title '-Rother/repo'""",
+                        """gh pr create --body '--repo other/repo'""",
+                        """gh pr create -t '--repo=other/repo'"""):
+            with self.subTest(command=command):
+                payload = bash_input(command, FX.wt1)
+                sentinel_path(FX.wt1).unlink(missing_ok=True)
+                self.assertEqual(self.run_hook(payload).returncode, 2)
+                write_sentinel(FX.wt1)
+                self.assertEqual(self.run_hook(payload).returncode, 0)
+
+    def test_a_commented_out_target_is_not_a_target(self) -> None:
+        """An unquoted `#` starts a comment, as in the shell; a `#` inside a
+        word does not."""
+        for command in (f"{self.CREATE} --body y # --repo other/repo",
+                        f"{self.CREATE} #-R other/repo",
+                        f"{self.CREATE} --body 'fixes #49'"):
+            with self.subTest(command=command):
+                payload = bash_input(command, FX.wt1)
+                sentinel_path(FX.wt1).unlink(missing_ok=True)
+                self.assertEqual(self.run_hook(payload).returncode, 2)
+                write_sentinel(FX.wt1)
+                self.assertEqual(self.run_hook(payload).returncode, 0)
+
+    def test_a_flag_the_hook_does_not_know_gates_the_segment(self) -> None:
+        """Whether the word after an unknown flag is its value or a flag of its
+        own cannot be told, so the segment is gated — including when the
+        unknown flag follows the target. A newer `gh` flag therefore makes this
+        gate stricter, never looser."""
+        for command in (f"{self.CREATE} -R other/repo --brand-new-flag v",
+                        f"{self.CREATE} --brand-new-flag=v -R other/repo"):
+            with self.subTest(command=command):
+                self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 2)
+
+    def test_the_last_repository_flag_wins_as_it_does_in_gh(self) -> None:
+        """`gh` takes the last `-R`, so a trailing one naming this repository
+        must be gated however many foreign ones precede it."""
+        FX.git(FX.main, "remote", "add", "origin",
+               "https://github.com/SpineEventEngine/main.git")
+        self.addCleanup(FX.git, FX.main, "remote", "remove", "origin")
+        ours = f"{self.CREATE} -R other/repo -R SpineEventEngine/main"
+        self.assertEqual(self.run_hook(bash_input(ours, FX.wt1)).returncode, 2)
+        theirs = f"{self.CREATE} -R SpineEventEngine/main -R other/repo"
+        write_sentinel(FX.wt1)
+        result = self.run_hook(bash_input(theirs, FX.wt1))
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("other/repo", result.stderr.splitlines()[0])
+
+    def test_a_multi_line_create_is_gated_but_never_missed(self) -> None:
+        """The exemption needs the request to be one line that is one create, so
+        a continued create is gated rather than read across lines — the one rule
+        that makes every continuation subtlety moot. Detection still spans both
+        readings, so no create is missed: `gh pr \\` + `create` is found with
+        continuations removed, while a create that a comment's `\\`, or a `\\`
+        escaping itself, would swallow is found in the text as received."""
+        for command in (f"{self.CREATE} \\\n  -R other/repo",
+                        f"{self.CREATE} -R SpineEventEngine/ma\\\nin",
+                        "gh pr \\\ncreate --title x",
+                        "# note \\\ngh pr create --title local --body local",
+                        'printf "x\\\\"\ngh pr create --title local',
+                        # A comment's backslash and a real continuation
+                        # compose: neither the text as received nor the text
+                        # with every continuation removed holds a complete
+                        # `gh pr create`, but the shell runs one. Dropping
+                        # comments before joining is what sees it, and the two
+                        # cases above do not cover this one between them.
+                        "# note \\\ngh pr \\\ncreate --title local --body local",
+                        ": '\n' ; gh pr \\\ncreate --title local",
+                        # A `\` escaping another `\` ends the command too, so
+                        # the create that follows it is a command of its own.
+                        # Joining from every line in turn is what sees these:
+                        # no judgement about which line-endings continue.
+                        ": \\\\\ngh pr \\\ncreate --title local --body local",
+                        'printf "x\\\\"\ngh pr \\\ncreate --title local'):
+            with self.subTest(command=command):
+                sentinel_path(FX.wt1).unlink(missing_ok=True)
+                self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 2)
+                write_sentinel(FX.wt1)
+                self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 0)
+
+    def test_a_segment_the_shell_would_still_change_is_gated(self) -> None:
+        """A segment is exempted only when its text cannot change under anything
+        the shell does after the hook sees it. Each of these reads as a
+        cross-repository create but is not one: the expansion carries a second
+        `-R` naming this repository, the braces expand to two options with this
+        repository last, the substitution runs a create here first, and the
+        escaped separator left a fragment of a longer command whose final `-R`
+        is ours."""
+        for command in (
+                # Command and process substitution: the inner command runs first.
+                'gh pr create -R other/repo '
+                '--title "$(gh pr create --title local --body local)" --body remote',
+                "gh pr create -R other/repo --title `gh pr create -t x`",
+                "gh pr create -R other/repo --body-file <(gh pr view)",
+                # `extglob`: with it on and a matching path, `@(OWNER)/repo`
+                # expands to `OWNER/repo`, which may be this repository.
+                "gh pr create -R @(SpineEventEngine)/main --title x",
+                "gh pr create -R !(other)/main --title x",
+                # Expansions, scalar and array, holding another `-R`.
+                "gh pr create -R other/repo --title x $EXTRA",
+                'gh pr create -R other/repo --title x "${extra[@]}"',
+                # Brace expansion: two `-R` options, the local one last.
+                "gh pr create --title x -R{other/repo,SpineEventEngine/main}",
+                # A substitution whose contents merely look like a target.
+                "gh pr create --title x --body $(printf '%s' '--repo=other/repo')",
+                # `tr` split this at the escaped pipe; the rest of the real
+                # command, including a later `-R` of ours, is on no line here.
+                "gh pr create -R other/repo --title a\\|b --body x "
+                "-R SpineEventEngine/main",
+                # Redirection: the operand is a filename, not a target, and a
+                # here-string is stdin.
+                "gh pr create --title x --body y > -Rlog",
+                "gh pr create --title x <<< '--repo=other/repo'",
+                "gh pr create -R other/repo --title x 2>/dev/null"):
+            with self.subTest(command=command):
+                sentinel_path(FX.wt1).unlink(missing_ok=True)
+                self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 2)
+                write_sentinel(FX.wt1)
+                self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 0)
+
+    def test_a_flag_left_without_its_value_is_gated(self) -> None:
+        """`--repo ""` ends the segment with an empty word, which capturing the
+        words drops; the scanner would have answered with the earlier `-R` while
+        `gh` falls back to this repository. A value-taking flag still waiting
+        when the words run out means the segment was not understood."""
+        for command in (f'{self.CREATE} -R other/repo --body y --repo ""',
+                        f"{self.CREATE} -R other/repo --repo",
+                        f"{self.CREATE} -R other/repo --title"):
+            with self.subTest(command=command):
+                sentinel_path(FX.wt1).unlink(missing_ok=True)
+                self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 2)
+                write_sentinel(FX.wt1)
+                self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 0)
+
+    def test_an_in_word_continuation_is_removed_as_the_shell_removes_it(self) -> None:
+        """The shell drops the `\\` and the newline and joins the halves, so
+        `-R SpineEventEngine/ma\\` + `in` targets `SpineEventEngine/main`.
+        Replacing the pair with a space would read `SpineEventEngine/ma`,
+        match no remote, and exempt a pull request meant for this repository."""
+        FX.git(FX.main, "remote", "add", "origin",
+               "https://github.com/SpineEventEngine/main.git")
+        self.addCleanup(FX.git, FX.main, "remote", "remove", "origin")
+        command = f"{self.CREATE} -R SpineEventEngine/ma\\\nin"
+        self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 2)
+        write_sentinel(FX.wt1)
+        self.assertEqual(self.run_hook(bash_input(command, FX.wt1)).returncode, 0)
+
+    def test_an_unexpanded_target_is_gated_not_exempted(self) -> None:
+        """A target the shell has yet to expand is unknown, not different: read
+        literally it matches no remote, so exempting it would hand every
+        `-R "$REPO"` a free pass — including one naming this repository."""
+        for target in ('-R "$REPO"', "-R $(cat slug)", "--repo=$REPO", "-R repo*"):
+            with self.subTest(target=target):
+                payload = bash_input(f"{self.CREATE} {target}", FX.wt1)
+                sentinel_path(FX.wt1).unlink(missing_ok=True)
+                self.assertEqual(self.run_hook(payload).returncode, 2)
+                write_sentinel(FX.wt1)
+                self.assertEqual(self.run_hook(payload).returncode, 0)
+
+    def test_a_www_host_is_the_same_host(self) -> None:
+        """`gh` drops a leading `www.` before comparing hosts, so the two
+        spellings are one repository — whichever side carries the prefix. The
+        host is normalized after it is extracted, so a `HOST/OWNER/REPO`
+        target is normalized too, not only a URL."""
+        for remote, targets in (
+                ("https://www.github.com/SpineEventEngine/main.git",
+                 ("github.com/SpineEventEngine/main",
+                  "https://github.com/SpineEventEngine/main",
+                  "SpineEventEngine/main")),
+                ("https://github.com/SpineEventEngine/main.git",
+                 ("www.github.com/SpineEventEngine/main",
+                  "https://www.github.com/SpineEventEngine/main",
+                  "WWW.GitHub.com/SpineEventEngine/main"))):
+            FX.git(FX.main, "remote", "add", "origin", remote)
+            try:
+                for target in targets:
+                    with self.subTest(remote=remote, target=target):
+                        payload = bash_input(f"{self.CREATE} -R {target}", FX.wt1)
+                        sentinel_path(FX.wt1).unlink(missing_ok=True)
+                        self.assertEqual(self.run_hook(payload).returncode, 2)
+                        write_sentinel(FX.wt1)
+                        self.assertEqual(self.run_hook(payload).returncode, 0)
+            finally:
+                FX.git(FX.main, "remote", "remove", "origin")
+                sentinel_path(FX.wt1).unlink(missing_ok=True)
+
+    def test_a_rewritten_remote_is_matched_by_the_url_git_really_uses(self) -> None:
+        """`url.<base>.insteadOf` makes `gh:owner/repo` a github.com remote for
+        Git and `gh`. Reading the raw config value would record the host as
+        `gh` and read an explicit `github.com/owner/repo` as another
+        repository, exempting a PR `gh` opens in this one."""
+        FX.git(FX.main, "config", "url.https://github.com/.insteadOf", "gh:")
+        FX.git(FX.main, "remote", "add", "origin", "gh:SpineEventEngine/main.git")
+        self.addCleanup(FX.git, FX.main, "config", "--remove-section",
+                        "url.https://github.com/")
+        self.addCleanup(FX.git, FX.main, "remote", "remove", "origin")
+        for target in ("github.com/SpineEventEngine/main", "SpineEventEngine/main"):
+            with self.subTest(target=target):
+                payload = bash_input(f"{self.CREATE} -R {target}", FX.wt1)
+                sentinel_path(FX.wt1).unlink(missing_ok=True)
+                self.assertEqual(self.run_hook(payload).returncode, 2)
+                write_sentinel(FX.wt1)
+                self.assertEqual(self.run_hook(payload).returncode, 0)
+
+    def test_the_host_is_not_part_of_the_identity(self) -> None:
+        """`gh` canonicalizes hosts in ways this hook cannot replicate — an
+        `ssh.github.com:443` transport host, an SSH `HostName` alias, a `www.`
+        prefix — and each difference would make this repository look foreign and
+        buy an exemption. So only `owner/repo` is compared, whichever host
+        either side names; a same-named repository elsewhere is gated here
+        rather than exempted, the safe side for a gate guarding this
+        repository."""
+        for remote in ("https://github.com/SpineEventEngine/main.git",
+                       "ssh://git@ssh.github.com:443/SpineEventEngine/main.git",
+                       "git@github.com:SpineEventEngine/main.git"):
+            FX.git(FX.main, "remote", "add", "origin", remote)
+            try:
+                for target in ("SpineEventEngine/main",
+                               "github.com/SpineEventEngine/main",
+                               "ssh.github.com/SpineEventEngine/main",
+                               "enterprise.example/SpineEventEngine/main"):
+                    with self.subTest(remote=remote, target=target):
+                        payload = bash_input(f"{self.CREATE} -R {target}", FX.wt1)
+                        sentinel_path(FX.wt1).unlink(missing_ok=True)
+                        self.assertEqual(self.run_hook(payload).returncode, 2)
+                        write_sentinel(FX.wt1)
+                        self.assertEqual(self.run_hook(payload).returncode, 0)
+            finally:
+                FX.git(FX.main, "remote", "remove", "origin")
+                sentinel_path(FX.wt1).unlink(missing_ok=True)
+
+    def test_a_push_only_hosted_remote_is_this_repository(self) -> None:
+        """`gh` falls back to the push URL when the fetch URL names no hosted
+        repository, so a remote fetching from a local mirror and pushing to
+        GitHub is this repository to `gh`. Reading the fetch URL alone would
+        make its own pull request look foreign."""
+        FX.git(FX.main, "remote", "add", "origin", str(FX.base / "mirror" / "main.git"))
+        FX.git(FX.main, "remote", "set-url", "--push", "origin",
+               "git@github.com:SpineEventEngine/main.git")
+        self.addCleanup(FX.git, FX.main, "remote", "remove", "origin")
+        payload = bash_input(f"{self.CREATE} -R SpineEventEngine/main", FX.wt1)
+        self.assertEqual(self.run_hook(payload).returncode, 2)
+        write_sentinel(FX.wt1)
+        self.assertEqual(self.run_hook(payload).returncode, 0)
+        # `gh` reads `git remote -v` and identifies the repository by the LAST
+        # push URL, so a backup pushed to first must not hide it.
+        FX.git(FX.main, "remote", "set-url", "--push", "origin",
+               "git@backup.example:archive/main.git")
+        FX.git(FX.main, "remote", "set-url", "--push", "--add", "origin",
+               "git@github.com:SpineEventEngine/main.git")
+        sentinel_path(FX.wt1).unlink()
+        self.assertEqual(self.run_hook(payload).returncode, 2)
+        write_sentinel(FX.wt1)
+        self.assertEqual(self.run_hook(payload).returncode, 0)
+
+    def test_a_query_or_fragment_is_not_part_of_the_remote_identity(self) -> None:
+        """`gh` reads a URL's path only (`ghrepo.FromURL` through `net/url`), so
+        `…/main.git?mirror=1` is `SpineEventEngine/main` there. Keeping the
+        suffix here would make this repository look like another one and exempt
+        its own pull requests."""
+        payload = bash_input(f"{self.CREATE} -R SpineEventEngine/main", FX.wt1)
+        for remote in ("https://github.com/SpineEventEngine/main.git?mirror=1",
+                       "https://github.com/SpineEventEngine/main.git#mirror",
+                       "https://github.com/SpineEventEngine/main?mirror=1"):
+            FX.git(FX.main, "remote", "add", "origin", remote)
+            try:
+                with self.subTest(remote=remote):
+                    sentinel_path(FX.wt1).unlink(missing_ok=True)
+                    self.assertEqual(self.run_hook(payload).returncode, 2)
+                    write_sentinel(FX.wt1)
+                    self.assertEqual(self.run_hook(payload).returncode, 0)
+            finally:
+                FX.git(FX.main, "remote", "remove", "origin")
+                sentinel_path(FX.wt1).unlink(missing_ok=True)
+
+    def test_the_configured_default_repository_is_this_checkout(self) -> None:
+        """`gh repo set-default` records the repository `gh` works against in
+        `remote.<name>.gh-resolved`, and it need not be any remote's own: a fork
+        checkout can have `origin` at the fork and that key at the upstream. A
+        target naming it is this checkout's own default pull-request repository
+        and must be gated. `base` means the remote itself, already covered by
+        its URLs."""
+        FX.git(FX.main, "remote", "add", "origin",
+               "https://github.com/contributor/fork.git")
+        self.addCleanup(FX.git, FX.main, "remote", "remove", "origin")
+        FX.git(FX.main, "config", "remote.origin.gh-resolved", "SpineEventEngine/upstream")
+        self.addCleanup(FX.git, FX.main, "config", "--unset",
+                        "remote.origin.gh-resolved")
+        for target, expected in (("SpineEventEngine/upstream", 2),
+                                 ("contributor/fork", 2),
+                                 ("other/repo", 1)):
+            with self.subTest(target=target):
+                sentinel_path(FX.wt1).unlink(missing_ok=True)
+                payload = bash_input(f"{self.CREATE} -R {target}", FX.wt1)
+                self.assertEqual(self.run_hook(payload).returncode, expected)
+        # `base` names the remote itself, so the upstream slug is foreign again.
+        FX.git(FX.main, "config", "remote.origin.gh-resolved", "base")
+        write_sentinel(FX.wt1)
+        self.assertEqual(self.run_hook(bash_input(
+            f"{self.CREATE} -R contributor/fork", FX.wt1)).returncode, 0)
+        sentinel_path(FX.wt1).unlink()
+        self.assertEqual(self.run_hook(bash_input(
+            f"{self.CREATE} -R SpineEventEngine/upstream", FX.wt1)).returncode, 1)
+
+    def test_percent_encoding_on_either_side_withholds_the_exemption(self) -> None:
+        """`gh` decodes URL paths and this hook does not, so `%6dain` and `main`
+        are one repository there and two here. Neither side may carry encoding
+        for an exemption to be granted."""
+        FX.git(FX.main, "remote", "add", "origin",
+               "https://github.com/SpineEventEngine/main.git")
+        self.addCleanup(FX.git, FX.main, "remote", "remove", "origin")
+        encoded = f"{self.CREATE} -R https://github.com/SpineEventEngine/%6dain"
+        self.assertEqual(self.run_hook(bash_input(encoded, FX.wt1)).returncode, 2)
+        # The reverse: an encoded remote leaves this repository's identity
+        # unresolved, so even a genuinely foreign target earns no exemption.
+        FX.git(FX.main, "remote", "set-url", "origin",
+               "https://github.com/SpineEventEngine/%6dain")
+        foreign = f"{self.CREATE} -R other/repo"
+        self.assertEqual(self.run_hook(bash_input(foreign, FX.wt1)).returncode, 2)
 
 
 class SecretScanGateTest(HookTest):

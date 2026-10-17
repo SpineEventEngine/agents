@@ -1,0 +1,477 @@
+---
+slug: pre-pr-gate-cross-repo
+branch: gate-cross-repo-pr
+owner: claude
+status: in-review
+started: 2026-10-16
+related-memories: []
+---
+
+## Goal
+
+`pre-pr-gate.sh` must gate the repository the pull request is *for*. When
+`gh pr create` names another repository with `-R`/`--repo`, the session's
+`pre-pr.ok` says nothing about it, so the gate steps aside with a loud note
+instead of demanding an attestation that would be about the wrong repository.
+
+## Context
+
+Observed on 2026-10-16. A session whose work tree was a `compiler` worktree ran
+`gh pr create --base master --head advance-shared-agents-pin …` for a *`config`*
+pull request, and the gate demanded
+`/Users/sanders/Projects/Spine/compiler/.git/worktrees/recursing-wescoff-fcb09b/pre-pr.ok`.
+Satisfying that would have attested `compiler` for a `config` pull request — and
+the `config` checks could not meaningfully be run from `compiler` at all. The
+session created the pull requests with `gh api -X POST repos/<slug>/pulls`
+instead, a workaround that bypasses this gate for *every* repository.
+
+This is not the pre-`d0abf64` worktree bug: the `cwd` → work tree mapping worked
+exactly as intended and named the session's own worktree git dir. The blind spot
+is that the gate never looked at the command's target repository.
+
+Findings:
+
+- The sentinel is keyed to the *writer's* work tree: `/pre-pr` writes
+  `$(git rev-parse --absolute-git-dir)/pre-pr.ok` with `head=<full HEAD SHA>`
+  and `status=`, for the repository it ran in. Nothing in the file identifies a
+  repository, so it can only ever vouch for the tree it sits in.
+- Therefore the "resolve the slug to a local clone and gate that one" design
+  cannot be satisfied from this session: `/pre-pr` never writes repository B's
+  sentinel while the session is in A. It would block every cross-repo pull
+  request, and the escape hatch agents already know is `gh api`, which is worse
+  than an unverified `gh pr create` — it bypasses the gate for the session's own
+  repository too.
+- `exit 0` cannot carry a warning: stderr from a hook that exits 0 is never
+  shown. `publish-version-gate.sh` already set the precedent for "cannot gate
+  this" — exit 1, a non-blocking error whose **first stderr line** reaches the
+  transcript while the command proceeds.
+
+## Plan
+
+- [x] Keep the first command segment that *starts* with `gh pr create` (the
+      existing `;`/`&`/`|` split and the start-anchored match are unchanged, so
+      `echo "gh pr create …"` stays ignored) instead of only counting it.
+- [x] Read `-R`/`--repo` out of that segment in all four spellings
+      (`-R x`, `--repo x`, `-R=x`, `--repo=x`) by word-splitting it with
+      globbing off — never `eval`, so nothing in the command text expands or
+      runs.
+- [x] Compare the target with the `owner/repo` of *every* remote of the session
+      work tree, folded case-insensitively through scheme/host/`.git` forms, so
+      `-R upstream/repo` from a fork still gates the session's own checks.
+- [x] On a different target: print `pre-PR checks NOT verified for <target>` as
+      the first stderr line, naming the session's work tree, and exit 1.
+- [x] No explicit target — including `--head owner:branch` — gates exactly as
+      before.
+- [x] Tests in `scripts/tests/test_hooks.py`: all four spellings plus a quoted
+      value (with and without a session sentinel, exit 1 either way), the
+      session's own repository named explicitly in three spellings (allow with
+      sentinel, block without), a fork head, and `echo "gh pr create -R …"`
+      still ignored.
+- [x] `python3 -m unittest discover -s scripts/tests` — 52 tests, all pass.
+
+## Review round 1 (Codex on #49, commit `144e9d0`)
+
+Three findings, all real; the first two were bypasses introduced by the first
+cut of the parser, which is why the fail-open branch is now reached only through
+conservative parsing.
+
+- [x] **P1 — quoting.** `set -- $1` re-split raw source text, so
+      `gh pr create --title 'Document --repo behavior'` surfaced `--repo` as a
+      flag and a *local* PR skipped its sentinel. Replaced with `tokenize()`, a
+      character-wise splitter that honours single quotes, double quotes and
+      backslashes and still evaluates nothing. A segment it cannot read — an
+      unterminated quote, which the `;&|` split itself can produce out of
+      `--title "a|b"` — is gated, never read as naming another repository.
+- [x] **P1 — attached shorthand.** `gh pr` accepts `-Rowner/repo` (verified:
+      `gh pr list -RSpineEventEngine/agents` works on gh 2.102.0, and `-R=slug`
+      too). Added the `-R?*` form. Missing it only ever failed closed, but it
+      left the original defect in place for that spelling.
+- [x] **P1 — only the first segment.** `gh pr create -R other/repo &&
+      gh pr create` classified just the first segment and exited 1, running the
+      second, ungated create. Every creating segment is now classified: no
+      explicit target, our own repository, or an unreadable segment ⇒ gate here;
+      the gate steps aside only when no segment creates a PR in this repository.
+      When it does gate and another target is also named, the note is printed
+      after the sentinel passes — the only exit that can still carry it.
+- [x] **P2 — host.** `gh` takes `[HOST/]OWNER/REPO`, so `slug_of` dropping the
+      host made `enterprise.example/acme/app` equal to a github.com
+      `acme/app`. `identity_of` now yields `host/owner/repo`; a target with no
+      host compares bare, as `gh` resolves it against this repository's host.
+- [x] Four more test cases (quoted values, unsplittable segment, local-beside-
+      cross-repo, another host) and the `-Rother/repo` and `HOST/OWNER/REPO`
+      spellings folded into the existing ones.
+- [x] `python3 -m unittest discover -s scripts/tests` — 56 tests, all pass.
+
+Copilot reported the same two P1s independently, plus one more:
+
+- [x] **P2 — unexpanded target.** `-R "$REPO"` reaches the hook as the literal
+      `$REPO` (nothing here expands it, by design). Compared literally it
+      matches no remote, so it bought an exemption — even when `$REPO` *is* this
+      repository. Such a target is now unknown rather than different and is
+      gated: `$`, a backtick, a glob character or a leading `~` in the target
+      sends the segment down the gating path.
+- [x] `python3 -m unittest discover -s scripts/tests` — 57 tests, all pass.
+
+## Review round 2 (Copilot on #49, commit `c14a7b7`)
+
+Three more, two of them bypasses the tokenizer had not closed. The lesson the
+round makes explicit: a *token scan* can never be safe, because any option
+value can be made to look like `-R`. The exemption now requires understanding
+the whole segment as `gh pr create`'s grammar.
+
+- [x] **Flag-shaped option values.** `--title '--repo=other/repo'` was read as a
+      target, so a PR *here* skipped its sentinel. The scanner now consumes each
+      known flag's value instead of examining it, from two lists (value-taking
+      and boolean). A flag in neither is ambiguous — the next word may be its
+      value or a flag — and gates the segment, so a `gh` flag newer than this
+      hook makes the gate stricter, never looser.
+- [x] **Shell comments.** `… --body y # --repo other/repo` had the commented-out
+      target read as real. `tokenize()` now ends the segment at an unquoted `#`
+      that starts a word, as the shell does; `fixes #49` stays a word.
+- [x] **Line continuations.** A `\` at end of line left the `-R` on a line the
+      line-wise `grep` dropped, so the gate demanded this repository's sentinel
+      for someone else's PR. Continuations are joined before the split; a bare
+      newline stays a separator.
+- [x] Found while fixing the above, not reported: the scanner returned at the
+      first `-R`, so neither an unknown flag after the target nor a **repeated**
+      `-R` was seen — and `gh` takes the *last* `-R` (verified with
+      `gh pr list -R SpineEventEngine/agents -R cli/cli`, which lists cli/cli).
+      `-R other/repo -R <ours>` would therefore have been exempted while `gh`
+      opened the PR here. The whole segment is now read, last `-R` wins.
+- [x] Five more test cases; `python3 -m unittest discover -s scripts/tests` —
+      62 tests, all pass.
+- [x] **Nested create in command substitution.** Reported against `c14a7b7`:
+      `-R other/repo --title "$(gh pr create --title local …)"` runs the inner
+      create — in *this* repository — before the outer one goes elsewhere, and
+      only the outer command is on the line. A segment carrying `$(`, a
+      backtick, `<(` or `>(` is now gated; nothing is evaluated to find out what
+      it would do. The repeated-`-R` finding from the same round was already
+      fixed above, found independently. 63 tests, all pass.
+
+## Review round 3 (Copilot on #49, commit `df0f506`) — approach changed
+
+Four more divergences between the hand-written parsing and the shell:
+`-R Spine/ma\` + `in` (an in-word continuation the shell joins, where joining
+with a space read `Spine/ma`), `--title a\|b` (split at the escaped pipe,
+leaving `… --title a\` that read as a whole command while the real one ended
+with a local `-R`), `$EXTRA` or `"${extra[@]}"` carrying a second `-R`, and
+`-R{other/repo,ours}` expanding to two options with ours last.
+
+Each was a fix in itself, but five rounds of the same shape settled the
+approach: enumerating dangerous syntax is only as good as one's knowledge of
+the shell, and this is the one path in the hook that fails open. The burden is
+inverted now — a segment is exempted only when its text **cannot change** under
+anything the shell does after the hook sees it.
+
+- [x] Continuations are removed as the shell removes them: the `\` and the
+      newline, nothing in their place. This is also what makes an in-word
+      continuation read as the one word the shell builds.
+- [x] Everything else that could change the text gates the segment, before any
+      parsing: `$`, a backtick, `{`, `}`, `*`, `?`, `[`, `]`, `~`, `<(`, `>(`,
+      and any `\` still left once continuations are gone (which means the
+      `;&|` split cut an escaped separator and left a fragment).
+- [x] The two narrower guards this subsumes — substitution in the segment, an
+      unexpanded target — are gone; one check in front of the parser replaces
+      them.
+- [x] The cost is stated in the header: a cross-repository create carrying any
+      of that syntax needs this repository's sentinel, which is the behaviour
+      that predates the whole change. The exemption never rests on text whose
+      meaning the hook had to guess.
+- [x] `python3 -m unittest discover -s scripts/tests` — 64 tests, all pass.
+
+## Review round 4 (Copilot on #49, commit `df0f506`)
+
+Three findings, reported against the commit before the inverted rule landed.
+The brace-expansion one (`-RSpineEventEngine/{ag,agents}`) was already closed by
+`4f73d5c`, verified rather than assumed. Two were live on the new rule:
+
+- [x] **Redirection.** `> -Rlog` had its *filename* read as a target, and
+      `<<< '--repo=other/repo'` its stdin. `<` and `>` join the gating set,
+      which makes the earlier `<(`/`>(` entries redundant.
+- [x] **A flag left without its value.** `--repo ""` ends the segment with an
+      empty word, and capturing the tokenizer's output drops trailing newlines,
+      so the scanner stopped waiting and answered with the *earlier* `-R` —
+      while `gh` falls back to this repository for an empty override. A
+      value-taking flag still waiting when the words run out now means the
+      segment was not understood, so it earns no exemption.
+- [x] `python3 -m unittest discover -s scripts/tests` — 65 tests, all pass.
+
+## Review round 5 (Copilot on #49, commit `ca803a0`) — scope of the decision
+
+Two findings, both structural rather than another missing character, and they
+name the real flaw: the exemption was decided from the fragments that *survived*
+`tr` and the start-anchored `grep`, while the text those discard was never
+examined. Each kind of discarded text could hide a create that ran here:
+
+- `… -R other/repo … # note \` + `gh pr create --title local` — a `\` inside a
+  comment does not continue the line in the shell, but removing every
+  `\`-newline pair joined the local create into the comment, erasing it.
+- `… -R other/repo … && (gh pr create …)` — the second segment starts with `(`,
+  which the deliberately start-anchored match skips.
+- `… -R other/repo … &> "$(gh pr create …)"` — `tr` splits at `&`, so the
+  substitution lands on a line of its own and the matched segment looks plain.
+
+- [x] The exemption is now decided from the **whole request**, which must be one
+      plain `gh pr create` and nothing else: one non-blank piece after splitting
+      on `;&|` and newlines, carrying none of `$`, backtick, `{`, `}`, `*`, `?`,
+      `[`, `]`, `~`, `<`, `>`, `#` or a leftover `\`. Anything more is gated as
+      usual, so no decision rests on text the hook discarded.
+- [x] This *removed* code rather than adding a guard: the per-segment loop, the
+      cross-target accumulation and the trailing note are gone (31 insertions,
+      45 deletions). A mixed request is no longer parsed for a target at all, so
+      it is gated silently instead of gated-with-a-note — the hook makes no
+      claim about text it did not account for.
+- [x] Checked that the realistic cross-repo create still earns the exemption:
+      `gh pr create -R owner/repo --base master --head b --title "…" --body "…"`,
+      and a continued one. A body carrying `$`, a backtick or `#` now needs this
+      repository's sentinel — the documented trade-off.
+- [x] `python3 -m unittest discover -s scripts/tests` — 65 tests, all pass.
+
+## Review round 6 (Copilot on #49) — host aliases
+
+Summary-only, no open issues, but it raised one previously missed point in the
+body: `gh` drops a leading `www.` before comparing hosts (`ghrepo`'s
+`normalizeHostname`) while `identity_of` kept it, so a `www.github.com` remote
+and a bare `github.com/owner/repo` target read as two repositories — exempting
+a pull request `gh` opens in this one.
+
+- [x] Verified rather than assumed: `gh pr list -R www.github.com/<slug>` lists
+      that repository's pull requests.
+- [x] `identity_of` strips a leading `www.` from the host, case-insensitively.
+- [x] `python3 -m unittest discover -s scripts/tests` — 66 tests, all pass.
+
+## Review round 7 (Copilot on #49, commit `42a40f0`)
+
+Both items valid; the first is a flaw in round 6's own fix.
+
+- [x] **Normalization order.** The `www.` strip ran *before* the
+      `HOST/OWNER/REPO` branch that assigns the host, so it normalized a host
+      taken from a URL but not one taken from the argument itself:
+      `-R www.github.com/owner/repo` against a plain github.com remote still
+      read as another repository. The host is normalized last now, however it
+      was found, and the test covers both directions — round 6's covered only
+      the `www.` remote.
+- [x] **`insteadOf` rewriting.** `git config --get remote.<name>.url` returns
+      the raw value, so with `url.https://github.com/.insteadOf=gh:` and a
+      remote of `gh:owner/repo` this recorded the host as `gh` while Git and
+      `gh` use github.com — and an explicit `-R github.com/owner/repo` read as
+      foreign. Verified both commands in a throwaway repository: `get-url`
+      prints the rewritten URL, `config --get` the raw one. `get-url` is used
+      now, with `config --get` kept as the fallback for Git < 2.13 (noted as a
+      residual gap there).
+- [x] Also fixed while there, unreported: a remote whose URL could not be read
+      was skipped, leaving this repository's identity incomplete so that a
+      target naming it would look foreign — fail-open. Such a failure now
+      blocks any exemption.
+- [x] `python3 -m unittest discover -s scripts/tests` — 67 tests, all pass.
+
+## Review round 8 (Copilot on #49, commit `7a8e887`)
+
+Four findings. The first is the worst defect of the whole task, and it was mine:
+
+- [x] **Detection lost to the continuation join.** A `\` at the end of a
+      *comment* does not continue the line in the shell, nor does one escaping
+      another `\`. Removing every `\`-newline pair therefore joined a real
+      create into the comment — `# note \` + `gh pr create --title local` left
+      nothing starting with `gh pr create`, so the hook **exited 0 and gated
+      nothing at all**. Verified: it returned 0 before the fix, 2 after.
+      Detection now searches both readings, as received and with continuations
+      removed, and gates on a create found in either: detection must be wide,
+      only the exemption must be narrow.
+- [x] **One line, one create.** With detection widened, the exemption no longer
+      reasons about continuations at all: the request must be, as received, one
+      line that is one plain create. A continued create is gated. This makes
+      the whole class of continuation subtleties moot rather than answering
+      them one at a time, and `%` joins the characters that withhold it.
+- [x] **The host is out of the identity.** `gh` canonicalizes hosts in ways this
+      hook cannot replicate — `ssh.github.com:443` → `github.com`, `HostName`
+      aliases from the user's SSH config, `www.` — and *each* difference makes
+      this repository look foreign, which is the dangerous direction. Only
+      `owner/repo` is compared now, so all of those fold together and
+      `identity_of` collapses back to `slug_of`. The cost, stated in the
+      script: a same-named repository on another host is gated here rather than
+      exempted, reversing round 4's P2 in the conservative direction.
+- [x] **Push URLs count.** `gh` falls back to the push URL when the fetch URL
+      names no hosted repository, so a remote fetching from a local mirror and
+      pushing to GitHub *is* this repository to `gh`. Both URLs of every remote
+      are collected now.
+- [x] **Percent-encoding.** `gh` decodes URL paths; this hook does not. Encoding
+      on either side — in the target or in a remote URL — withholds the
+      exemption rather than being decoded here.
+- [x] `python3 -m unittest discover -s scripts/tests` — 69 tests, all pass. Two
+      existing tests changed expectation by design: a continued create and a
+      same-name-other-host target are now gated.
+
+## Review round 9 (Copilot on #49, commit `8992e80`)
+
+Two remote-identity gaps, both verified in a throwaway repository first.
+
+- [x] **Only the first push URL was read.** `git remote get-url --push` returns
+      one URL, while a remote may carry several and `gh` identifies the
+      repository by the *last* (it reads `git remote -v`). Confirmed: with
+      `pushurl` to `backup.example` and then to GitHub, `--push` printed the
+      backup, `--push --all` printed both. Every URL of every remote is
+      collected now, fetch and push, via `--all` (with `config --get-all` as
+      the Git < 2.7 fallback). Since only `owner/repo` is compared, more URLs
+      can only ever add gating, never an exemption.
+- [x] **A query or fragment stayed in the identity.** `gh` reads a URL's path
+      only (`ghrepo.FromURL` through `net/url`), so
+      `…/main.git?mirror=1` is `owner/main` there while `slug_of` kept the
+      suffix — making this repository look like another one and exempting its
+      own pull requests. Both are stripped now, which is what `gh` does, rather
+      than withholding the exemption.
+- [x] Corrected a stale comment: `git remote get-url` arrived in Git 2.7, not
+      2.13 (2.13 is the `--absolute-git-dir` threshold used further down).
+- [x] `python3 -m unittest discover -s scripts/tests` — 70 tests, all pass.
+
+## Review round 10 (Copilot on #49, commit `44eaf8f`)
+
+One finding, a composition of the two continuation cases that defeats both
+readings at once:
+
+    # note \
+    gh pr \
+    create --title local --body local
+
+The shell ends the comment at the newline and continues line two into line
+three, so the create runs. Read as received, no line starts with
+`gh pr create`; read with every continuation removed, all three lines fold into
+the comment. Verified: the hook returned **0** — no gate at all — and 2 after
+the fix.
+
+- [x] A third detection reading: each line's `#` to its end is dropped *before*
+      continuations are removed, which leaves `gh pr create …` in view. The `#`
+      is dropped whether or not it is quoted, because over-dropping can only
+      add a match — a detection that matches too much merely gates, while one
+      that matches too little gates nothing.
+- [x] Also covered a variant the report did not raise, found while testing: a
+      single-quoted newline (`: '\n' ; gh pr \` + `create …`).
+- [x] `python3 -m unittest discover -s scripts/tests` — 70 tests, all pass.
+
+## Review round 11 (Copilot on #49, commit `483c706`)
+
+One finding, the same shape as round 10 but with an escaped backslash ending
+the first command instead of a comment:
+
+    : \\
+    gh pr \
+    create --title local --body local
+
+`\\` is a literal backslash, so the line does not continue; the shell runs the
+create. Verified: the hook returned **0**. All three readings glued the create
+onto `:`.
+
+- [x] Instead of a fourth special reading, the readings are replaced by one
+      general rule: a create is detected when it **starts** a segment of the
+      command as received, or of the text from **any one line onward** with
+      continuations removed. What defeats detection is always what *precedes*
+      the create, and starting the join at each line in turn needs no judgement
+      about which line-endings continue.
+- [x] That subsumes the joined reading and the comment-stripping pass added in
+      round 10, both of which are gone: the fix removes code and is strictly
+      stronger. The loop runs only for a multi-line command in which the plain
+      reading found nothing, so the common path is unchanged.
+- [x] Regressions for the escaped-backslash composition and its `printf`
+      variant, alongside the round-10 cases. 70 tests, all pass.
+
+## Review round 12 (Copilot on #49, commit `608e60a`)
+
+A performance finding, and correct: the per-line scan added by round 11 ran for
+every multi-line request with no detected create. Measured here before the fix:
+**4.5s** for an 800-line heredoc, which an agent pays on an unrelated tool call.
+
+- [x] The scan is limited to the lines that can matter. Only a `\` standing
+      immediately before a newline makes a joined reading differ from the plain
+      one, and only from the line carrying it: with no such pair every suffix
+      reads as the plain reading already read it, and a line not ending in `\`
+      glues nothing onto itself. 4.5s → 0.035s; a create whose first token is
+      split (`g\` + `h pr create`) is still detected, so the limit costs no
+      detection.
+- [x] Caught while verifying, before committing: writing the pair as
+      `${suffix//$continuation/}` broke detection. Unquoted, the pattern's `\`
+      escapes the newline, so only the newline was removed and the text read
+      `gh pr \create`. Quoting the pattern fixes it; `bash -x` on the failing
+      input is what found it, not the test suite, which had no case for that
+      spelling. A test now covers the split-token form.
+- [x] A test asserts the 800-line request stays well under two seconds, so the
+      cost cannot creep back.
+- [x] `python3 -m unittest discover -s scripts/tests` — 71 tests, all pass.
+
+## Review round 13 (Copilot on #49, commit `a3f1b00`)
+
+A second performance finding, in the word splitter this time, and correct.
+
+- [x] The shell-loop tokenizer was quadratic: every character copied the rest
+      of the segment through `${rest#?}`. Measured here: 4 KiB took 4s, 16 KiB
+      about a minute — and since every create reaches the splitter, a create
+      for *this* repository paid it before being gated anyway. Pull request
+      bodies are routinely kilobytes, so this was a real cost on ordinary work.
+- [x] Rewritten as a single `awk` pass that walks the text by index: 4 KiB
+      0.141s, 16 KiB 0.165s. `awk` is already required further down for reading
+      the sentinel, so no new dependency, and it still evaluates nothing. The
+      shell-loop version's behaviour is unchanged — the suite covers quoting,
+      escapes, comments, flag-shaped values and unterminated quotes, and all of
+      it passes, plus the edge cases probed by hand.
+- [x] A timing test on 4 KiB and 16 KiB bodies, for both a local and a
+      cross-repository create, since the heredoc test from round 12 never
+      reaches the splitter.
+- [x] `python3 -m unittest discover -s scripts/tests` — 72 tests, all pass.
+
+## Review round 14 (Copilot on #49, commit `2d39d5b`)
+
+One finding, verified before acting: `gh repo set-default` records the
+repository `gh` works against in `remote.<name>.gh-resolved`, and it need not be
+any remote's own. In a throwaway repository with `origin` at
+`contributor/fork` and that key set to `upstream/project` — no upstream remote —
+`gh repo set-default --view` reported `upstream/project`. So `-R upstream/project`
+there names the checkout's own default pull-request repository, and the identity
+list, built from remote URLs alone, exempted it.
+
+- [x] Non-`base` `gh-resolved` values join the identities, with the same
+      percent-encoding guard. `base` means the remote itself, which its URLs
+      already cover.
+- [x] Regression with only a fork remote plus the configured upstream default,
+      covering the fork slug, the upstream slug, a genuinely foreign one, and
+      the `base` spelling.
+- [x] `python3 -m unittest discover -s scripts/tests` — 73 tests, all pass.
+
+## Review round 15 (Copilot on #49, commit `36f4b6e`)
+
+One P2, and the premise checks out: with `extglob` enabled and a matching path,
+`@(OWNER)/repo` is a glob that expands to `OWNER/repo` — confirmed with
+`bash -O extglob -c 'echo @(Spine)/agents'`, which printed `Spine/agents`. The
+hook compared the literal `@(…)` text, so such a target read as another
+repository and was exempted even when it expands to this one.
+
+- [x] `(` and `)` join the characters that withhold the exemption, which is
+      exactly the rule from round 5 — the line must carry nothing the shell
+      would still change — applied to a form it had missed. `!(…)` and `+(…)`
+      fall under the same guard.
+- [x] Low exploitability (extglob is off by default in non-interactive shells,
+      and the expansion needs a matching path), but the cost of the guard is
+      only that a cross-repository create whose text contains parentheses needs
+      this repository's sentinel.
+- [x] Regressions for `@(…)` and `!(…)` in the gated-syntax family.
+- [x] `python3 -m unittest discover -s scripts/tests` — 73 tests, all pass.
+
+## Note for the reviewer of this PR
+
+The original defect — a `compiler` sentinel demanded for a `config` pull request
+— is fixed by the first commit. Everything after it hardens the fail-open path
+that design (b) introduces, across five review rounds. If that surface is not
+wanted in a hook that ships organisation-wide, the alternative is to drop the
+exemption and simply **block** a `gh pr create` that names another repository,
+telling the agent to run /pre-pr in that repository's own session: it needs only
+the detection of `-R`, not the understanding of it. That is a maintainer's call,
+not this task's.
+
+## Follow-ups
+
+- `gh pr create` in a *subdirectory* of another checkout (`cd ../config &&
+  gh pr create` with no `-R`) is still gated against the session's repository.
+  The hook payload's `cwd` is the session's work tree, so the gate cannot see
+  the `cd`; only an explicit target is visible. Left alone deliberately —
+  guessing a repository out of a `cd` in command text is worse than gating the
+  session's own.
+- Consumers pinning `.agents/shared` below this commit keep the old behaviour
+  until their pin moves.
