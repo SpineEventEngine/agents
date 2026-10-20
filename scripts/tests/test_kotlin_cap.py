@@ -707,6 +707,45 @@ class KotlinCapTest(unittest.TestCase):
             f"<scope>import</scope></dependency></dependencies></dependencyManagement>{stdlib}"))
         self.assertEqual(self.requirement(gav)[0], [f"{gav} requirement=none"])
 
+    def test_a_librarys_kotlin_bom_import_counts_only_through_its_dependencies(self) -> None:
+        gav = "com.example:java-with-kotlin-tests:1.0"
+        self.publish(gav, "pom", pom(
+            "<dependencyManagement><dependencies><dependency>"
+            "<groupId>org.jetbrains.kotlin</groupId><artifactId>kotlin-bom</artifactId>"
+            "<version>2.5.0</version><type>pom</type><scope>import</scope>"
+            "</dependency></dependencies></dependencyManagement>"
+            "<dependencies><dependency><groupId>org.jetbrains.kotlin</groupId>"
+            "<artifactId>kotlin-test</artifactId><scope>test</scope></dependency>"
+            "</dependencies>"))
+        self.assertEqual(self.requirement("--cap", "2.4.10", gav),
+                         ([f"{gav} requirement=none verdict=within-cap"], 0))
+        self.assertEqual(self.requirement("--cap", "2.4.10", "--platform", gav),
+                         ([f"{gav} requirement=2.5.0 verdict=above-cap"], 1))
+
+    def test_an_imported_scope_default_applies_to_a_versioned_dependency(self) -> None:
+        self.publish("com.example:test-scope-default-bom:1.0", "pom", pom(
+            "<dependencyManagement><dependencies><dependency>"
+            "<groupId>org.jetbrains.kotlin</groupId><artifactId>kotlin-stdlib</artifactId>"
+            "<version>2.5.0</version><scope>test</scope></dependency>"
+            "</dependencies></dependencyManagement>"))
+        management = ("<dependencyManagement><dependencies><dependency>"
+                      "<groupId>com.example</groupId>"
+                      "<artifactId>test-scope-default-bom</artifactId>"
+                      "<version>1.0</version><type>pom</type><scope>import</scope>"
+                      "</dependency></dependencies></dependencyManagement>")
+        for name, scope, expected in (("defaulted", "", ("none", "within-cap", 0)),
+                                      ("compile", "<scope>compile</scope>",
+                                       ("2.5.0", "above-cap", 1))):
+            with self.subTest(name):
+                gav = f"com.example:versioned-{name}:1.0"
+                self.publish(gav, "pom", pom(
+                    management + "<dependencies><dependency><groupId>org.jetbrains.kotlin"
+                    "</groupId><artifactId>kotlin-stdlib</artifactId><version>2.5.0</version>"
+                    f"{scope}</dependency></dependencies>"))
+                shown, verdict, code = expected
+                self.assertEqual(self.requirement("--cap", "2.4.10", gav),
+                                 ([f"{gav} requirement={shown} verdict={verdict}"], code))
+
     def test_a_childs_import_beats_its_parents(self) -> None:
         older, newer = self.stdlib_bom("child-bom", "2.4.0"), self.stdlib_bom("parent-bom", "2.5.0")
         self.publish("com.example:importing-parent:1", "pom", pom(

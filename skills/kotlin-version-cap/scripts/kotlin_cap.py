@@ -413,6 +413,9 @@ class PomReading:
     # The scope and `optional` flag each of its Kotlin dependencies declares
     # itself; an imported BOM's entry only fills in what these leave out.
     own_fields: dict[str, dict[str, str | None]]
+    # Versioned Kotlin dependencies an imported BOM's scope or `optional`
+    # default may still keep from consumers, as `(module, version)` pairs.
+    provisional: list[tuple[str, str]]
 
 
 def pom_versions(text: bytes, as_platform: bool = False,
@@ -471,7 +474,10 @@ def pom_versions(text: bytes, as_platform: bool = False,
     # optional dependencies stay with the library.
     managed = merge(chain, "dependencyManagement/dependencies/dependency", properties)
     defaults = {identity(entry): entry for entry in managed}
-    declared, others, own_fields = [], [], {}
+    # Kotlin modules the POM manages itself; their entries beat any import's.
+    inline = {entry["artifactId"] for entry in managed
+              if kotlin_identity(entry) and entry.get("scope") != "import"}
+    declared, others, own_fields = [], [], {}  # declared: (module, version, is_dependency)
     for entry in merge(chain, "dependencies/dependency", properties):
         default = defaults.get(identity(entry), {})
         for field in ("version", "scope", "optional"):
@@ -488,7 +494,7 @@ def pom_versions(text: bytes, as_platform: bool = False,
             coordinates = f"{entry.get('groupId')}:{entry.get('artifactId')}"
             problems.append(f"unresolved-dependency:{coordinates}")
             continue
-        declared.append((entry["artifactId"], entry.get("version")))
+        declared.append((entry["artifactId"], entry.get("version"), True))
         own_fields[entry["artifactId"]] = {"scope": entry.get("scope"),
                                            "optional": entry.get("optional")}
     imports, explicit = [], {}
@@ -500,9 +506,14 @@ def pom_versions(text: bytes, as_platform: bool = False,
                 problems.append(f"unresolved-bom:{coordinates}")
             elif kotlin:
                 if entry["artifactId"] == "kotlin-bom":
-                    declared.append(("kotlin-bom", entry.get("version")))
-                    if concrete(entry.get("version")):
-                        imports.append(f"{KOTLIN_BOM}:{concrete(entry.get('version'))}")
+                    version = concrete(entry.get("version"))
+                    if version:
+                        imports.append(f"{KOTLIN_BOM}:{version}")
+                    # A library's own Kotlin BOM import stays with it; it counts only
+                    # through the dependencies it versions. Read as a platform, or
+                    # left unresolved, it counts itself.
+                    if as_platform or not version:
+                        declared.append(("kotlin-bom", entry.get("version"), False))
             elif concrete(entry.get("version")):
                 follow.append((f"{coordinates}:{concrete(entry.get('version'))}", True))
                 imports.append(follow[-1][0])
@@ -512,12 +523,14 @@ def pom_versions(text: bytes, as_platform: bool = False,
             if entry.get("version"):
                 explicit[entry["artifactId"]] = entry
             if as_platform:
-                declared.append((entry["artifactId"], entry.get("version")))
+                declared.append((entry["artifactId"], entry.get("version"), False))
         elif as_platform and kotlin is None:
             problems.append(f"unresolved-managed:{coordinates}")  # may manage a Kotlin module
-    has_bom = any(artifact == "kotlin-bom" and version for artifact, version in declared)
-    versions, pending = [], []
-    for artifact, version in declared:
+    # Only a platform passes its Kotlin BOM's alignment on to consumers.
+    has_bom = as_platform and any(artifact == "kotlin-bom" and version
+                                  for artifact, version, _ in declared)
+    versions, pending, provisional = [], [], []
+    for artifact, version, dependency in declared:
         if version is None:
             # An imported BOM may manage it; that is known only once the BOMs are
             # read, in import order.
@@ -529,10 +542,13 @@ def pom_versions(text: bytes, as_platform: bool = False,
         resolved = resolve(version, properties)
         if resolved is None or not is_concrete(resolved):
             problems.append(f"unresolved-{artifact}-version:{version}")
+        elif (dependency and imports and artifact not in inline
+              and None in own_fields[artifact].values()):
+            provisional.append((artifact, resolved))  # an imported default may drop it
         else:
             versions.append((artifact, resolved))
     return PomReading(versions, problems, others, follow, pending, has_bom, imports, explicit,
-                      own_fields)
+                      own_fields, provisional)
 
 
 def module_versions(text: bytes):
@@ -639,7 +655,7 @@ def lookup(gav: str, as_platform: bool = False, path: frozenset = frozenset(),
     try:
         pom = pom_versions(pom_text, as_platform, (group, artifact, version))
     except (ET.ParseError, ValueError, LookupError):  # malformed, or a bad encoding
-        pom = PomReading([], ["unparsable-pom"], [], [], [], False, [], {}, {})
+        pom = PomReading([], ["unparsable-pom"], [], [], [], False, [], {}, {}, [])
     versions, problems, others = pom.versions, pom.problems, pom.others
     follow, pending, aligns = pom.follow, list(pom.pending), pom.aligns
     if artifact.endswith(".gradle.plugin"):
@@ -680,6 +696,11 @@ def lookup(gav: str, as_platform: bool = False, path: frozenset = frozenset(),
         problems += [f"{target.split(':')[1]}:{problem}" for problem in target_problems]
         aligns = aligns or target_aligns  # what a module points to reaches its consumers
     versions += imported(answers, pom_only, pom, as_platform)
+    for module, found_version in pom.provisional:
+        entry = next((entry for entry in (managed_entry(bom, module) for bom in pom.imports)
+                      if entry), {})
+        if transitive(pom.own_fields.get(module, {}), entry):
+            versions.append((module, found_version))
     # A pending versionless dependency is settled only by a platform that resolves
     # that very module, or that imports `kotlin-bom`, which aligns them all.
     for module, platforms in pending:
@@ -693,6 +714,17 @@ def lookup(gav: str, as_platform: bool = False, path: frozenset = frozenset(),
             modules[module] = found_version
     done[key] = (modules, problems, aligns)
     return done[key]
+
+
+def transitive(own: dict, entry: dict) -> bool:
+    """Tells whether a dependency reaches consumers.
+
+    Its own scope and `optional` flag win; a managed entry only fills in what
+    they leave out.
+    """
+    scope = own.get("scope") or entry.get("scope")
+    optional = own.get("optional") or entry.get("optional")
+    return scope not in NON_TRANSITIVE_SCOPES and optional != "true"
 
 
 def managed_entry(bom: str, module: str, path: frozenset = frozenset()) -> dict | None:
@@ -750,14 +782,9 @@ def imported(answers: dict[str, tuple[dict[str, str], bool]], boms: list[str],
             entry = managed_entry(bom, module)
             if entry is None:
                 continue
-            # The dependency's own scope and `optional` flag win; the imported
-            # entry only fills in what it leaves out.
-            own = pom.own_fields.get(module, {})
-            scope = own.get("scope") or entry.get("scope")
-            optional = own.get("optional") or entry.get("optional")
-            transitive = scope not in NON_TRANSITIVE_SCOPES and optional != "true"
             version = entry.get("version")
-            if transitive and version and is_concrete(version):
+            if transitive(pom.own_fields.get(module, {}), entry) and version \
+                    and is_concrete(version):
                 chosen[module] = version
             break
     return list(chosen.items())
