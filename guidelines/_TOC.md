@@ -15,29 +15,29 @@
 12. [Documentation tasks](documentation-tasks.md)
 13. [Running builds](running-builds.md)
 14. [Version policy](version-policy.md)
-15. [Kotlin version cap](kotlin-version-cap.md) — the SDK's Kotlin never exceeds
-    the Kotlin embedded in the Gradle version of `config`'s wrapper
-16. [Git workflow](git-workflow.md) — branching and pull requests
-17. [Packages and Maven artifacts](packages-and-artifacts.md)
-18. [Turning a module into a repository](module-to-repository.md)
-19. [Project structure expectations](project-structure-expectations.md)
-20. [Project-owned files](project-owned-files.md) — which files a repo owns vs.
+15. [Git workflow](git-workflow.md) — branching and pull requests
+16. [Packages and Maven artifacts](packages-and-artifacts.md)
+17. [Turning a module into a repository](module-to-repository.md)
+18. [Project structure expectations](project-structure-expectations.md)
+19. [Project-owned files](project-owned-files.md) — which files a repo owns vs.
     inherits from `config`; the scoping shared by repo-sweeping skills
-21. [Testing](testing.md)
-22. [Safety rules](safety-rules.md)
-23. [Advanced safety rules](advanced-safety-rules.md)
-24. [Refactoring guidelines](refactoring.md)
-25. [Common tasks](common-tasks.md)
-26. [Kotlin engineering](../skills/kotlin-engineer/SKILL.md) — implementation
+20. [Testing](testing.md)
+21. [Safety rules](safety-rules.md)
+22. [Advanced safety rules](advanced-safety-rules.md)
+23. [Refactoring guidelines](refactoring.md)
+24. [Common tasks](common-tasks.md)
+25. [Kotlin engineering](../skills/kotlin-engineer/SKILL.md) — implementation
     policy for Kotlin, coroutines, Flow, null-safety, and API design
-27. [Java to Kotlin conversion](../skills/java-to-kotlin/SKILL.md)
-28. [Dependency update](../skills/dependency-update/SKILL.md)
-29. [Documentation review](../skills/review-docs/SKILL.md)
-30. [Pre-PR checklist](../skills/pre-pr/SKILL.md)
-31. [Code review](../skills/spine-code-review/SKILL.md) — repo-specific Kotlin,
+26. [Java to Kotlin conversion](../skills/java-to-kotlin/SKILL.md)
+27. [Dependency update](../skills/dependency-update/SKILL.md)
+28. [Documentation review](../skills/review-docs/SKILL.md)
+29. [Pre-PR checklist](../skills/pre-pr/SKILL.md)
+30. [Code review](../skills/spine-code-review/SKILL.md) — repo-specific Kotlin,
     Java, and build review; defers general Kotlin standards to `kotlin-engineer`
-32. [Dependency audit](../skills/dependency-audit/SKILL.md)
-33. [Gradle review](../skills/gradle-review/SKILL.md)
-34. [Raise test coverage](../skills/raise-coverage/SKILL.md)
-35. [Kotlin JVM tester](../skills/kotlin-jvm-tester/SKILL.md) — how to write JVM tests
+31. [Dependency audit](../skills/dependency-audit/SKILL.md)
+32. [Gradle review](../skills/gradle-review/SKILL.md)
+33. [Raise test coverage](../skills/raise-coverage/SKILL.md)
+34. [Kotlin JVM tester](../skills/kotlin-jvm-tester/SKILL.md) — how to write JVM tests
     in Kotlin for Spine: naming, structure, helpers, and Java coexistence
+35. [Kotlin version cap](../skills/kotlin-version-cap/SKILL.md) — the SDK's Kotlin never
+    exceeds the Kotlin embedded in the Gradle version of `config`'s wrapper

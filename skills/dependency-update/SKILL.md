@@ -31,8 +31,8 @@ are **excluded**.
 from sibling Spine repositories, and it may move to newer snapshots or
 pre-releases such as `2.0.0-SNAPSHOT.388` or `2.1.0-RC1`.
 
-Every scope, `local/` included, is also bound by the **Kotlin version cap**
-defined in `.agents/guidelines/kotlin-version-cap.md`. Our tool projects run on
+Every scope, `local/` included, is also bound by the **Kotlin version cap**,
+which the `kotlin-version-cap` skill defines and computes. Our tool projects run on
 the Kotlin embedded in Gradle, so the Kotlin family never moves above the Kotlin
 embedded in the Gradle version of `config`'s wrapper. No artifact moves to a
 version whose own Kotlin requirement exceeds that cap either. "Latest accepted"
@@ -78,14 +78,13 @@ a hint.
 3. Note the current branch — every change this skill makes is a candidate for
    a single `chore(deps): refresh external versions` commit at the end; the
    skill itself does NOT commit. The user decides.
-4. Compute the **Kotlin cap** as `.agents/guidelines/kotlin-version-cap.md`
-   ("Computing the cap") describes: the Gradle version of `config`'s wrapper,
-   then the Kotlin it embeds. Record both and the source of the Kotlin value
-   for the report. If the cap stays unknown, **freeze** as the guideline says:
-   make no edit to the Kotlin family or to any artifact that has a Kotlin
-   requirement, and update only artifacts with none. Do not use the current
-   `Kotlin.runtimeVersion` as a stand-in ceiling — it may itself be above the
-   real cap.
+4. Compute the **Kotlin cap** with the `kotlin-version-cap` skill's step 1
+   (`python3 .agents/skills/kotlin-version-cap/scripts/kotlin_cap.py cap`), and
+   record its output for the report. If the cap stays unknown, **freeze** as
+   that skill says: make no edit to the Kotlin family or to any artifact that
+   has a Kotlin requirement, and update only artifacts with none. Do not use the
+   current `Kotlin.runtimeVersion` as a stand-in ceiling — it may itself be
+   above the real cap.
 
 ## Per-file workflow
 
@@ -109,9 +108,9 @@ Then apply the Kotlin cap and the edit, and handle `local/` artifacts:
 ### 5. Apply the Kotlin cap
 
 The cap may lower the target below `latest`, or cancel the update. The rule and
-the metadata to read are in `.agents/guidelines/kotlin-version-cap.md`. The
-first two bullets apply to the candidates that step 4 kept; the third applies
-to every value listed in it, whether or not a newer version exists.
+the checks come from the `kotlin-version-cap` skill. The first two bullets apply
+to the candidates that step 4 kept; the third applies to every value listed in
+it, whether or not a newer version exists.
 
 - **Kotlin family** — `Kotlin.runtimeVersion`, `Kotlin.embeddedVersion`, and any
   other hard-coded `org.jetbrains.kotlin:*` version. The target is the cap
@@ -119,9 +118,9 @@ to every value listed in it, whether or not a newer version exists.
   lower. Update only when the target is newer than the current value. List any
   newer release held back under **Capped**.
 - **Any other artifact, `local/` included** — read the candidate's **Kotlin
-  requirement** as the guideline defines it: the highest across the POM and the
-  `.module` file of every module the object declares (for `local/`, the first
-  module that declares one). Its "Reading a requirement" loop does this. When
+  requirement** with the `kotlin-version-cap` skill's step 3: pass every module
+  the object declares to `kotlin_cap.py requirement --cap <cap>` and take the
+  highest (for `local/`, the first module that declares one). When
   the requirement exceeds the cap, walk down the accepted versions, newest first,
   and take the first one whose requirement fits. Take the version list from
   `maven-metadata.xml` —
@@ -138,10 +137,10 @@ to every value listed in it, whether or not a newer version exists.
 - **Already above the cap** — check every Kotlin-family value, and the
   requirement of the current version of **every** object in scope, in all
   scopes, build-script libraries and plugins included. Current versions are
-  usually in the local Gradle cache, so the loop reads them without network
+  usually in the local Gradle cache, so the script reads them without network
   calls. Never downgrade: leave each one that exceeds the cap and list it under
-  **Above the cap**. Rolling back is a deliberate change (see the guideline's
-  "Moving the cap"), not something this skill does.
+  **Above the cap**. Rolling back is a deliberate change (see "Moving the cap"
+  in the `kotlin-version-cap` skill), not something this skill does.
 
 ### 6. Apply the edit
 
@@ -222,9 +221,8 @@ also runs on Gradle's embedded Kotlin.
 When the run completes, emit a Markdown report with these sections:
 
 - **Kotlin cap** — one line: the Gradle version of `config`'s wrapper, the cap it
-  implies, and where the Kotlin value came from (the guideline's table, the
-  versioned Gradle docs, `./gradlew --version`, or the distribution's
-  `kotlin-stdlib` jar). Say so plainly if the cap stayed unknown or may be stale.
+  implies, and the sources the script reported (`gradle_source`, `cap_source`).
+  Say so plainly if the cap stayed unknown or may be stale.
 - **Updated** — table of `file | objectName | old → new | source URL`.
 - **Already current** — file/object pairs whose version was already the
   newest accepted version.
@@ -240,7 +238,7 @@ When the run completes, emit a Markdown report with these sections:
 - **Above the cap** — values that already exceed the cap and were left as they
   are: Kotlin-family versions, and artifacts in any scope whose current version
   requires a newer Kotlin. Each needs a deliberate rollback; see "Moving the
-  cap" in `.agents/guidelines/kotlin-version-cap.md`.
+  cap" in the `kotlin-version-cap` skill.
 - **`local/` bumps to confirm** — every `local/` change called out separately,
   including snapshot and pre-release targets.
 - **Build script — updated** — `buildSrc/build.gradle.kts` versions changed,

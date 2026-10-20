@@ -140,67 +140,32 @@ When an artifact is **renamed or removed**:
 
 ### F. Kotlin version cap
 The SDK's Kotlin must never exceed the Kotlin embedded in the Gradle version of
-`config`'s wrapper. Our tools run on Gradle's embedded Kotlin, and an artifact
-that requires a newer one stops resolving in consumers. The rule, the cap
-table, and the metadata to read are in `.agents/guidelines/kotlin-version-cap.md`.
-Run this check on every audit, the fast path included.
+`config`'s wrapper: our tools run on Gradle's embedded Kotlin, and an artifact
+that requires a newer one stops resolving in consumers. Follow the
+`kotlin-version-cap` skill's workflow (`.agents/skills/kotlin-version-cap/SKILL.md`)
+— its script does the reading. Run this check on every audit, the fast path
+included.
 
-1. **Find the cap.** Read the Gradle version of `config`'s wrapper as the
-   guideline's "Computing the cap" says, then look it up in its table. In
-   `config` itself, read the root file. In a consumer repository, read the
-   copy on `config`'s `master`, falling back to the submodule's copy when
-   offline — and then say in the report that the cap may be stale:
-
-   ```bash
-   w=gradle/wrapper/gradle-wrapper.properties
-   if [ -d config ]; then  # a consumer repository
-     curl -fsS "https://raw.githubusercontent.com/SpineEventEngine/config/master/$w" \
-       || { echo 'offline: submodule copy, may be stale'; cat "config/$w"; }
-   else                    # `config` itself
-     cat "$w"
-   fi | grep -oE 'gradle-[0-9.]+-(bin|all)\.zip|^offline.*'
-   ```
-
-   The `^offline` alternative keeps the fallback's marker line in the output,
-   so the stale case cannot go unnoticed. This audit does not browse docs or
-   run Gradle. When the table cannot
-   answer, list the `kotlin-stdlib-*.jar` in the unpacked distribution (the
-   guideline gives the path). If that is missing too, report "cap unknown —
-   refresh the table in the guideline" under **Should fix**, and skip the rest
-   of this check.
-2. **Kotlin family.** Two greps read every value:
-
-   ```bash
-   rg -n 'const val (runtimeVersion|embeddedVersion) =|^val kotlinEmbeddedVersion =' buildSrc/
-   rg -n 'org\.jetbrains\.kotlin:[a-z0-9-]+:[0-9]' buildSrc/
-   ```
-
-   A value above the cap that the diff introduces or raises is a **Must fix**.
-   A value that was already above the cap on the base, and that the diff leaves
-   alone, is a **Should fix** marked *pre-existing*. It still needs a rollback,
-   but it should not block an unrelated change.
-3. **Kotlin requirements.** Check the **Kotlin requirement** of these versions,
-   as the guideline's "Libraries that require a newer Kotlin" defines it — the
-   highest Kotlin version across the POM **and** the `.module` file of every
-   module the version covers:
+1. **Find the cap** with the skill's step 1. When `gradle_source` says the
+   value may be stale, say so in the report. If the cap stays unknown, report
+   "cap unknown" under **Should fix** with the script's `hint`, and skip the
+   rest of this check — this audit does not browse docs or run Gradle.
+2. **Kotlin family** — the skill's step 2. A value above the cap that the diff
+   introduces or raises is a **Must fix**. A value already above the cap on the
+   base, and left alone by the diff, is a **Should fix** marked *pre-existing*:
+   it still needs a rollback, but it should not block an unrelated change.
+3. **Kotlin requirements** — the skill's step 3, with `--cap`, for:
    - every new `version` value the diff introduces, in any scope;
    - the current version of every object under `local/`, changed or not.
      `rg -n 'version' buildSrc/src/main/kotlin/io/spine/dependency/local/`
      lists them in one call. Read a file only when its version is computed
      rather than a literal.
 
-   List each object's modules (resolving `Spine.group` and `Spine.toolsGroup`;
-   for a Kotlin Multiplatform library, its `-jvm` artifacts). For a `local/`
-   object, the first module that declares a requirement is enough. Run every
-   module through the guideline's "Reading a requirement" loop in one call.
-
-   A requirement above the cap on a version the diff moves to is a **Must
-   fix**; on a `local/` version pinned before the diff, a **Should fix** marked
-   *pre-existing*. Name the requirement and the cap in both. An unverifiable
-   requirement — `no-pom`, an `unreadable-*` marker, or a Kotlin version the
-   loop shows unresolved that the POM's `<properties>` or parent does not
-   settle — is a **Should fix**:
-   ask the author to verify it. Never count it as "no requirement".
+   Pass all of them to one `requirement` call. `verdict=above-cap` on a version
+   the diff moves to is a **Must fix**; on a `local/` version pinned before the
+   diff, a **Should fix** marked *pre-existing*. Name the requirement and the cap
+   in both. `verdict=unverifiable` is a **Should fix**: quote the `reason` and ask
+   the author to verify it. Never count it as "no requirement".
 
 ## Output format
 

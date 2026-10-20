@@ -5,4 +5,4 @@ interface:
     Use $bump-gradle to update this repository to the latest Gradle wrapper
     version from the official release notes, build, and split Gradle/report
     commits. Report the Kotlin the new Gradle embeds and how it moves the
-    Kotlin version cap (.agents/guidelines/kotlin-version-cap.md).
+    Kotlin version cap ($kotlin-version-cap).

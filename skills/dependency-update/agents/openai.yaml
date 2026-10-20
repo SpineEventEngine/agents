@@ -15,4 +15,4 @@ interface:
     pinned versions untouched (flag them with the rationale). Never raise
     Kotlin above the Kotlin embedded in the Gradle version of config's wrapper,
     and never adopt a release that requires a newer Kotlin than that
-    (.agents/guidelines/kotlin-version-cap.md).
+    ($kotlin-version-cap).

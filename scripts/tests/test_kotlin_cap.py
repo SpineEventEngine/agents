@@ -1,0 +1,296 @@
+"""Tests for `skills/kotlin-version-cap/scripts/kotlin_cap.py`.
+
+Every repository is a local HTTP server, so the tests run offline: a path under
+`/fail/` answers 500 and one under `/moved/` redirects, to exercise how the
+script tells a missing file from a failed fetch.
+"""
+
+from __future__ import annotations
+
+import functools
+import http.server
+import os
+import socket
+import subprocess
+import sys
+import tempfile
+import threading
+import unittest
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[2]
+SCRIPT = REPO / "skills" / "kotlin-version-cap" / "scripts" / "kotlin_cap.py"
+POM_NS = 'xmlns="http://maven.apache.org/POM/4.0.0"'
+
+
+class Handler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self) -> None:
+        if self.path.startswith("/fail/"):
+            self.send_error(500)
+        elif self.path.startswith("/moved/"):
+            self.send_response(303)
+            self.send_header("Location", self.path[len("/moved"):])
+            self.end_headers()
+        else:
+            super().do_GET()
+
+    def log_message(self, *args) -> None:
+        pass
+
+
+def closed_port() -> int:
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        return probe.getsockname()[1]
+
+
+def write(path: Path, text: str) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def wrapper(gradle: str) -> str:
+    return ("distributionUrl=https\\://services.gradle.org/distributions/"
+            f"gradle-{gradle}-bin.zip\n")
+
+
+def pom(body: str = "", parent: str = "") -> str:
+    return f'<project {POM_NS}><modelVersion>4.0.0</modelVersion>{parent}{body}</project>'
+
+
+def kotlin_dependency(artifact: str, version: str | None = None) -> str:
+    tag = f"<version>{version}</version>" if version else ""
+    return (f"<dependency><groupId>org.jetbrains.kotlin</groupId>"
+            f"<artifactId>{artifact}</artifactId>{tag}</dependency>")
+
+
+def module(*versions: str) -> str:
+    dependencies = ",".join(
+        f'{{"group":"org.jetbrains.kotlin","module":"kotlin-stdlib",'
+        f'"version":{{"requires":"{version}"}}}}' for version in versions)
+    return f'{{"variants":[{{"name":"runtimeElements","dependencies":[{dependencies}]}}]}}'
+
+
+class KotlinCapTest(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.served = tempfile.TemporaryDirectory()
+        handler = functools.partial(Handler, directory=cls.served.name)
+        cls.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+        threading.Thread(target=cls.server.serve_forever, daemon=True).start()
+        cls.url = f"http://127.0.0.1:{cls.server.server_address[1]}"
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.server.shutdown()
+        cls.server.server_close()
+        cls.served.cleanup()
+
+    def setUp(self) -> None:
+        self.work = tempfile.TemporaryDirectory()
+        self.addCleanup(self.work.cleanup)
+        self.root = Path(self.work.name) / "repo"
+        self.root.mkdir()
+        self.home = Path(self.work.name) / "gradle-home"
+        self.repo = f"{self.url}/{Path(self.work.name).name}/repo"
+        self.env = {
+            "PATH": os.environ.get("PATH", ""),
+            "HOME": self.work.name,
+            "GRADLE_USER_HOME": str(self.home),
+            "KOTLIN_CAP_CONFIG_WRAPPER_URL": f"http://127.0.0.1:{closed_port()}/w",
+            "KOTLIN_CAP_REPOSITORIES": self.repo,
+        }
+
+    def serve(self, relative: str, text: str) -> None:
+        write(Path(self.served.name) / Path(self.work.name).name / relative, text)
+
+    def publish(self, gav: str, extension: str, text: str) -> None:
+        group, artifact, version = gav.split(":")
+        path = f"{group.replace('.', '/')}/{artifact}/{version}/{artifact}-{version}.{extension}"
+        self.serve(f"repo/{path}", text)
+
+    def run_script(self, *args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run([sys.executable, str(SCRIPT), *args], cwd=self.root,
+                              env=self.env, capture_output=True, text=True, timeout=60)
+
+    def cap(self, *args: str) -> tuple[dict[str, str], int]:
+        result = self.run_script("cap", *args)
+        values = dict(line.split("=", 1) for line in result.stdout.splitlines())
+        return values, result.returncode
+
+    def requirement(self, *args: str) -> tuple[list[str], int]:
+        result = self.run_script("requirement", *args)
+        return result.stdout.splitlines(), result.returncode
+
+    # --- cap ---------------------------------------------------------------------------
+
+    def test_config_itself_reads_its_working_tree(self) -> None:
+        write(self.root / "gradle/wrapper/gradle-wrapper.properties", wrapper("9.8.1"))
+        values, code = self.cap()
+        self.assertEqual(code, 0)
+        self.assertEqual(values["gradle"], "9.8.1")
+        self.assertEqual(values["gradle_source"], "working tree")
+        self.assertEqual(values["cap"], "2.4.10")
+
+    def test_consumer_reads_config_master_over_a_lagging_submodule(self) -> None:
+        write(self.root / "config/gradle/wrapper/gradle-wrapper.properties", wrapper("9.6.1"))
+        write(self.root / "gradle/wrapper/gradle-wrapper.properties", wrapper("9.5.0"))
+        self.serve("config-wrapper.properties", wrapper("9.7.1"))
+        self.env["KOTLIN_CAP_CONFIG_WRAPPER_URL"] = (
+            f"{self.url}/{Path(self.work.name).name}/config-wrapper.properties")
+        values, code = self.cap()
+        self.assertEqual(code, 0)
+        self.assertEqual((values["gradle"], values["gradle_source"]), ("9.7.1", "config master"))
+        self.assertEqual(values["cap"], "2.4.0")
+
+    def test_consumer_offline_falls_back_to_the_submodule_and_says_so(self) -> None:
+        write(self.root / "config/gradle/wrapper/gradle-wrapper.properties", wrapper("9.6.1"))
+        values, code = self.cap()
+        self.assertEqual(code, 0)
+        self.assertEqual(values["gradle"], "9.6.1")
+        self.assertIn("may be stale", values["gradle_source"])
+        self.assertEqual(values["cap"], "2.3.21")
+
+    def test_consumer_offline_without_a_submodule_copy_is_unknown(self) -> None:
+        (self.root / "config").mkdir()
+        write(self.root / "gradle/wrapper/gradle-wrapper.properties", wrapper("9.8.1"))
+        values, code = self.cap()
+        self.assertEqual(code, 3)
+        self.assertEqual(values["cap"], "unknown")
+
+    def test_a_version_between_rows_takes_the_row_below_it(self) -> None:
+        self.assertEqual(self.cap("--gradle", "9.1.0")[0]["cap"], "2.2.0")
+        self.assertEqual(self.cap("--gradle", "9.8.2")[0]["cap"], "2.4.10")
+
+    def test_a_version_past_the_table_is_unknown_without_its_distribution(self) -> None:
+        values, code = self.cap("--gradle", "9.8.3")
+        self.assertEqual(code, 3)
+        self.assertEqual(values["cap"], "unknown")
+        self.assertIn("docs.gradle.org/9.8.3", values["hint"])
+
+    def test_a_version_past_the_table_reads_its_unpacked_distribution(self) -> None:
+        lib = self.home / "wrapper/dists/gradle-9.9.0-bin/abc123/gradle-9.9.0/lib"
+        write(lib / "kotlin-stdlib-2.5.0.jar", "")
+        write(lib / "kotlin-stdlib-common-2.5.0.jar", "")
+        values, code = self.cap("--gradle", "9.9.0")
+        self.assertEqual(code, 0)
+        self.assertEqual(values["cap"], "2.5.0")
+        self.assertIn("distribution", values["cap_source"])
+
+    def test_a_version_older_than_the_table_is_unknown(self) -> None:
+        values, code = self.cap("--gradle", "8.14.3")
+        self.assertEqual(code, 3)
+        self.assertEqual(values["cap"], "unknown")
+
+    # --- requirement -------------------------------------------------------------------
+
+    def test_a_plain_java_library_has_no_requirement(self) -> None:
+        self.publish("com.example:java:1.0", "pom", pom())
+        lines, code = self.requirement("--cap", "2.4.10", "com.example:java:1.0")
+        self.assertEqual(code, 0)
+        self.assertEqual(lines, ["com.example:java:1.0 requirement=none verdict=within-cap"])
+
+    def test_module_metadata_can_ask_for_more_than_the_pom(self) -> None:
+        gav = "com.example:lib:1.0"
+        self.publish(gav, "pom", pom(f"<dependencies>{kotlin_dependency('kotlin-stdlib', '2.4.0')}"
+                                     "</dependencies>"))
+        self.publish(gav, "module", module("2.4.21"))
+        lines, code = self.requirement("--cap", "2.4.10", gav)
+        self.assertEqual(code, 1)
+        self.assertEqual(lines, [f"{gav} requirement=2.4.21 verdict=above-cap"])
+
+    def test_an_imported_bom_counts_and_covers_a_versionless_stdlib(self) -> None:
+        gav = "com.example:bom-user:1.0"
+        bom = ("<dependencyManagement><dependencies><dependency>"
+               "<groupId>org.jetbrains.kotlin</groupId><artifactId>kotlin-bom</artifactId>"
+               "<version>2.4.21</version><type>pom</type><scope>import</scope>"
+               "</dependency></dependencies></dependencyManagement>")
+        self.publish(gav, "pom", pom(bom + f"<dependencies>{kotlin_dependency('kotlin-stdlib')}"
+                                           "</dependencies>"))
+        lines, _ = self.requirement(gav)
+        self.assertEqual(lines, [f"{gav} requirement=2.4.21"])
+
+    def test_a_property_version_resolves_from_the_pom_and_its_parent(self) -> None:
+        parent_gav = "com.example:parent:3"
+        self.publish(parent_gav, "pom", pom("<properties><kotlin.version>2.3.0"
+                                            "</kotlin.version></properties>"))
+        gav = "com.example:child:1.0"
+        parent = ("<parent><groupId>com.example</groupId><artifactId>parent</artifactId>"
+                  "<version>3</version></parent>")
+        self.publish(gav, "pom", pom("<dependencies>"
+                                     f"{kotlin_dependency('kotlin-stdlib', '${kotlin.version}')}"
+                                     "</dependencies>", parent))
+        lines, _ = self.requirement(gav)
+        self.assertEqual(lines, [f"{gav} requirement=2.3.0"])
+
+    def test_an_unresolvable_version_is_unverifiable_not_none(self) -> None:
+        gav = "com.example:mystery:1.0"
+        self.publish(gav, "pom", pom("<dependencies>"
+                                     f"{kotlin_dependency('kotlin-stdlib', '${kotlin.version}')}"
+                                     "</dependencies>"))
+        lines, code = self.requirement("--cap", "2.4.10", gav)
+        self.assertEqual(code, 1)
+        self.assertEqual(len(lines), 1)
+        self.assertIn("requirement=unverifiable verdict=unverifiable", lines[0])
+        self.assertIn("unresolved-kotlin-stdlib-version", lines[0])
+
+    def test_a_version_published_nowhere_is_no_pom(self) -> None:
+        lines, code = self.requirement("--cap", "2.4.10", "com.example:absent:1.0")
+        self.assertEqual(code, 1)
+        self.assertEqual(lines, ["com.example:absent:1.0 requirement=unverifiable"
+                                 " verdict=unverifiable reason=no-pom"])
+
+    def test_a_missing_module_file_is_normal(self) -> None:
+        gav = "com.example:pom-only:1.0"
+        self.publish(gav, "pom", pom(f"<dependencies>{kotlin_dependency('kotlin-stdlib', '2.2.0')}"
+                                     "</dependencies>"))
+        self.assertEqual(self.requirement(gav)[0], [f"{gav} requirement=2.2.0"])
+
+    def test_a_failed_module_fetch_is_unverifiable(self) -> None:
+        gav = "com.example:flaky:1.0"
+        self.publish(gav, "pom", pom(f"<dependencies>{kotlin_dependency('kotlin-stdlib', '2.2.0')}"
+                                     "</dependencies>"))
+        self.env["KOTLIN_CAP_REPOSITORIES"] = f"{self.url}/fail/x {self.repo}"
+        lines, code = self.requirement("--cap", "2.4.10", gav)
+        self.assertEqual(code, 1)
+        self.assertEqual(lines, [f"{gav} requirement=2.2.0+ verdict=unverifiable"
+                                 " reason=unreadable-module"])
+
+    def test_a_failed_fetch_still_yields_above_cap_when_what_was_read_exceeds_it(self) -> None:
+        gav = "com.example:flaky-new:1.0"
+        self.publish(gav, "pom", pom(f"<dependencies>{kotlin_dependency('kotlin-stdlib', '2.5.0')}"
+                                     "</dependencies>"))
+        self.env["KOTLIN_CAP_REPOSITORIES"] = f"{self.url}/fail/x {self.repo}"
+        lines, _ = self.requirement("--cap", "2.4.10", gav)
+        self.assertIn("verdict=above-cap", lines[0])
+
+    def test_an_unreachable_repository_does_not_hide_a_later_one(self) -> None:
+        gav = "com.example:found-later:1.0"
+        self.publish(gav, "pom", pom())
+        self.publish(gav, "module", module("2.1.0"))
+        self.env["KOTLIN_CAP_REPOSITORIES"] = f"http://127.0.0.1:{closed_port()} {self.repo}"
+        self.assertEqual(self.requirement(gav)[0], [f"{gav} requirement=2.1.0"])
+
+    def test_redirects_are_followed(self) -> None:
+        gav = "com.example:portal:1.0"
+        self.publish(gav, "pom", pom())
+        self.publish(gav, "module", module("2.3.20"))
+        self.env["KOTLIN_CAP_REPOSITORIES"] = f"{self.url}/moved/{Path(self.work.name).name}/repo"
+        self.assertEqual(self.requirement(gav)[0], [f"{gav} requirement=2.3.20"])
+
+    def test_the_gradle_cache_is_read_before_any_repository(self) -> None:
+        cached = self.home / "caches/modules-2/files-2.1/com.example/cached/1.0"
+        write(cached / "sha-a/cached-1.0.pom", pom())
+        write(cached / "sha-b/cached-1.0.module", module("2.4.10"))
+        self.env["KOTLIN_CAP_REPOSITORIES"] = f"http://127.0.0.1:{closed_port()}"
+        self.assertEqual(self.requirement("com.example:cached:1.0")[0],
+                         ["com.example:cached:1.0 requirement=2.4.10"])
+
+    def test_a_malformed_coordinate_is_a_usage_error(self) -> None:
+        self.assertEqual(self.requirement("com.example:lib")[1], 2)
+
+
+if __name__ == "__main__":
+    unittest.main()

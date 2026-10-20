@@ -128,7 +128,7 @@ reference live in [`references/version-discovery.md`](references/version-discove
 - **State:** the cap is `2.4.10`; `Kotlin.runtimeVersion` and
   `kotlinEmbeddedVersion` are `2.4.21`.
 - **Expected:** do **not** downgrade. Leave both values and list them under
-  **Above the cap** with the rollback pointer to the guideline.
+  **Above the cap** with the rollback pointer to the `kotlin-version-cap` skill.
 
 ## Scenario 15 — a library's newest release needs a newer Kotlin
 

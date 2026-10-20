@@ -1,0 +1,8 @@
+interface:
+  display_name: "Kotlin Version Cap"
+  short_description: "Keep the SDK's Kotlin at or below the Kotlin embedded in Gradle"
+  default_prompt: >-
+    Use $kotlin-version-cap to compute the Kotlin version cap (the Kotlin
+    embedded in the Gradle version of config's wrapper) and check the Kotlin
+    declarations and dependency versions against it, reporting any version
+    above the cap or unverifiable.
