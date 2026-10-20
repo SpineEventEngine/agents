@@ -631,6 +631,7 @@ def lookup(gav: str, as_platform: bool = False, path: frozenset = frozenset(),
                 problems.append(f"unresolved-implementation:{dependency_group}:"
                                 f"{dependency_artifact}")
     status, module_text = fetch(group, artifact, version, "module")
+    metadata_targets = set()  # targets the module metadata points to; never clipped
     if status == "ok":
         try:
             found, module_problems, module_follow, module_pending, module_aligns = \
@@ -638,6 +639,7 @@ def lookup(gav: str, as_platform: bool = False, path: frozenset = frozenset(),
             versions += found
             problems += module_problems
             follow += module_follow
+            metadata_targets = {target for target, _ in module_follow}
             pending += module_pending
             aligns = aligns or module_aligns
         except (ValueError, AttributeError, KeyError, TypeError):
@@ -650,7 +652,9 @@ def lookup(gav: str, as_platform: bool = False, path: frozenset = frozenset(),
             continue  # a cycle: the module is already being read further up
         found, target_problems, target_aligns = lookup(target, target_as_platform, path, done)
         answers[target] = (found, target_aligns)
-        if target in pom.imports:
+        # Only a BOM the POM alone imports is clipped to what the POM uses; the
+        # same platform declared in module metadata passes all its constraints on.
+        if target in pom.imports and target not in metadata_targets:
             found = imported(found, target_aligns, target, pom, as_platform)
         versions += found.items()
         problems += [f"{target.split(':')[1]}:{problem}" for problem in target_problems]

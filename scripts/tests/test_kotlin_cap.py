@@ -613,6 +613,21 @@ class KotlinCapTest(unittest.TestCase):
         self.assertEqual(self.requirement("--cap", "2.4.10", gav),
                          ([f"{gav} requirement=2.4.21 verdict=above-cap"], 1))
 
+    def test_a_platform_in_module_metadata_is_not_clipped_by_the_same_pom_import(self) -> None:
+        self.platform("com.example:dual-platform:1.0", "2.5.0")
+        gav = "com.example:dual-user:1.0"
+        bom_import = ("<dependencyManagement><dependencies><dependency>"
+                      "<groupId>com.example</groupId><artifactId>dual-platform</artifactId>"
+                      "<version>1.0</version><type>pom</type><scope>import</scope>"
+                      "</dependency></dependencies></dependencyManagement>")
+        self.platform_user(gav, "2.4.0", "com.example:dual-platform:1.0")  # .module platform
+        self.publish(gav, "pom", pom(
+            bom_import + f"<dependencies>{kotlin_dependency('kotlin-stdlib', '2.4.0')}"
+                         "</dependencies>"))
+        lines, code = self.requirement("--cap", "2.4.10", gav)
+        self.assertEqual(code, 1)
+        self.assertEqual(lines, [f"{gav} requirement=2.5.0 verdict=above-cap"])
+
     def test_a_poms_own_management_beats_an_imported_bom(self) -> None:
         self.publish("com.example:newer-bom:1.0", "pom", pom(
             "<dependencyManagement><dependencies>"
