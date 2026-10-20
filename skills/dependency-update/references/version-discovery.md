@@ -85,6 +85,10 @@ metadata, not in GitHub's latest-release redirect.
 - In `local/`, keep snapshots and pre-releases in the candidate list.
 - Take the highest by semver comparison.
 
+The search API is enough to find the newest version. When the full list
+matters — the Kotlin-cap walk-down in `SKILL.md` step 5 — read
+`maven-metadata.xml` instead, as that step says.
+
 **C. Spine SDK Maven repositories for `local/` artifacts**:
 
 - For files under `dependency/local/`, query Maven metadata in the current

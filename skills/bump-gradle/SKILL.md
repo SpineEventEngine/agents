@@ -115,8 +115,9 @@ empty commits, and do not bundle unrelated changes into either commit.
    puts a declaration above the cap. In the final response, state the old and
    new embedded Kotlin, and the cap (in other repositories, `config`'s, which
    this bump does not move). In `config`, when the cap rose, suggest running the
-   `dependency-update` skill next. When the table in `kotlin-version-cap.md` has
-   no row for the new version, suggest adding one.
+   `dependency-update` skill next. When the table in `kotlin-version-cap.md`
+   cannot answer for the new version (its "Computing the cap", step 3), suggest
+   adding the missing row. A patch release covered by its minor's row needs none.
 
 4. Run the build.
 

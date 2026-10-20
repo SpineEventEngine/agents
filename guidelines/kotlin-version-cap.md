@@ -160,7 +160,9 @@ as **unverifiable** — never as "no requirement".
 
 This loop prints the Kotlin declarations of each module version. It reads the
 local Gradle cache first, then the Spine Artifact Registry, then Maven Central,
-so it works for `local/` and third-party artifacts alike:
+so it works for `local/` and third-party artifacts alike. Replace the example
+`gav` entry with the modules to check, as space-separated
+`group:artifact:version` triples:
 
 ```bash
 c=${GRADLE_USER_HOME:-$HOME/.gradle}/caches/modules-2/files-2.1
@@ -182,10 +184,11 @@ done
 
 Each output line is one declaration, such as
 `<artifactId>kotlin-bom</artifactId><version>2.4.21</version>` or
-`"module":"kotlin-stdlib","version":{"requires":"2.4.21"`. A POM line with no
-`<version>`, or a `${…}` value, is unresolved. `no-module` alone is normal: many
-artifacts publish no Gradle Module Metadata. `no-pom` means the version could
-not be read — treat it as unverifiable.
+`"module":"kotlin-stdlib","version":{"requires":"2.4.21"`. No lines under a
+module mean it has no Kotlin requirement. A POM line with no `<version>`, or a
+`${…}` value, is unresolved. `no-module` alone is normal: many artifacts publish
+no Gradle Module Metadata. `no-pom` means the version could not be read — treat
+it as unverifiable.
 
 ### Spine artifacts in `local/`
 

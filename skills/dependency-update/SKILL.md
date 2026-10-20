@@ -124,8 +124,10 @@ to every value listed in it, whether or not a newer version exists.
   module that declares one). Its "Reading a requirement" loop does this. When
   the requirement exceeds the cap, walk down the accepted versions, newest first,
   and take the first one whose requirement fits. Take the version list from
-  `<repo>/<groupPath>/<artifact>/maven-metadata.xml` — Maven Central, or the
-  Spine Artifact Registry for `local/` — whatever URL the file hints: a GitHub
+  `maven-metadata.xml` —
+  `https://repo1.maven.org/maven2/<groupPath>/<artifact>/maven-metadata.xml`,
+  or its `releases` and `snapshots` equivalents in the Spine Artifact Registry
+  for `local/` — regardless of the URL the file hints at: a GitHub
   `/releases/latest` page names only the newest release. Requirements rarely
   drop between releases, so the walk is short. That version becomes the target
   if it is still newer than the current one; otherwise make no edit. List the
@@ -231,8 +233,8 @@ When the run completes, emit a Markdown report with these sections:
   were RC/SNAPSHOT/alpha/etc. Applies only outside `local/`.
 - **Capped** — newer versions held back by the Kotlin cap, as a table of
   `file | objectName | current → applied (or unchanged) | held back`
-  plus a `Kotlin requirement` column. Includes Kotlin-family releases above the
-  cap.
+  plus a `Kotlin requirement` column. Includes Kotlin-family releases
+  above the cap.
 - **Above the cap** — values that already exceed the cap and were left as they
   are: Kotlin-family versions, and artifacts in any scope whose current version
   requires a newer Kotlin. Each needs a deliberate rollback; see "Moving the
