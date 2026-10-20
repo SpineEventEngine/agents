@@ -126,13 +126,15 @@ to every value listed in it, whether or not a newer version exists.
   and take the first one whose requirement fits. Take the version list from
   `maven-metadata.xml` —
   `https://repo1.maven.org/maven2/<groupPath>/<artifact>/maven-metadata.xml`,
-  or its `releases` and `snapshots` equivalents in the Spine Artifact Registry
-  for `local/` — regardless of the URL the file hints at: a GitHub
-  `/releases/latest` page names only the newest release. Requirements rarely
-  drop between releases, so the walk is short. That version becomes the target
-  if it is still newer than the current one; otherwise make no edit. List the
-  held-back newest version and its requirement under **Capped**. Treat an
-  unverifiable requirement as above the cap: hold the version back and say why.
+  its `https://plugins.gradle.org/m2/…` equivalent for a Gradle plugin
+  published only to the Plugin Portal, or the `releases` and `snapshots`
+  equivalents in the Spine Artifact Registry for `local/` — regardless of the
+  URL the file hints at: a GitHub `/releases/latest` page names only the newest
+  release. Requirements rarely drop between releases, so the walk is short. That
+  version becomes the target if it is still newer than the current one;
+  otherwise make no edit. List the held-back newest version and its requirement
+  under **Capped**. Treat an unverifiable requirement as above the cap: hold the
+  version back and say why.
 - **Already above the cap** — check every Kotlin-family value, and the
   requirement of the current version of **every** object in scope, in all
   scopes, build-script libraries and plugins included. Current versions are

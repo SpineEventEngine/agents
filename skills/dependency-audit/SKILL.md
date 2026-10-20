@@ -197,8 +197,9 @@ Run this check on every audit, the fast path included.
    A requirement above the cap on a version the diff moves to is a **Must
    fix**; on a `local/` version pinned before the diff, a **Should fix** marked
    *pre-existing*. Name the requirement and the cap in both. An unverifiable
-   requirement — `no-pom`, or a Kotlin version the loop shows unresolved that
-   the POM's `<properties>` or parent does not settle — is a **Should fix**:
+   requirement — `no-pom`, an `unreadable-*` marker, or a Kotlin version the
+   loop shows unresolved that the POM's `<properties>` or parent does not
+   settle — is a **Should fix**:
    ask the author to verify it. Never count it as "no requirement".
 
 ## Output format

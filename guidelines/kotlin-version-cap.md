@@ -148,36 +148,56 @@ as **unverifiable** — never as "no requirement".
 #### Reading a requirement
 
 This loop prints the Kotlin declarations of each module version. It reads the
-local Gradle cache first, then the Spine Artifact Registry, then Maven Central,
-so it works for `local/` and third-party artifacts alike. Replace the example
-`gav` entry with the modules to check, as space-separated
+local Gradle cache first, then the repositories `config`'s builds resolve from:
+the Spine Artifact Registry, Maven Central, and the Gradle Plugin Portal. So it
+works for `local/` artifacts, libraries, and Gradle plugins alike. Replace the
+example `gav` entry with the modules to check, as space-separated
 `group:artifact:version` triples:
 
 ```bash
 c=${GRADLE_USER_HOME:-$HOME/.gradle}/caches/modules-2/files-2.1
-r=https://europe-maven.pkg.dev/spine-event-engine
-m=https://repo1.maven.org/maven2
+repos=(https://europe-maven.pkg.dev/spine-event-engine/snapshots
+       https://europe-maven.pkg.dev/spine-event-engine/releases
+       https://repo1.maven.org/maven2 https://plugins.gradle.org/m2)
 k='<artifactId>kotlin-(stdlib[a-z0-9-]*|bom)</artifactId>(<version>[^<]*</version>)?'
-k="$k"'|"module":"kotlin-(stdlib[a-z0-9-]*|bom)","version":\{"[a-z]+":"[^"]*"|no-(pom|module)'
+k="$k"'|"module":"kotlin-(stdlib[a-z0-9-]*|bom)","version":\{"[a-z]+":"[^"]*"'
+t=$(mktemp)
 for gav in io.spine.tools:compiler-api:2.0.0-SNAPSHOT.079; do  # one entry per module
   IFS=: read -r g a v <<< "$gav"
   echo "== $gav"
   for x in pom module; do
     p="$(echo "$g" | tr . /)/$a/$v/$a-$v.$x"
-    { cat "$c/$g/$a/$v"/*/"$a-$v.$x" || curl -fsS "$r/snapshots/$p" \
-        || curl -fsS "$r/releases/$p" || curl -fsS "$m/$p" || echo "no-$x"; } 2>/dev/null \
-      | tr -d ' \t\r\n' | grep -oE "$k" | sort -u
+    s=no  # stays "no" only if every repository answers 404
+    { cat "$c/$g/$a/$v"/*/"$a-$v.$x"; } > "$t" 2>/dev/null && s=ok
+    for r in "${repos[@]}"; do
+      [ "$s" = ok ] && break
+      case $(curl -sSL -o "$t" -w '%{http_code}' "$r/$p" 2>/dev/null) in
+        200) s=ok ;;
+        404) ;;
+        *) s=unreadable ;;
+      esac
+    done
+    if [ "$s" = ok ]; then tr -d ' \t\r\n' < "$t" | grep -oE "$k" | sort -u
+    else echo "$s-$x"; fi
   done
 done
+rm -f "$t"
 ```
 
 Each output line is one declaration, such as
 `<artifactId>kotlin-bom</artifactId><version>2.4.21</version>` or
 `"module":"kotlin-stdlib","version":{"requires":"2.4.21"`. No lines under a
 module mean it has no Kotlin requirement. A POM line with no `<version>`, or a
-`${…}` value, is unresolved. `no-module` alone is normal: many artifacts publish
-no Gradle Module Metadata. `no-pom` means the version could not be read — treat
-it as unverifiable.
+`${…}` value, is unresolved. The markers say why a file was not read:
+
+- `no-module` — every repository answered 404, so the version publishes no
+  Gradle Module Metadata. Normal on its own: the POM is the whole story.
+- `no-pom` — no repository has the version at all; check the coordinates.
+- `unreadable-pom`, `unreadable-module` — a repository failed (offline, an
+  authentication error, a server error) and none answered, so absence is not
+  confirmed.
+
+Treat `no-pom` and either `unreadable-*` marker as an unverifiable requirement.
 
 ### Spine artifacts in `local/`
 
