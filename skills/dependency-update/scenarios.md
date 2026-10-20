@@ -150,3 +150,22 @@ reference live in [`references/version-discovery.md`](references/version-discove
   requirement under **Capped**, and keep the usual **`local/` bumps to confirm**
   entry. Had the object already been at `.079`, leave it and list it under
   **Above the cap**.
+
+## Scenario 17 — a third-party dependency is already above the cap
+
+- **Trigger:** default full scan.
+- **State:** the cap is `2.4.10`. A `lib/` object is at its newest release, and
+  that release's `.module` imports `kotlin-bom:2.4.21`, though its POM declares
+  nothing higher than `2.4.0`.
+- **Expected:** no newer version to adopt, but the current version is still
+  checked, across both metadata files. Leave it and list it under **Above the
+  cap** with the `2.4.21` requirement — not under **Already current**.
+
+## Scenario 18 — the cap cannot be computed
+
+- **Trigger:** default full scan, offline.
+- **State:** the raw `config` wrapper file cannot be fetched, the `config`
+  submodule is not initialized, and nothing else answers.
+- **Expected:** report the cap as unknown and freeze: no edit to the Kotlin
+  family or to any artifact with a Kotlin requirement. Artifacts with no Kotlin
+  requirement (plain Java libraries) still update as usual.

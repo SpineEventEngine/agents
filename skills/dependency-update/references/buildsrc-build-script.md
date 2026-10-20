@@ -151,8 +151,8 @@ Then apply the **Kotlin cap** (step 5, "Apply the Kotlin cap", in `SKILL.md`)
 to the resolved target of an independent or synced version. Two kinds of
 version are affected here:
 
-- `kotlinEmbeddedVersion` is **Kotlin family**: never above the cap, whatever its
-  comment says. It carries no pin wording, so it would otherwise read as
+- `kotlinEmbeddedVersion` belongs to the **Kotlin family**: it is never above the
+  cap, whatever its comment says. It carries no pin wording, so it would otherwise read as
   independent and chase the newest Kotlin release. Raising it also raises the
   forced `kotlin-stdlib`/`kotlin-reflect` and the `kotlin-bom` platform that
   interpolate it.

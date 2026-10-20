@@ -12,7 +12,7 @@ Every repository from `base-libraries` onward holds Kotlin code used both by the
 client and server libraries **and** by our tool projects — the Gradle plugins and
 the Spine Compiler. So the Kotlin version set in `config`'s `buildSrc`, which the
 whole SDK builds with, must be **at most** the *cap*: the Kotlin embedded in the
-Gradle version our tools support. That Gradle version is the one of `config`'s
+Gradle version our tools support. That Gradle version is the one in `config`'s
 wrapper, which `config` distributes to every repository.
 
 ## Why
@@ -75,10 +75,11 @@ stopped resolving in consumers, while the builds made with `2.4.10` kept working
 
    Whichever source answers, suggest adding the missing row to the table here,
    so the next run has it. If none of them is available, report the cap as
-   unknown — never guess it. A skill that edits versions may then freeze
-   instead: it holds every Kotlin-related version where it is, using the current
-   `Kotlin.runtimeVersion` as a stand-in ceiling. That lets nothing rise, so it
-   is not a guess.
+   unknown — never guess it. A skill that edits versions then **freezes**: it
+   leaves the Kotlin family, and every artifact that has a Kotlin requirement, at
+   its current version, and updates only artifacts with no Kotlin requirement.
+   The current Kotlin may itself be above the real cap, so it cannot serve as a
+   stand-in ceiling.
 
 ### Embedded Kotlin by Gradle version
 
@@ -102,7 +103,7 @@ the first row, use the versioned compatibility page from step 3.
 ## What the cap covers
 
 Compare versions as the `dependency-update` skill does (numeric segments
-numerically): `2.4.21` is above a `2.4.10` cap, `2.4.0` is within it.
+numerically): `2.4.21` is above a `2.4.10` cap; `2.4.0` is within it.
 
 ### The Kotlin family in `config`
 
@@ -124,26 +125,68 @@ Any other `org.jetbrains.kotlin:*` coordinate with a hard-coded version counts t
 ### Libraries that require a newer Kotlin
 
 A library's own Kotlin requirement is capped as well. `config`'s `BomsPlugin`
-forces `kotlin-stdlib` to `Kotlin.runtimeVersion` in every configuration, so a
-library built against a newer stdlib runs on the capped one anyway, at the risk
-of `NoSuchMethodError`. On a tool's classpath, it runs on Gradle's embedded one.
+forces `kotlin-stdlib` to `Kotlin.runtimeVersion` in nearly every configuration
+(Dokka and Detekt configurations aside), so a library built against a newer
+stdlib runs on the capped one anyway, at the risk of `NoSuchMethodError`. On a
+tool's classpath, it runs on Gradle's embedded one.
 The usual suspects are Kotlin-ecosystem releases — `kotlinx-*` (Coroutines,
 Serialization, …), KotlinPoet, KSP, Kotest, Dokka, Detekt, Kover — but the check
 is mechanical, so apply it to every candidate version.
 
 A version's **Kotlin requirement** is the highest Kotlin version its published
-metadata asks for:
+metadata asks for, across **both** files next to each other in the repository —
+the POM, `<artifact>-<version>.pom`, and the Gradle Module Metadata,
+`<artifact>-<version>.module`. Gradle reads the `.module` file when it exists,
+and the two can differ. Count:
 
-- a dependency on `org.jetbrains.kotlin:kotlin-stdlib*` in its POM,
-  `<repo>/<groupPath>/<artifact>/<version>/<artifact>-<version>.pom`;
+- a dependency on `org.jetbrains.kotlin:kotlin-stdlib*`;
 - an imported `org.jetbrains.kotlin:kotlin-bom` — a POM `<dependencyManagement>`
-  entry with `<scope>import</scope>`, or a `platform` dependency in the Gradle
-  Module Metadata file `<artifact>-<version>.module` next to the POM.
+  entry with `<scope>import</scope>`, or a `platform` dependency in the `.module`.
+
+The requirement of a dependency object is the highest across **all of its
+modules**: one module may be plain Java while a sibling depends on Kotlin. A
+`local/` object is the exception — its modules come from one build, so the first
+module that declares a requirement speaks for all of them.
 
 For a Kotlin Multiplatform library, read the JVM artifact (for example,
 `kotlinx-coroutines-core-jvm`, not `kotlinx-coroutines-core`): the root
-artifact's POM does not list the stdlib. A POM with no Kotlin dependency has no
-requirement — a plain Java library is not affected.
+artifact's POM does not list the stdlib. When neither file declares a Kotlin
+dependency, there is no requirement — a plain Java library is not affected. A
+Kotlin dependency whose version is a `${…}` property, or missing because a
+parent POM or an imported BOM manages it, needs resolving from the POM's
+`<properties>` or that parent. If it cannot be resolved, report the requirement
+as **unverifiable** — never as "no requirement".
+
+#### Reading a requirement
+
+This loop prints the Kotlin declarations of each module version. It reads the
+local Gradle cache first, then the Spine Artifact Registry, then Maven Central,
+so it works for `local/` and third-party artifacts alike:
+
+```bash
+c=${GRADLE_USER_HOME:-$HOME/.gradle}/caches/modules-2/files-2.1
+r=https://europe-maven.pkg.dev/spine-event-engine
+m=https://repo1.maven.org/maven2
+k='<artifactId>kotlin-(stdlib[a-z0-9-]*|bom)</artifactId>(<version>[^<]*</version>)?'
+k="$k"'|"module":"kotlin-(stdlib[a-z0-9-]*|bom)","version":\{"[a-z]+":"[^"]*"|no-(pom|module)'
+for gav in io.spine.tools:compiler-api:2.0.0-SNAPSHOT.079; do  # one entry per module
+  IFS=: read -r g a v <<< "$gav"
+  echo "== $gav"
+  for x in pom module; do
+    p="$(echo "$g" | tr . /)/$a/$v/$a-$v.$x"
+    { cat "$c/$g/$a/$v"/*/"$a-$v.$x" || curl -fsS "$r/snapshots/$p" \
+        || curl -fsS "$r/releases/$p" || curl -fsS "$m/$p" || echo "no-$x"; } 2>/dev/null \
+      | tr -d ' \t\r\n' | grep -oE "$k" | sort -u
+  done
+done
+```
+
+Each output line is one declaration, such as
+`<artifactId>kotlin-bom</artifactId><version>2.4.21</version>` or
+`"module":"kotlin-stdlib","version":{"requires":"2.4.21"`. A POM line with no
+`<version>`, or a `${…}` value, is unresolved. `no-module` alone is normal: many
+artifacts publish no Gradle Module Metadata. `no-pom` means the version could
+not be read — treat it as unverifiable.
 
 ### Spine artifacts in `local/`
 
@@ -151,14 +194,10 @@ The same check applies to the Spine SDK artifacts in `local/`. Their metadata
 records the Kotlin each version was built with: Spine Compiler
 `2.0.0-SNAPSHOT.071` requires `2.4.10`; `.079` requires `2.4.21`. A `local/`
 version whose requirement exceeds the cap breaks the consumers of our tools even
-when the repository's own Kotlin is within the cap. Read the metadata from the
-Spine Artifact Registry repositories (`releases` or `snapshots` under
-`https://europe-maven.pkg.dev/spine-event-engine/`), or from the local Gradle
-cache at this path:
-
-```text
-${GRADLE_USER_HOME:-$HOME/.gradle}/caches/modules-2/files-2.1/<group>/<artifact>/<version>/
-```
+when the repository's own Kotlin is within the cap. The loop above reads them
+from the Spine Artifact Registry (`releases` or `snapshots` under
+`https://europe-maven.pkg.dev/spine-event-engine/`). Resolve symbolic groups
+first: `Spine.group` is `io.spine`, `Spine.toolsGroup` is `io.spine.tools`.
 
 ## Moving the cap
 

@@ -177,40 +177,27 @@ Run this check on every audit, the fast path included.
    A value that was already above the cap on the base, and that the diff leaves
    alone, is a **Should fix** marked *pre-existing*. It still needs a rollback,
    but it should not block an unrelated change.
-3. **Kotlin requirements.** Check the **Kotlin requirement** — the
-   `kotlin-stdlib` dependency and the imported `kotlin-bom` in the POM (the
-   `.module` file next to it carries the same) — of these versions:
+3. **Kotlin requirements.** Check the **Kotlin requirement** of these versions,
+   as the guideline's "Libraries that require a newer Kotlin" defines it — the
+   highest Kotlin version across the POM **and** the `.module` file of every
+   module the version covers:
    - every new `version` value the diff introduces, in any scope;
    - the current version of every object under `local/`, changed or not.
      `rg -n 'version' buildSrc/src/main/kotlin/io/spine/dependency/local/`
      lists them in one call. Read a file only when its version is computed
      rather than a literal.
 
-   Use each object's first module, and resolve symbolic groups first
-   (`Spine.group` → `io.spine`, `Spine.toolsGroup` → `io.spine.tools`). For a
-   Kotlin Multiplatform library, use its `-jvm` artifact. Check them all in
-   one loop, which tries the Gradle cache, the Spine Artifact Registry, and
-   Maven Central, in that order:
+   List each object's modules (resolving `Spine.group` and `Spine.toolsGroup`;
+   for a Kotlin Multiplatform library, its `-jvm` artifacts). For a `local/`
+   object, the first module that declares a requirement is enough. Run every
+   module through the guideline's "Reading a requirement" loop in one call.
 
-   ```bash
-   c=${GRADLE_USER_HOME:-$HOME/.gradle}/caches/modules-2/files-2.1
-   r=https://europe-maven.pkg.dev/spine-event-engine
-   m=https://repo1.maven.org/maven2
-   for gav in io.spine.tools:compiler-api:2.0.0-SNAPSHOT.079; do  # one per artifact
-     IFS=: read -r g a v <<< "$gav"
-     p="$(echo "$g" | tr . /)/$a/$v/$a-$v.pom"
-     echo "== $gav"
-     { cat "$c/$g/$a/$v"/*/*.pom || curl -fsS "$r/snapshots/$p" \
-         || curl -fsS "$r/releases/$p" || curl -fsS "$m/$p" || echo 'POM NOT FOUND'; } 2>/dev/null \
-       | grep -A1 -E '<artifactId>kotlin-(stdlib|bom)|POM NOT FOUND'
-   done
-   ```
-
-   No Kotlin lines under an artifact means no requirement (a Java library).
    A requirement above the cap on a version the diff moves to is a **Must
    fix**; on a `local/` version pinned before the diff, a **Should fix** marked
-   *pre-existing*. Name the requirement and the cap in both. `POM NOT FOUND` is
-   a **Should fix**: ask the author to verify the requirement.
+   *pre-existing*. Name the requirement and the cap in both. An unverifiable
+   requirement — `no-pom`, or a Kotlin version the loop shows unresolved that
+   the POM's `<properties>` or parent does not settle — is a **Should fix**:
+   ask the author to verify it. Never count it as "no requirement".
 
 ## Output format
 

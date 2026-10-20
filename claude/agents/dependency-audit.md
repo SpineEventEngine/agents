@@ -21,8 +21,8 @@ Follow the `dependency-audit` skill exactly:
 - Read-only: use `Read`, `Grep`, `Glob`, and `Bash` solely for `git diff`,
   `git grep`, and related read-only inspection. For the Kotlin-cap check,
   that includes reading the Gradle cache and fetching the files the skill
-  names with `curl -fsS` (a plain GET: `config`'s wrapper properties and
-  artifact POMs). Do not run builds.
+  and its guideline name with `curl -fsS` (plain GETs of `config`'s wrapper
+  properties and of artifact POM and `.module` files). Do not run builds.
 - **Be fast.** Fetch the full unified diff once, work from it, and `Read`
   individual files only when the skill's step 2 budget allows. Issue
   independent `Grep`/`Bash` calls in parallel within a single response;

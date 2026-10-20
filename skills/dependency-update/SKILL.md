@@ -81,10 +81,11 @@ a hint.
 4. Compute the **Kotlin cap** as `.agents/guidelines/kotlin-version-cap.md`
    ("Computing the cap") describes: the Gradle version of `config`'s wrapper,
    then the Kotlin it embeds. Record both and the source of the Kotlin value
-   for the report. If the cap stays unknown, use the current
-   `Kotlin.runtimeVersion` as a stand-in ceiling. Then make no edit to the
-   Kotlin family and hold back any candidate that would need a newer Kotlin,
-   so an unknown cap never lets a version rise.
+   for the report. If the cap stays unknown, **freeze** as the guideline says:
+   make no edit to the Kotlin family or to any artifact that has a Kotlin
+   requirement, and update only artifacts with none. Do not use the current
+   `Kotlin.runtimeVersion` as a stand-in ceiling — it may itself be above the
+   real cap.
 
 ## Per-file workflow
 
@@ -118,18 +119,25 @@ to every value it names, whether or not a newer version exists.
   lower. Update only when the target is newer than the current value. List any
   newer release held back under **Capped**.
 - **Any other artifact, `local/` included** — read the candidate's **Kotlin
-  requirement** from its POM and Gradle Module Metadata. When it exceeds the cap,
-  walk down the accepted versions, newest first, and take the first one whose
-  requirement fits. Requirements rarely drop between releases, so the walk is
-  short. That version becomes the target if it is still newer than the current
-  one; otherwise make no edit. List the held-back newest version and its
-  requirement under **Capped**. A third-party artifact with no newer version
-  needs no lookup.
+  requirement** as the guideline defines it: the highest across the POM and the
+  `.module` file of every module the object declares (for `local/`, the first
+  module that declares one). Its "Reading a requirement" loop does this. When
+  the requirement exceeds the cap, walk down the accepted versions, newest first,
+  and take the first one whose requirement fits. Take the version list from
+  `<repo>/<groupPath>/<artifact>/maven-metadata.xml` — Maven Central, or the
+  Spine Artifact Registry for `local/` — whatever URL the file hints: a GitHub
+  `/releases/latest` page names only the newest release. Requirements rarely
+  drop between releases, so the walk is short. That version becomes the target
+  if it is still newer than the current one; otherwise make no edit. List the
+  held-back newest version and its requirement under **Capped**. Treat an
+  unverifiable requirement as above the cap: hold the version back and say why.
 - **Already above the cap** — check every Kotlin-family value, and the
-  requirement of the current version of every `local/` object. Never downgrade:
-  leave each one that exceeds the cap and list it under **Above the cap**.
-  Rolling back is a deliberate change (see the guideline's "Moving the cap"),
-  not something this skill does.
+  requirement of the current version of **every** object in scope, in all
+  scopes, build-script libraries and plugins included. Current versions are
+  usually in the local Gradle cache, so the loop reads them without network
+  calls. Never downgrade: leave each one that exceeds the cap and list it under
+  **Above the cap**. Rolling back is a deliberate change (see the guideline's
+  "Moving the cap"), not something this skill does.
 
 ### 6. Apply the edit
 
@@ -225,7 +233,7 @@ When the run completes, emit a Markdown report with these sections:
   `file | objectName | current → applied (or unchanged) | held back | Kotlin
   requirement`. Includes Kotlin-family releases above the cap.
 - **Above the cap** — values that already exceed the cap and were left as they
-  are: Kotlin-family versions, and `local/` artifacts whose current version
+  are: Kotlin-family versions, and artifacts in any scope whose current version
   requires a newer Kotlin. Each needs a deliberate rollback; see "Moving the
   cap" in `.agents/guidelines/kotlin-version-cap.md`.
 - **`local/` bumps to confirm** — every `local/` change called out separately,
