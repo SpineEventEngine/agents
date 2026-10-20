@@ -746,6 +746,34 @@ class KotlinCapTest(unittest.TestCase):
                 self.assertEqual(self.requirement("--cap", "2.4.10", gav),
                                  ([f"{gav} requirement={shown} verdict={verdict}"], code))
 
+    def test_a_managed_kotlin_bom_entry_is_not_an_import(self) -> None:
+        platform = "com.example:bom-entry-platform:1.0"
+        self.publish(platform, "pom", pom(
+            "<dependencyManagement><dependencies><dependency>"
+            "<groupId>org.jetbrains.kotlin</groupId><artifactId>kotlin-bom</artifactId>"
+            "<version>2.4.0</version><type>pom</type></dependency>"
+            "</dependencies></dependencyManagement>"))
+        gav = "com.example:bom-entry-user:1.0"
+        self.platform_user(gav, None, platform)
+        lines, code = self.requirement("--cap", "2.4.10", gav)
+        self.assertEqual(code, 1)
+        self.assertEqual(lines, [f"{gav} requirement=2.4.0+ verdict=unverifiable"
+                                 " reason=unresolved-kotlin-stdlib-version"])
+
+    def test_a_library_category_kotlin_bom_dependency_is_not_an_import(self) -> None:
+        gav = "com.example:plain-bom-dependency:1.0"
+        self.publish(gav, "pom", pom())
+        self.publish(gav, "module", (
+            '{"variants":[{"name":"runtimeElements","dependencies":['
+            '{"group":"org.jetbrains.kotlin","module":"kotlin-stdlib"},'
+            '{"group":"org.jetbrains.kotlin","module":"kotlin-bom",'
+            '"attributes":{"org.gradle.category":"library"},'
+            '"version":{"requires":"2.4.0"}}]}]}'))
+        lines, code = self.requirement("--cap", "2.4.10", gav)
+        self.assertEqual(code, 1)
+        self.assertEqual(lines, [f"{gav} requirement=2.4.0+ verdict=unverifiable"
+                                 " reason=unresolved-kotlin-stdlib-version"])
+
     def test_a_childs_import_beats_its_parents(self) -> None:
         older, newer = self.stdlib_bom("child-bom", "2.4.0"), self.stdlib_bom("parent-bom", "2.5.0")
         self.publish("com.example:importing-parent:1", "pom", pom(

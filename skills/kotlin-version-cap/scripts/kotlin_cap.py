@@ -526,9 +526,9 @@ def pom_versions(text: bytes, as_platform: bool = False,
                 declared.append((entry["artifactId"], entry.get("version"), False))
         elif as_platform and kotlin is None:
             problems.append(f"unresolved-managed:{coordinates}")  # may manage a Kotlin module
-    # Only a platform passes its Kotlin BOM's alignment on to consumers.
-    has_bom = as_platform and any(artifact == "kotlin-bom" and version
-                                  for artifact, version, _ in declared)
+    # Only a platform passes its Kotlin BOM's alignment on to consumers, and only
+    # an actual import aligns: a managed `kotlin-bom` entry just constrains it.
+    has_bom = as_platform and any(bom.startswith(f"{KOTLIN_BOM}:") for bom in imports)
     versions, pending, provisional = [], [], []
     for artifact, version, dependency in declared:
         if version is None:
@@ -605,8 +605,10 @@ def module_versions(text: bytes):
                 elif is_concrete(version):
                     versions.append((module, version))
                     settled.add(module)
-                    if module == "kotlin-bom" and key == "dependencies":
-                        imports_bom = True
+                    category = (dependency.get("attributes") or {}).get("org.gradle.category")
+                    if module == "kotlin-bom" and key == "dependencies" \
+                            and category in PLATFORM_CATEGORIES:
+                        imports_bom = True  # a platform import, not a plain dependency
                 else:
                     problems.append(f"unresolved-{module}-version:{version}")
         follow += [(platform, True) for platform in platforms]
