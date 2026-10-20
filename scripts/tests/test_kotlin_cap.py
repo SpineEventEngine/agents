@@ -179,6 +179,13 @@ class KotlinCapTest(unittest.TestCase):
         self.assertEqual(code, 3)
         self.assertEqual(values["cap"], "unknown")
 
+    def test_a_commented_out_distribution_url_is_ignored(self) -> None:
+        write(self.root / "gradle/wrapper/gradle-wrapper.properties",
+              "#" + wrapper("9.8.1") + "! " + wrapper("9.8.1") + wrapper("9.6.1"))
+        values, code = self.cap()
+        self.assertEqual(code, 0)
+        self.assertEqual((values["gradle"], values["cap"]), ("9.6.1", "2.3.21"))
+
     def test_a_version_between_rows_takes_the_row_below_it(self) -> None:
         self.assertEqual(self.cap("--gradle", "9.1.0")[0]["cap"], "2.2.0")
         self.assertEqual(self.cap("--gradle", "9.8.2")[0]["cap"], "2.4.10")
@@ -694,6 +701,54 @@ class KotlinCapTest(unittest.TestCase):
                            " reason=unresolved-managed:${who}:kotlin-stdlib"], 1))
         # Read as a library, its managed entries stay with it.
         self.assertEqual(self.requirement(gav)[0], [f"{gav} requirement=none"])
+
+    def test_opt_in_variants_of_another_capability_do_not_count(self) -> None:
+        gav = "com.example:with-fixtures:1.0"
+        self.publish(gav, "pom", pom())
+        self.publish(gav, "module", (
+            '{"component":{"group":"com.example","module":"with-fixtures","version":"1.0"},'
+            '"variants":['
+            '{"name":"runtimeElements","dependencies":[{"group":"org.jetbrains.kotlin",'
+            '"module":"kotlin-stdlib","version":{"requires":"2.4.0"}}]},'
+            '{"name":"testFixturesRuntimeElements","capabilities":[{"group":"com.example",'
+            '"name":"with-fixtures-test-fixtures","version":"1.0"}],'
+            '"dependencies":[{"group":"org.jetbrains.kotlin","module":"kotlin-stdlib",'
+            '"version":{"requires":"2.5.0"}}]}]}'))
+        lines, code = self.requirement("--cap", "2.4.10", gav)
+        self.assertEqual(code, 0)
+        self.assertEqual(lines, [f"{gav} requirement=2.4.0 verdict=within-cap"])
+
+    def test_a_constraint_on_kotlin_bom_does_not_settle_a_versionless_stdlib(self) -> None:
+        gav = "com.example:bom-constrained:1.0"
+        self.publish(gav, "pom", pom())
+        self.publish(gav, "module", (
+            '{"variants":[{"name":"runtimeElements",'
+            '"dependencies":[{"group":"org.jetbrains.kotlin","module":"kotlin-stdlib"}],'
+            '"dependencyConstraints":[{"group":"org.jetbrains.kotlin","module":"kotlin-bom",'
+            '"version":{"requires":"2.4.0"}}]}]}'))
+        lines, code = self.requirement("--cap", "2.4.10", gav)
+        self.assertEqual(code, 1)
+        self.assertEqual(lines, [f"{gav} requirement=2.4.0+ verdict=unverifiable"
+                                 " reason=unresolved-kotlin-stdlib-version"])
+
+    def test_only_a_platform_that_imports_kotlin_bom_settles_every_kotlin_module(self) -> None:
+        def kotlin_bom(key: str) -> str:
+            attributes = ('"attributes":{"org.gradle.category":"platform"},'
+                          if key == "dependencies" else "")
+            return (f'{{"name":"apiElements","{key}":[{{"group":"org.jetbrains.kotlin",'
+                    f'"module":"kotlin-bom",{attributes}"version":{{"requires":"2.4.0"}}}}]}}')
+        for name, key, shown in (("importing", "dependencies", "2.4.0"),
+                                 ("constraining", "dependencyConstraints", "2.4.0+")):
+            with self.subTest(name):
+                platform = f"com.example:{name}-platform:1.0"
+                self.publish(platform, "pom", pom())
+                self.publish(platform, "module", f'{{"variants":[{kotlin_bom(key)}]}}')
+                gav = f"com.example:{name}-user:1.0"
+                self.platform_user(gav, None, platform)
+                expected = f"{gav} requirement={shown}"
+                if shown.endswith("+"):
+                    expected += " reason=unresolved-kotlin-stdlib-version"
+                self.assertEqual(self.requirement(gav)[0], [expected])
 
     def relocated(self, gav: str, to_artifact: str) -> None:
         self.publish(gav, "pom", pom("<distributionManagement><relocation>"
