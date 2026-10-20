@@ -448,10 +448,14 @@ def pom_versions(text: str, as_platform: bool = False, own: tuple[str, str, str]
         elif as_platform and kotlin:
             declared.append((entry["artifactId"], entry.get("version")))
     has_bom = any(artifact == "kotlin-bom" and version for artifact, version in declared)
-    versions = []
+    boms = [target for target, platform in follow if platform]  # imported, not Kotlin's
+    versions, pending = [], []
     for artifact, version in declared:
         if version is None:
-            if not has_bom:
+            # An imported BOM may manage it; that is known only once the BOM is read.
+            if boms and not has_bom:
+                pending.append((artifact, boms))
+            elif not has_bom:
                 problems.append(f"unresolved-{artifact}-version")
             continue
         resolved = resolve(version, properties)
@@ -459,7 +463,7 @@ def pom_versions(text: str, as_platform: bool = False, own: tuple[str, str, str]
             problems.append(f"unresolved-{artifact}-version:{version}")
         else:
             versions.append(resolved)
-    return versions, problems, others, follow
+    return versions, problems, others, follow, pending
 
 
 def module_versions(text: str):
@@ -518,27 +522,35 @@ def module_versions(text: str):
     return versions, problems, follow, pending
 
 
-def requirement(gav: str, seen: set[str] | None = None,
-                as_platform: bool = False) -> tuple[str | None, list[str]]:
+def requirement(gav: str, as_platform: bool = False, path: frozenset = frozenset(),
+                done: dict | None = None) -> tuple[str | None, list[str]]:
     """Returns the module's Kotlin requirement (`None` if it has none) and problems.
 
     Reads on into what the module points to: the targets of `available-at` and of
-    a POM relocation, the platforms it uses, and the implementation a Gradle
-    plugin marker (`<id>:<id>.gradle.plugin`) depends on. `seen` guards against
-    cycles. Read `as_platform`, the module's managed and constraint versions
-    count as requirements.
+    a POM relocation, the platforms and BOMs it uses, and the implementation a
+    Gradle plugin marker (`<id>:<id>.gradle.plugin`) depends on. Read
+    `as_platform`, the module's managed and constraint versions count as
+    requirements.
+
+    `path` holds the modules being read above this one, so that a cycle ends; it
+    is per branch, so siblings that share a target each read it. `done` keeps
+    finished results, so a shared target is read once.
     """
-    seen = set() if seen is None else seen
-    seen.add(gav)
+    done = {} if done is None else done
+    key = (gav, as_platform)
+    if key in done:
+        return done[key]
+    path = path | {gav}
     group, artifact, version = gav.split(":")
     status, pom_text = fetch(group, artifact, version, "pom")
     if status != "ok":
-        return None, [f"{'no' if status == 'missing' else 'unreadable'}-pom"]
+        done[key] = (None, [f"{'no' if status == 'missing' else 'unreadable'}-pom"])
+        return done[key]
     try:
-        versions, problems, others, follow = pom_versions(pom_text, as_platform,
-                                                          (group, artifact, version))
+        versions, problems, others, follow, pending = pom_versions(
+            pom_text, as_platform, (group, artifact, version))
     except ET.ParseError:
-        versions, problems, others, follow = [], ["unparsable-pom"], [], []
+        versions, problems, others, follow, pending = [], ["unparsable-pom"], [], [], []
     if artifact.endswith(".gradle.plugin"):
         for dependency_group, dependency_artifact, dependency_version in others:
             if dependency_version:
@@ -547,23 +559,23 @@ def requirement(gav: str, seen: set[str] | None = None,
             else:
                 problems.append(f"unresolved-implementation:{dependency_group}:"
                                 f"{dependency_artifact}")
-    pending = []
     status, module_text = fetch(group, artifact, version, "module")
     if status == "ok":
         try:
-            found, module_problems, module_follow, pending = module_versions(module_text)
+            found, module_problems, module_follow, module_pending = module_versions(module_text)
             versions += found
             problems += module_problems
             follow += module_follow
+            pending += module_pending
         except (json.JSONDecodeError, AttributeError, KeyError, TypeError):
             problems.append("unparsable-module")
     elif status == "unreadable":
         problems.append("unreadable-module")
     answered = set()  # targets that yielded a Kotlin version
     for target, target_as_platform in follow:
-        if target in seen:
-            continue
-        found, target_problems = requirement(target, seen, target_as_platform)
+        if target in path:
+            continue  # a cycle: the module is already being read further up
+        found, target_problems = requirement(target, target_as_platform, path, done)
         if found:
             versions.append(found)
             answered.add(target)
@@ -571,7 +583,8 @@ def requirement(gav: str, seen: set[str] | None = None,
     for module, platforms in pending:
         if not answered.intersection(platforms):
             problems.append(f"unresolved-{module}-version")
-    return highest(versions), problems
+    done[key] = (highest(versions), problems)
+    return done[key]
 
 
 def run_requirement(args: argparse.Namespace) -> int:

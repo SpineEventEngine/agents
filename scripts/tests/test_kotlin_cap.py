@@ -595,6 +595,52 @@ class KotlinCapTest(unittest.TestCase):
         lines, _ = self.requirement("--cap", "2.4.10", gav)
         self.assertEqual(lines, [f"{gav} requirement=2.4.21 verdict=above-cap"])
 
+    def test_siblings_that_share_a_platform_each_read_it(self) -> None:
+        self.platform("com.example:shared-platform:1.0", "2.4.0")
+        for target in ("com.example:twin-jvm:1.0", "com.example:twin-android:1.0"):
+            self.platform_user(target, None, "com.example:shared-platform:1.0")
+        root = "com.example:twins:1.0"
+        self.publish(root, "pom", pom())
+        self.publish(root, "module", redirecting_module(
+            ("jvm", "com.example:twin-jvm:1.0"), ("androidJvm", "com.example:twin-android:1.0")))
+        lines, code = self.requirement("--cap", "2.4.10", root)
+        self.assertEqual(code, 0)
+        self.assertEqual(lines, [f"{root} requirement=2.4.0 verdict=within-cap"])
+
+    def test_a_bom_the_root_imports_still_settles_a_redirect_target(self) -> None:
+        self.platform("com.example:root-bom:1.0", "2.4.0")
+        self.platform_user("com.example:root-jvm:1.0", None, "com.example:root-bom:1.0")
+        root = "com.example:root:1.0"
+        self.publish(root, "pom", pom(
+            "<dependencyManagement><dependencies><dependency><groupId>com.example</groupId>"
+            "<artifactId>root-bom</artifactId><version>1.0</version><type>pom</type>"
+            "<scope>import</scope></dependency></dependencies></dependencyManagement>"))
+        self.publish(root, "module", redirecting_module(("jvm", "com.example:root-jvm:1.0")))
+        lines, code = self.requirement("--cap", "2.4.10", root)
+        self.assertEqual(code, 0)
+        self.assertEqual(lines, [f"{root} requirement=2.4.0 verdict=within-cap"])
+
+    def test_an_imported_bom_settles_a_versionless_pom_dependency(self) -> None:
+        def importer(name: str, bom: str) -> str:
+            gav = f"com.example:{name}:1.0"
+            self.publish(gav, "pom", pom(
+                "<dependencyManagement><dependencies><dependency><groupId>com.example</groupId>"
+                f"<artifactId>{bom}</artifactId><version>1.0</version><type>pom</type>"
+                "<scope>import</scope></dependency></dependencies></dependencyManagement>"
+                f"<dependencies>{kotlin_dependency('kotlin-stdlib')}</dependencies>"))
+            return gav
+        self.publish("com.example:managing-bom:1.0", "pom", pom(
+            "<dependencyManagement><dependencies>"
+            f"{kotlin_dependency('kotlin-stdlib', '2.4.0')}</dependencies></dependencyManagement>"))
+        gav = importer("bom-settled", "managing-bom")
+        lines, code = self.requirement("--cap", "2.4.10", gav)
+        self.assertEqual(code, 0)
+        self.assertEqual(lines, [f"{gav} requirement=2.4.0 verdict=within-cap"])
+        self.publish("com.example:unrelated-bom:1.0", "pom", pom())
+        gav = importer("bom-unsettled", "unrelated-bom")
+        self.assertEqual(self.requirement(gav)[0], [f"{gav} requirement=unverifiable"
+                                                    " reason=unresolved-kotlin-stdlib-version"])
+
     def relocated(self, gav: str, to_artifact: str) -> None:
         self.publish(gav, "pom", pom("<distributionManagement><relocation>"
                                      f"<artifactId>{to_artifact}</artifactId>"
