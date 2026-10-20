@@ -347,15 +347,21 @@ def merge(chain: list[Pom], path: str, properties: dict[str, str]) -> list[dict[
     be resolved keeps its `${…}` text. Entries are keyed by `identity()`. A
     child's fields override its parent's, and the fields it leaves out are
     inherited.
+
+    The result keeps Maven's order: the POM's own entries first, then those it
+    inherits. Order decides which imported BOM wins.
     """
     merged: dict[tuple, dict[str, str | None]] = {}
-    for pom in reversed(chain):  # the farthest ancestor first
+    for pom in chain:  # the POM itself first, then its ancestors
         context = {**properties, **pom.builtins()}
+        own: dict[tuple, dict[str, str | None]] = {}
         for entry in pom.entries(path):
             given = {field: resolve(value, context) or value
                      for field, value in entry.items() if value is not None}
             key = identity(given)
-            merged[key] = {**merged.get(key, {}), **given}
+            own[key] = {**own.get(key, {}), **given}  # an active profile's entry wins
+        for key, given in own.items():
+            merged[key] = {**given, **merged.get(key, {})}  # the child's fields win
     return list(merged.values())
 
 
@@ -647,18 +653,19 @@ def lookup(gav: str, as_platform: bool = False, path: frozenset = frozenset(),
     elif status == "unreadable":
         problems.append("unreadable-module")
     answers: dict[str, tuple[dict[str, str], bool]] = {}  # each target's modules, alignment
+    pom_only = [target for target in pom.imports if target not in metadata_targets]
     for target, target_as_platform in follow:
         if target in path:
             continue  # a cycle: the module is already being read further up
         found, target_problems, target_aligns = lookup(target, target_as_platform, path, done)
         answers[target] = (found, target_aligns)
-        # Only a BOM the POM alone imports is clipped to what the POM uses; the
-        # same platform declared in module metadata passes all its constraints on.
-        if target in pom.imports and target not in metadata_targets:
-            found = imported(found, target_aligns, target, pom, as_platform)
-        versions += found.items()
+        # A BOM the POM alone imports counts below, in import order; the same
+        # platform declared in module metadata passes all its constraints on.
+        if target not in pom_only:
+            versions += found.items()
         problems += [f"{target.split(':')[1]}:{problem}" for problem in target_problems]
         aligns = aligns or target_aligns  # what a module points to reaches its consumers
+    versions += imported(answers, pom_only, pom, as_platform)
     # A pending versionless dependency is settled only by a platform that resolves
     # that very module, or that imports `kotlin-bom`, which aligns them all.
     for module, platforms in pending:
@@ -673,25 +680,33 @@ def lookup(gav: str, as_platform: bool = False, path: frozenset = frozenset(),
     return done[key]
 
 
-def imported(found: dict[str, str], aligns: bool, bom: str, pom: PomReading,
-             as_platform: bool) -> dict[str, str]:
-    """What a BOM a POM imports adds to the POM's own Kotlin requirement.
+def imported(answers: dict[str, tuple[dict[str, str], bool]], boms: list[str],
+             pom: PomReading, as_platform: bool) -> list[tuple[str, str]]:
+    """What the BOMs a POM imports add to the POM's own Kotlin requirement.
 
-    Read as a platform, the POM passes the BOM's versions on, except for the
-    modules it manages itself, whose own entries win. Read as a library, the BOM
-    only supplies versions for the POM's own versionless dependencies — a module
-    the BOM resolves, or, if the BOM imports `kotlin-bom`, that BOM's version.
+    As in Maven, the first import that manages a module wins, so `boms` comes in
+    declaration order. Read as a platform, the POM passes the BOMs' versions on,
+    except for the modules it manages itself, whose own entries win. Read as a
+    library, the BOMs only supply versions for the POM's own versionless
+    dependencies — a module a BOM resolves, or, if the BOM imports `kotlin-bom`,
+    that BOM's version.
     """
+    chosen: dict[str, str] = {}
     if as_platform:
-        return {module: version for module, version in found.items()
-                if module not in pom.explicit}
-    supplied = {}
-    for module, boms in pom.pending:
-        if bom in boms:
+        for bom in boms:
+            found, _ = answers.get(bom, ({}, False))
+            for module, version in found.items():
+                if module not in pom.explicit and module not in chosen:
+                    chosen[module] = version
+        return list(chosen.items())
+    for module, pending_boms in pom.pending:
+        for bom in (bom for bom in boms if bom in pending_boms):
+            found, aligns = answers.get(bom, ({}, False))
             version = found.get(module) or (found.get("kotlin-bom") if aligns else None)
             if version:
-                supplied[module] = version
-    return supplied
+                chosen[module] = version
+                break
+    return list(chosen.items())
 
 
 def requirement(gav: str, as_platform: bool = False) -> tuple[str | None, list[str]]:

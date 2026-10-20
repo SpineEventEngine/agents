@@ -628,6 +628,43 @@ class KotlinCapTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertEqual(lines, [f"{gav} requirement=2.5.0 verdict=above-cap"])
 
+    def stdlib_bom(self, artifact: str, version: str) -> str:
+        """Publishes a POM-only BOM managing `kotlin-stdlib`; returns its import entry."""
+        self.publish(f"com.example:{artifact}:1.0", "pom", pom(
+            "<dependencyManagement><dependencies>"
+            f"{kotlin_dependency('kotlin-stdlib', version)}</dependencies></dependencyManagement>"))
+        return ("<dependency><groupId>com.example</groupId>"
+                f"<artifactId>{artifact}</artifactId><version>1.0</version><type>pom</type>"
+                "<scope>import</scope></dependency>")
+
+    def test_the_first_imported_bom_wins(self) -> None:
+        older, newer = self.stdlib_bom("bom-a", "2.4.0"), self.stdlib_bom("bom-b", "2.5.0")
+        stdlib = f"<dependencies>{kotlin_dependency('kotlin-stdlib')}</dependencies>"
+        for name, imports, shown in (("older-first", older + newer, "2.4.0"),
+                                     ("newer-first", newer + older, "2.5.0")):
+            with self.subTest(name):
+                gav = f"com.example:{name}:1.0"
+                management = f"<dependencyManagement><dependencies>{imports}</dependencies>" \
+                             "</dependencyManagement>"
+                self.publish(gav, "pom", pom(management + stdlib))
+                self.assertEqual(self.requirement(gav)[0], [f"{gav} requirement={shown}"])
+                bom = f"com.example:{name}-bom:1.0"
+                self.publish(bom, "pom", pom(management))
+                self.assertEqual(self.requirement("--platform", bom)[0],
+                                 [f"{bom} requirement={shown}"])
+
+    def test_a_childs_import_beats_its_parents(self) -> None:
+        older, newer = self.stdlib_bom("child-bom", "2.4.0"), self.stdlib_bom("parent-bom", "2.5.0")
+        self.publish("com.example:importing-parent:1", "pom", pom(
+            f"<dependencyManagement><dependencies>{newer}</dependencies></dependencyManagement>"))
+        gav = "com.example:importing-child:1.0"
+        self.publish(gav, "pom", pom(
+            f"<dependencyManagement><dependencies>{older}</dependencies></dependencyManagement>"
+            f"<dependencies>{kotlin_dependency('kotlin-stdlib')}</dependencies>",
+            "<parent><groupId>com.example</groupId><artifactId>importing-parent</artifactId>"
+            "<version>1</version></parent>"))
+        self.assertEqual(self.requirement(gav)[0], [f"{gav} requirement=2.4.0"])
+
     def test_a_poms_own_management_beats_an_imported_bom(self) -> None:
         self.publish("com.example:newer-bom:1.0", "pom", pom(
             "<dependencyManagement><dependencies>"
