@@ -750,6 +750,57 @@ class KotlinCapTest(unittest.TestCase):
                     expected += " reason=unresolved-kotlin-stdlib-version"
                 self.assertEqual(self.requirement(gav)[0], [expected])
 
+    def test_an_inherited_dependency_keeps_its_parents_builtin_properties(self) -> None:
+        self.publish("com.example:versioned-parent:2.5.0", "pom", pom(
+            "<groupId>com.example</groupId><artifactId>versioned-parent</artifactId>"
+            "<version>2.5.0</version><dependencies>"
+            f"{kotlin_dependency('kotlin-stdlib', '${project.version}')}</dependencies>"))
+        gav = "com.example:young-child:1.0"
+        self.publish(gav, "pom", pom(
+            "<artifactId>young-child</artifactId><version>1.0</version>",
+            "<parent><groupId>com.example</groupId><artifactId>versioned-parent</artifactId>"
+            "<version>2.5.0</version></parent>"))
+        lines, code = self.requirement("--cap", "2.4.10", gav)
+        self.assertEqual(code, 1)
+        self.assertEqual(lines, [f"{gav} requirement=2.5.0 verdict=above-cap"])
+
+    def test_a_profile_activated_by_absence_switches_the_defaults_off(self) -> None:
+        def profile(activation: str, version: str) -> str:
+            return (f"<profile><activation>{activation}</activation><properties>"
+                    f"<kotlin.version>{version}</kotlin.version></properties></profile>")
+        absence = profile("<property><name>!skip</name></property>", "2.5.0")
+        default = profile("<activeByDefault>true</activeByDefault>", "2.4.0")
+        dependency = (f"<dependencies>{kotlin_dependency('kotlin-stdlib', '${kotlin.version}')}"
+                      "</dependencies>")
+        for name, profiles in (("absence-first", absence + default),
+                               ("default-first", default + absence)):
+            with self.subTest(name):
+                gav = f"com.example:{name}:1.0"
+                self.publish(gav, "pom", pom(f"<profiles>{profiles}</profiles>{dependency}"))
+                self.assertEqual(self.requirement(gav)[0], [f"{gav} requirement=2.5.0"])
+
+    def test_a_cached_pom_in_another_encoding_is_read(self) -> None:
+        cached = self.home / "caches/modules-2/files-2.1/com.example/latin/1.0/sha"
+        cached.mkdir(parents=True)
+        (cached / "latin-1.0.pom").write_bytes(
+            pom("<name>Caf\xe9</name><dependencies>"
+                f"{kotlin_dependency('kotlin-stdlib', '2.4.0')}</dependencies>")
+            .replace("<project", '<?xml version="1.0" encoding="ISO-8859-1"?><project', 1)
+            .encode("iso-8859-1"))
+        self.env["KOTLIN_CAP_REPOSITORIES"] = f"http://127.0.0.1:{closed_port()}"
+        lines, _ = self.requirement("com.example:latin:1.0")
+        self.assertEqual(lines[0].split(" reason=")[0], "com.example:latin:1.0 requirement=2.4.0+")
+
+    def test_an_undecodable_cached_pom_does_not_abort_the_batch(self) -> None:
+        cached = self.home / "caches/modules-2/files-2.1/com.example/garbled/1.0/sha"
+        cached.mkdir(parents=True)
+        (cached / "garbled-1.0.pom").write_bytes(b"<project>\xff\xfe broken")
+        self.publish("com.example:fine:1.0", "pom", pom())
+        lines, _ = self.requirement("com.example:garbled:1.0", "com.example:fine:1.0")
+        self.assertEqual(lines, ["com.example:garbled:1.0 requirement=unverifiable"
+                                 " reason=unparsable-pom",
+                                 "com.example:fine:1.0 requirement=none"])
+
     def relocated(self, gav: str, to_artifact: str) -> None:
         self.publish(gav, "pom", pom("<distributionManagement><relocation>"
                                      f"<artifactId>{to_artifact}</artifactId>"

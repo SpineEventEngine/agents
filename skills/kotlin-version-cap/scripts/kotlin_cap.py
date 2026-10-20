@@ -218,17 +218,18 @@ def run_cap(args: argparse.Namespace) -> int:
 
 # --- requirement -----------------------------------------------------------------------
 
-def fetch(group: str, artifact: str, version: str, extension: str) -> tuple[str, str | None]:
+def fetch(group: str, artifact: str, version: str, extension: str) -> tuple[str, bytes | None]:
     """Reads a published file: from the Gradle cache, else from each repository.
 
-    Returns `("ok", text)`, `("missing", None)` when every repository answers 404,
-    or `("unreadable", None)` when one failed and none answered.
+    Returns `("ok", content)`, `("missing", None)` when every repository answers
+    404, or `("unreadable", None)` when one failed and none answered. The content
+    stays bytes, so that the XML parser honours a POM's declared encoding.
     """
     name = f"{artifact}-{version}.{extension}"
     cache = gradle_home() / "caches" / "modules-2" / "files-2.1" / group / artifact / version
     for path in sorted(glob.glob(str(cache / "*" / name))):
         try:
-            return "ok", Path(path).read_text(encoding="utf-8")
+            return "ok", Path(path).read_bytes()
         except OSError:
             pass
     path = f"{group.replace('.', '/')}/{artifact}/{version}/{name}"
@@ -237,7 +238,7 @@ def fetch(group: str, artifact: str, version: str, extension: str) -> tuple[str,
     for repository in repositories:
         status, body = read_url(f"{repository.rstrip('/')}/{path}")
         if status == "ok":
-            return "ok", body.decode("utf-8", "replace")
+            return "ok", body
         if status == "failed":
             result = "unreadable"
     return result, None
@@ -255,8 +256,8 @@ def is_concrete(version: str) -> bool:
 class Pom:
     """The parts of a POM that carry a Kotlin requirement."""
 
-    def __init__(self, text: str):
-        root = ET.fromstring(text)
+    def __init__(self, content: bytes):
+        root = ET.fromstring(content)
         for element in root.iter():
             if isinstance(element.tag, str) and "}" in element.tag:
                 element.tag = element.tag.split("}", 1)[1]
@@ -279,6 +280,18 @@ class Pom:
         return tuple(self._text(relocation, key) for key in ("groupId", "artifactId", "version"))
 
     def properties(self) -> dict[str, str]:
+        """The POM's built-in and declared properties; active profiles win."""
+        values = self.builtins()
+        sections = [self.root.find("properties")]
+        sections += [profile.find("properties") for profile in self.active_profiles()]
+        for section in sections:  # active profiles last, so they win
+            for element in section if section is not None else []:
+                if isinstance(element.tag, str) and element.text:
+                    values[element.tag] = element.text.strip()
+        return values
+
+    def builtins(self) -> dict[str, str]:
+        """`project.groupId`, `project.version`, `project.parent.*`, and the like."""
         values = {}
         for field in ("groupId", "artifactId", "version"):
             own = self._text(self.root, field)
@@ -289,23 +302,21 @@ class Pom:
                 values[f"project.{field}"] = own or parent
         if "project.version" in values:
             values["version"] = values["project.version"]
-        sections = [self.root.find("properties")]
-        sections += [profile.find("properties") for profile in self.active_profiles()]
-        for section in sections:  # active profiles last, so they win
-            for element in section if section is not None else []:
-                if isinstance(element.tag, str) and element.text:
-                    values[element.tag] = element.text.strip()
         return values
 
     def active_profiles(self) -> list[ET.Element]:
-        """The profiles Gradle activates: active by default, or by a property's absence."""
-        active = []
+        """The profiles Gradle activates.
+
+        Those activated by a property's absence, if any; otherwise those active
+        by default — a profile activated otherwise switches the defaults off.
+        """
+        by_absence, by_default = [], []
         for profile in self.root.findall("profiles/profile"):
-            by_default = self._text(profile, "activation/activeByDefault") == "true"
-            by_absence = (self._text(profile, "activation/property/name") or "").startswith("!")
-            if by_default or by_absence:
-                active.append(profile)
-        return active
+            if (self._text(profile, "activation/property/name") or "").startswith("!"):
+                by_absence.append(profile)
+            elif self._text(profile, "activation/activeByDefault") == "true":
+                by_default.append(profile)
+        return by_absence or by_default
 
     def entries(self, path: str) -> list[dict[str, str | None]]:
         """The dependency elements under `path`, field by field.
@@ -326,17 +337,21 @@ def identity(entry: dict[str, str | None]) -> tuple:
 
 
 def merge(chain: list[Pom], path: str, properties: dict[str, str]) -> list[dict[str, str | None]]:
-    """Merges the dependency entries of a POM and its ancestors, as Maven does.
+    """Merges the dependency entries of a POM and its ancestors, as Gradle reads them.
 
-    Every field but the version is interpolated first, so that `${…}` coordinates
-    key and match like literal ones; a field that cannot be resolved keeps its
-    `${…}` text. Entries are keyed by `identity()`. A child's fields override its
-    parent's, and the fields it leaves out are inherited.
+    Every field is interpolated first, so that `${…}` coordinates key and match
+    like literal ones. Built-in properties such as `${project.version}` take the
+    declaring POM's own values, so an inherited entry keeps its parent's; other
+    properties come from the whole chain, the child winning. A field that cannot
+    be resolved keeps its `${…}` text. Entries are keyed by `identity()`. A
+    child's fields override its parent's, and the fields it leaves out are
+    inherited.
     """
     merged: dict[tuple, dict[str, str | None]] = {}
     for pom in reversed(chain):  # the farthest ancestor first
+        context = {**properties, **pom.builtins()}
         for entry in pom.entries(path):
-            given = {field: value if field == "version" else resolve(value, properties) or value
+            given = {field: resolve(value, context) or value
                      for field, value in entry.items() if value is not None}
             key = identity(given)
             merged[key] = {**merged.get(key, {}), **given}
@@ -365,7 +380,7 @@ def resolve(value: str, properties: dict[str, str]) -> str | None:
     return None if "${" in value else value
 
 
-def pom_versions(text: str, as_platform: bool = False, own: tuple[str, str, str] | None = None):
+def pom_versions(text: bytes, as_platform: bool = False, own: tuple[str, str, str] | None = None):
     """Reads a POM with its parents.
 
     Returns five things:
@@ -395,7 +410,7 @@ def pom_versions(text: str, as_platform: bool = False, own: tuple[str, str, str]
             break
         try:
             chain.append(Pom(parent_text))
-        except ET.ParseError:
+        except (ET.ParseError, ValueError, LookupError):
             problems.append("parent-unparsable")
             break
     properties: dict[str, str] = {}
@@ -484,7 +499,7 @@ def pom_versions(text: str, as_platform: bool = False, own: tuple[str, str, str]
     return versions, problems, others, follow, pending, has_bom
 
 
-def module_versions(text: str):
+def module_versions(text: bytes):
     """Reads a Gradle Module Metadata file.
 
     Returns five things:
@@ -588,7 +603,7 @@ def lookup(gav: str, as_platform: bool = False, path: frozenset = frozenset(),
     try:
         versions, problems, others, follow, pending, aligns = pom_versions(
             pom_text, as_platform, (group, artifact, version))
-    except ET.ParseError:
+    except (ET.ParseError, ValueError, LookupError):  # malformed, or a bad encoding
         versions, problems, others, follow, pending = [], ["unparsable-pom"], [], [], []
         aligns = False
     if artifact.endswith(".gradle.plugin"):
@@ -609,7 +624,7 @@ def lookup(gav: str, as_platform: bool = False, path: frozenset = frozenset(),
             follow += module_follow
             pending += module_pending
             aligns = aligns or module_aligns
-        except (json.JSONDecodeError, AttributeError, KeyError, TypeError):
+        except (ValueError, AttributeError, KeyError, TypeError):
             problems.append("unparsable-module")
     elif status == "unreadable":
         problems.append("unreadable-module")
