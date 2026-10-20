@@ -32,6 +32,7 @@ Environment (all optional; the tests set them):
 from __future__ import annotations
 
 import argparse
+import functools
 import glob
 import http.client
 import json
@@ -74,6 +75,7 @@ REPOSITORIES = (
 )
 WRAPPER = Path("gradle/wrapper/gradle-wrapper.properties")
 KOTLIN_GROUP = "org.jetbrains.kotlin"
+KOTLIN_BOM = f"{KOTLIN_GROUP}:kotlin-bom"
 # POM scopes that never reach a consumer; `<optional>` dependencies don't either.
 NON_TRANSITIVE_SCOPES = ("test", "provided", "system")
 # Kotlin Multiplatform platforms a JVM consumer resolves; other variants are skipped.
@@ -219,6 +221,7 @@ def run_cap(args: argparse.Namespace) -> int:
 
 # --- requirement -----------------------------------------------------------------------
 
+@functools.lru_cache(maxsize=None)
 def fetch(group: str, artifact: str, version: str, extension: str) -> tuple[str, bytes | None]:
     """Reads a published file: from the Gradle cache, else from each repository.
 
@@ -402,8 +405,11 @@ class PomReading:
     # Versionless Kotlin dependencies that only an imported BOM can settle.
     pending: list[tuple[str, list[str]]]
     aligns: bool  # whether it imports `kotlin-bom`, which aligns every Kotlin module
-    imports: list[str]  # the imported BOMs among `follow`
-    explicit: set[str]  # Kotlin modules it manages itself, which beat imported BOMs
+    # The BOMs it imports, in declaration order: those among `follow`, and Kotlin
+    # BOMs (`org.jetbrains.kotlin:kotlin-bom:<version>`), which are not followed.
+    imports: list[str]
+    # The Kotlin modules it manages itself, with their entries; they beat imports.
+    explicit: dict[str, dict[str, str | None]]
 
 
 def pom_versions(text: bytes, as_platform: bool = False,
@@ -480,7 +486,7 @@ def pom_versions(text: bytes, as_platform: bool = False,
             problems.append(f"unresolved-dependency:{coordinates}")
             continue
         declared.append((entry["artifactId"], entry.get("version")))
-    imports, explicit = [], set()
+    imports, explicit = [], {}
     for entry in managed:
         kotlin = kotlin_identity(entry)
         coordinates = f"{entry.get('groupId')}:{entry.get('artifactId')}"
@@ -490,6 +496,8 @@ def pom_versions(text: bytes, as_platform: bool = False,
             elif kotlin:
                 if entry["artifactId"] == "kotlin-bom":
                     declared.append(("kotlin-bom", entry.get("version")))
+                    if concrete(entry.get("version")):
+                        imports.append(f"{KOTLIN_BOM}:{concrete(entry.get('version'))}")
             elif concrete(entry.get("version")):
                 follow.append((f"{coordinates}:{concrete(entry.get('version'))}", True))
                 imports.append(follow[-1][0])
@@ -497,20 +505,20 @@ def pom_versions(text: bytes, as_platform: bool = False,
                 problems.append(f"unresolved-bom:{coordinates}")
         elif kotlin:
             if entry.get("version"):
-                explicit.add(entry["artifactId"])
+                explicit[entry["artifactId"]] = entry
             if as_platform:
                 declared.append((entry["artifactId"], entry.get("version")))
         elif as_platform and kotlin is None:
             problems.append(f"unresolved-managed:{coordinates}")  # may manage a Kotlin module
     has_bom = any(artifact == "kotlin-bom" and version for artifact, version in declared)
-    boms = [target for target, platform in follow if platform]  # imported, not Kotlin's
     versions, pending = [], []
     for artifact, version in declared:
         if version is None:
-            # An imported BOM may manage it; that is known only once the BOM is read.
-            if boms and not has_bom:
-                pending.append((artifact, boms))
-            elif not has_bom:
+            # An imported BOM may manage it; that is known only once the BOMs are
+            # read, in import order.
+            if imports:
+                pending.append((artifact, list(imports)))
+            else:
                 problems.append(f"unresolved-{artifact}-version")
             continue
         resolved = resolve(version, properties)
@@ -669,7 +677,8 @@ def lookup(gav: str, as_platform: bool = False, path: frozenset = frozenset(),
     # A pending versionless dependency is settled only by a platform that resolves
     # that very module, or that imports `kotlin-bom`, which aligns them all.
     for module, platforms in pending:
-        if not any(module in answers.get(platform, ({}, False))[0]
+        if not any(platform.startswith(f"{KOTLIN_BOM}:")
+                   or module in answers.get(platform, ({}, False))[0]
                    or answers.get(platform, ({}, False))[1] for platform in platforms):
             problems.append(f"unresolved-{module}-version")
     modules: dict[str, str] = {}
@@ -680,20 +689,51 @@ def lookup(gav: str, as_platform: bool = False, path: frozenset = frozenset(),
     return done[key]
 
 
+def managed_entry(bom: str, module: str, path: frozenset = frozenset()) -> dict | None:
+    """The entry a BOM's dependency management gives a Kotlin module, if any.
+
+    As Maven resolves it: the BOM's own entry, else that of the first BOM it
+    imports that manages the module. A Kotlin BOM manages every Kotlin module
+    at its own version. `path` guards against import cycles.
+    """
+    if bom.startswith(f"{KOTLIN_BOM}:"):
+        return {"version": bom.rsplit(":", 1)[1]}
+    if bom in path:
+        return None
+    group, artifact, version = bom.split(":")
+    status, content = fetch(group, artifact, version, "pom")
+    if status != "ok":
+        return None
+    try:
+        reading = pom_versions(content, True, (group, artifact, version))
+    except (ET.ParseError, ValueError, LookupError):
+        return None
+    if module in reading.explicit:
+        return reading.explicit[module]
+    for imported_bom in reading.imports:
+        entry = managed_entry(imported_bom, module, path | {bom})
+        if entry:
+            return entry
+    return None
+
+
 def imported(answers: dict[str, tuple[dict[str, str], bool]], boms: list[str],
              pom: PomReading, as_platform: bool) -> list[tuple[str, str]]:
     """What the BOMs a POM imports add to the POM's own Kotlin requirement.
 
     As in Maven, the first import that manages a module wins, so `boms` comes in
-    declaration order. Read as a platform, the POM passes the BOMs' versions on,
-    except for the modules it manages itself, whose own entries win. Read as a
-    library, the BOMs only supply versions for the POM's own versionless
-    dependencies — a module a BOM resolves, or, if the BOM imports `kotlin-bom`,
-    that BOM's version.
+    declaration order, Kotlin BOMs included. Read as a platform, the POM passes
+    the BOMs' versions on, except for the modules it manages itself, whose own
+    entries win. Read as a library, the BOMs only supply what the POM's own
+    versionless dependencies need: the winning managed entry's version — unless
+    that entry makes the dependency test-scoped, provided, or optional, in which
+    case it never reaches a consumer.
     """
     chosen: dict[str, str] = {}
     if as_platform:
         for bom in boms:
+            if bom.startswith(f"{KOTLIN_BOM}:"):
+                break  # it manages every Kotlin module, and its version already counts
             found, _ = answers.get(bom, ({}, False))
             for module, version in found.items():
                 if module not in pom.explicit and module not in chosen:
@@ -701,11 +741,15 @@ def imported(answers: dict[str, tuple[dict[str, str], bool]], boms: list[str],
         return list(chosen.items())
     for module, pending_boms in pom.pending:
         for bom in (bom for bom in boms if bom in pending_boms):
-            found, aligns = answers.get(bom, ({}, False))
-            version = found.get(module) or (found.get("kotlin-bom") if aligns else None)
-            if version:
+            entry = managed_entry(bom, module)
+            if entry is None:
+                continue
+            transitive = (entry.get("scope") not in NON_TRANSITIVE_SCOPES
+                          and entry.get("optional") != "true")
+            version = entry.get("version")
+            if transitive and version and is_concrete(version):
                 chosen[module] = version
-                break
+            break
     return list(chosen.items())
 
 

@@ -653,6 +653,51 @@ class KotlinCapTest(unittest.TestCase):
                 self.assertEqual(self.requirement("--platform", bom)[0],
                                  [f"{bom} requirement={shown}"])
 
+    def test_a_kotlin_bom_import_takes_its_place_in_import_order(self) -> None:
+        newer = self.stdlib_bom("stdlib-bom", "2.5.0")
+        kotlin_bom = ("<dependency><groupId>org.jetbrains.kotlin</groupId>"
+                      "<artifactId>kotlin-bom</artifactId><version>2.4.0</version>"
+                      "<type>pom</type><scope>import</scope></dependency>")
+        stdlib = f"<dependencies>{kotlin_dependency('kotlin-stdlib')}</dependencies>"
+        for name, imports, shown in (("stdlib-bom-first", newer + kotlin_bom, "2.5.0"),
+                                     ("kotlin-bom-first", kotlin_bom + newer, "2.4.0")):
+            with self.subTest(name):
+                gav = f"com.example:{name}:1.0"
+                self.publish(gav, "pom", pom(
+                    f"<dependencyManagement><dependencies>{imports}</dependencies>"
+                    f"</dependencyManagement>{stdlib}"))
+                self.assertEqual(self.requirement(gav)[0], [f"{gav} requirement={shown}"])
+
+    def test_an_imported_bom_keeps_its_managed_scope(self) -> None:
+        test_scoped = ("<dependency><groupId>org.jetbrains.kotlin</groupId>"
+                       "<artifactId>kotlin-stdlib</artifactId><version>2.5.0</version>"
+                       "<scope>test</scope></dependency>")
+        stdlib = f"<dependencies>{kotlin_dependency('kotlin-stdlib')}</dependencies>"
+        self.publish("com.example:test-scoped-bom:1.0", "pom", pom(
+            f"<dependencyManagement><dependencies>{test_scoped}</dependencies>"
+            "</dependencyManagement>"))
+        bom_import = ("<dependency><groupId>com.example</groupId>"
+                      "<artifactId>test-scoped-bom</artifactId><version>1.0</version>"
+                      "<type>pom</type><scope>import</scope></dependency>")
+        for name, management in (("inline", test_scoped), ("imported", bom_import)):
+            with self.subTest(name):
+                gav = f"com.example:{name}-test-scoped:1.0"
+                self.publish(gav, "pom", pom(
+                    f"<dependencyManagement><dependencies>{management}</dependencies>"
+                    f"</dependencyManagement>{stdlib}"))
+                self.assertEqual(self.requirement("--cap", "2.4.10", gav),
+                                 ([f"{gav} requirement=none verdict=within-cap"], 0))
+        # The scope holds through a nested import as well.
+        self.publish("com.example:outer-bom:1.0", "pom", pom(
+            f"<dependencyManagement><dependencies>{bom_import}</dependencies>"
+            "</dependencyManagement>"))
+        gav = "com.example:nested-test-scoped:1.0"
+        self.publish(gav, "pom", pom(
+            "<dependencyManagement><dependencies><dependency><groupId>com.example</groupId>"
+            "<artifactId>outer-bom</artifactId><version>1.0</version><type>pom</type>"
+            f"<scope>import</scope></dependency></dependencies></dependencyManagement>{stdlib}"))
+        self.assertEqual(self.requirement(gav)[0], [f"{gav} requirement=none"])
+
     def test_a_childs_import_beats_its_parents(self) -> None:
         older, newer = self.stdlib_bom("child-bom", "2.4.0"), self.stdlib_bom("parent-bom", "2.5.0")
         self.publish("com.example:importing-parent:1", "pom", pom(
