@@ -410,6 +410,9 @@ class PomReading:
     imports: list[str]
     # The Kotlin modules it manages itself, with their entries; they beat imports.
     explicit: dict[str, dict[str, str | None]]
+    # The scope and `optional` flag each of its Kotlin dependencies declares
+    # itself; an imported BOM's entry only fills in what these leave out.
+    own_fields: dict[str, dict[str, str | None]]
 
 
 def pom_versions(text: bytes, as_platform: bool = False,
@@ -468,7 +471,7 @@ def pom_versions(text: bytes, as_platform: bool = False,
     # optional dependencies stay with the library.
     managed = merge(chain, "dependencyManagement/dependencies/dependency", properties)
     defaults = {identity(entry): entry for entry in managed}
-    declared, others = [], []
+    declared, others, own_fields = [], [], {}
     for entry in merge(chain, "dependencies/dependency", properties):
         default = defaults.get(identity(entry), {})
         for field in ("version", "scope", "optional"):
@@ -486,6 +489,8 @@ def pom_versions(text: bytes, as_platform: bool = False,
             problems.append(f"unresolved-dependency:{coordinates}")
             continue
         declared.append((entry["artifactId"], entry.get("version")))
+        own_fields[entry["artifactId"]] = {"scope": entry.get("scope"),
+                                           "optional": entry.get("optional")}
     imports, explicit = [], {}
     for entry in managed:
         kotlin = kotlin_identity(entry)
@@ -526,7 +531,8 @@ def pom_versions(text: bytes, as_platform: bool = False,
             problems.append(f"unresolved-{artifact}-version:{version}")
         else:
             versions.append((artifact, resolved))
-    return PomReading(versions, problems, others, follow, pending, has_bom, imports, explicit)
+    return PomReading(versions, problems, others, follow, pending, has_bom, imports, explicit,
+                      own_fields)
 
 
 def module_versions(text: bytes):
@@ -633,7 +639,7 @@ def lookup(gav: str, as_platform: bool = False, path: frozenset = frozenset(),
     try:
         pom = pom_versions(pom_text, as_platform, (group, artifact, version))
     except (ET.ParseError, ValueError, LookupError):  # malformed, or a bad encoding
-        pom = PomReading([], ["unparsable-pom"], [], [], [], False, [], set())
+        pom = PomReading([], ["unparsable-pom"], [], [], [], False, [], {}, {})
     versions, problems, others = pom.versions, pom.problems, pom.others
     follow, pending, aligns = pom.follow, list(pom.pending), pom.aligns
     if artifact.endswith(".gradle.plugin"):
@@ -744,8 +750,12 @@ def imported(answers: dict[str, tuple[dict[str, str], bool]], boms: list[str],
             entry = managed_entry(bom, module)
             if entry is None:
                 continue
-            transitive = (entry.get("scope") not in NON_TRANSITIVE_SCOPES
-                          and entry.get("optional") != "true")
+            # The dependency's own scope and `optional` flag win; the imported
+            # entry only fills in what it leaves out.
+            own = pom.own_fields.get(module, {})
+            scope = own.get("scope") or entry.get("scope")
+            optional = own.get("optional") or entry.get("optional")
+            transitive = scope not in NON_TRANSITIVE_SCOPES and optional != "true"
             version = entry.get("version")
             if transitive and version and is_concrete(version):
                 chosen[module] = version

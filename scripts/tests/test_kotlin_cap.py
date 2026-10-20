@@ -687,6 +687,15 @@ class KotlinCapTest(unittest.TestCase):
                     f"</dependencyManagement>{stdlib}"))
                 self.assertEqual(self.requirement("--cap", "2.4.10", gav),
                                  ([f"{gav} requirement=none verdict=within-cap"], 0))
+        # The dependency's own scope beats the imported default.
+        gav = "com.example:explicit-compile:1.0"
+        self.publish(gav, "pom", pom(
+            f"<dependencyManagement><dependencies>{bom_import}</dependencies>"
+            "</dependencyManagement><dependencies><dependency>"
+            "<groupId>org.jetbrains.kotlin</groupId><artifactId>kotlin-stdlib</artifactId>"
+            "<scope>compile</scope></dependency></dependencies>"))
+        self.assertEqual(self.requirement("--cap", "2.4.10", gav),
+                         ([f"{gav} requirement=2.5.0 verdict=above-cap"], 1))
         # The scope holds through a nested import as well.
         self.publish("com.example:outer-bom:1.0", "pom", pom(
             f"<dependencyManagement><dependencies>{bom_import}</dependencies>"
