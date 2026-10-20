@@ -152,15 +152,15 @@ to the resolved target of an independent or synced version. Two kinds of
 version are affected here:
 
 - `kotlinEmbeddedVersion` belongs to the **Kotlin family**: it is never above the
-  cap, whatever its comment says. It carries no pin wording, so it would otherwise read as
-  independent and chase the newest Kotlin release. Raising it also raises the
-  forced `kotlin-stdlib`/`kotlin-reflect` and the `kotlin-bom` platform that
-  interpolate it.
+  cap, whatever its comment says. It carries no pin wording, so it would
+  otherwise read as independent and chase the newest Kotlin release. Raising it
+  also raises everything that interpolates it: the forced `kotlin-stdlib` and
+  `kotlin-reflect`, and the `kotlin-bom` platform.
 - Every other plugin or library version is a candidate for the
   Kotlin-requirement check. `buildSrc` and the plugins it puts on the classpath
   run on the Kotlin embedded in Gradle, the same as our tools.
 
-A pin below the cap still holds the version there, but no pin can lift a version
+A pin below the cap still holds the version there; no pin lets a version rise
 above the cap.
 
 ## 4. Apply the edit

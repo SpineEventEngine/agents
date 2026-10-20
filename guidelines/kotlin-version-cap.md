@@ -112,9 +112,8 @@ Each of these declarations in `config`'s `buildSrc` must stay at or below the ca
 - `Kotlin.runtimeVersion` in `buildSrc/src/main/kotlin/io/spine/dependency/lib/Kotlin.kt`.
   It also drives `Kotlin.version`, `Kotlin.bom` (`kotlin-bom`), `Kotlin.StdLib`,
   and `Kotlin.GradlePlugin` (the Kotlin Gradle plugin).
-- `Kotlin.embeddedVersion` in the same file — the version of
-  `kotlin-compiler-embeddable`, not of the Kotlin embedded in Gradle, despite
-  the name.
+- `Kotlin.embeddedVersion` in the same file — despite the name, the version of
+  `kotlin-compiler-embeddable`, not of the Kotlin embedded in Gradle.
 - `kotlinEmbeddedVersion` in `buildSrc/build.gradle.kts`. It versions the Kotlin
   Gradle plugin of `buildSrc` itself, the forced `kotlin-stdlib`,
   `kotlin-stdlib-common`, and `kotlin-reflect`, and

@@ -13,6 +13,6 @@ interface:
     release, align "keep in sync" versions upward to their io.spine.dependency.*
     object (never downgrade; report drift when the object is lower), and leave
     pinned versions untouched (flag them with the rationale). Never raise
-    Kotlin, or adopt a release that requires a newer Kotlin, above the cap
-    defined in .agents/guidelines/kotlin-version-cap.md: the Kotlin embedded in
-    the Gradle version of config's wrapper.
+    Kotlin above the Kotlin embedded in the Gradle version of config's wrapper,
+    and never adopt a release that requires a newer Kotlin than that
+    (.agents/guidelines/kotlin-version-cap.md).

@@ -5,10 +5,10 @@ description: >
   `buildSrc/src/main/kotlin/io/spine/dependency/` — catches accidental
   version downgrades, BOM mismatches, versions above the Kotlin version cap
   (Kotlin itself, or artifacts that require a newer Kotlin), missing
-  deprecation markers when artifacts are renamed or removed, copyright
-  drift, and convention drift. Use whenever a
-  diff touches that directory or `buildSrc/build.gradle.kts`, or when asked
-  to "audit this dependency bump". Read-only; does not run builds.
+  deprecation markers when artifacts are renamed or removed, copyright drift,
+  and convention drift. Use whenever a diff touches that directory or
+  `buildSrc/build.gradle.kts`, or when asked to "audit this dependency bump".
+  Read-only; does not run builds.
 ---
 
 # Dependency audit (repo-specific)
@@ -161,7 +161,9 @@ Run this check on every audit, the fast path included.
    fi | grep -oE 'gradle-[0-9.]+-(bin|all)\.zip|^offline.*'
    ```
 
-   This audit does not browse docs or run Gradle. When the table cannot
+   The `^offline` alternative keeps the fallback's marker line in the output,
+   so the stale case cannot go unnoticed. This audit does not browse docs or
+   run Gradle. When the table cannot
    answer, list the `kotlin-stdlib-*.jar` in the unpacked distribution (the
    guideline gives the path). If that is missing too, report "cap unknown —
    refresh the table in the guideline" under **Should fix**, and skip the rest
@@ -204,8 +206,8 @@ Run this check on every audit, the fast path included.
 Three sections, in this order:
 
 - **Must fix** — version downgrades, missing deprecation markers on removed
-  symbols, broken callers, BOM/version mismatches, Kotlin-cap violations the
-  diff introduces.
+  symbols, broken callers, BOM/version mismatches, and Kotlin-cap violations
+  that the diff introduces.
 - **Should fix** — convention drift, missing deprecation `ReplaceWith`,
   missing copyright update, missing URL comment, naming oddities,
   pre-existing Kotlin-cap violations, an unknown or unverifiable cap.

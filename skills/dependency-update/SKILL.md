@@ -111,7 +111,7 @@ Then apply the Kotlin cap and the edit, and handle `local/` artifacts:
 The cap may lower the target below `latest`, or cancel the update. The rule and
 the metadata to read are in `.agents/guidelines/kotlin-version-cap.md`. The
 first two bullets apply to the candidates that step 4 kept; the third applies
-to every value it names, whether or not a newer version exists.
+to every value listed in it, whether or not a newer version exists.
 
 - **Kotlin family** — `Kotlin.runtimeVersion`, `Kotlin.embeddedVersion`, and any
   other hard-coded `org.jetbrains.kotlin:*` version. The target is the cap
@@ -207,11 +207,11 @@ the policy is:
    rewrite those.
 
 The major-bump guard in **Safety** applies to **independent** build-script
-versions just as it does to dependency objects. So does the Kotlin cap,
-whatever the version's class. `kotlinEmbeddedVersion` belongs to the Kotlin
-family even though no pin comment says so. Other Gradle plugins (Dokka, Detekt,
-Kover, …) get the Kotlin-requirement check too, since `buildSrc` also runs on
-Gradle's embedded Kotlin.
+versions just as it does to dependency objects. So does the Kotlin cap, for
+pinned, synced, and independent versions alike. `kotlinEmbeddedVersion` belongs
+to the Kotlin family even though no pin comment says so. Other Gradle plugins
+(Dokka, Detekt, Kover, …) get the Kotlin-requirement check too, since `buildSrc`
+also runs on Gradle's embedded Kotlin.
 
 ## Report
 
@@ -229,9 +229,10 @@ When the run completes, emit a Markdown report with these sections:
   `synced` version whose `io.spine.dependency.*` object could not be located.
 - **Filtered pre-releases** — newer versions found but rejected because they
   were RC/SNAPSHOT/alpha/etc. Applies only outside `local/`.
-- **Capped** — newer versions held back by the Kotlin cap:
-  `file | objectName | current → applied (or unchanged) | held back | Kotlin
-  requirement`. Includes Kotlin-family releases above the cap.
+- **Capped** — newer versions held back by the Kotlin cap, as a table of
+  `file | objectName | current → applied (or unchanged) | held back`
+  plus a `Kotlin requirement` column. Includes Kotlin-family releases above the
+  cap.
 - **Above the cap** — values that already exceed the cap and were left as they
   are: Kotlin-family versions, and artifacts in any scope whose current version
   requires a newer Kotlin. Each needs a deliberate rollback; see "Moving the

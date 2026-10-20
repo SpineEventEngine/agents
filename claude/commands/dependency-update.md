@@ -19,9 +19,10 @@ Follow the `dependency-update` skill exactly:
   AND back-fill the URL comment.
 - Filter out snapshots, RCs, alphas, betas, milestones, EAPs, and `-dev` builds.
 - Apply the Kotlin version cap (`.agents/guidelines/kotlin-version-cap.md`): never
-  raise Kotlin, or adopt a release that requires a newer Kotlin, above the Kotlin
-  embedded in the Gradle version of `config`'s wrapper. Report held-back versions
-  under "Capped" and values already above the cap under "Above the cap".
+  raise Kotlin above the Kotlin embedded in the Gradle version of `config`'s
+  wrapper, and never adopt a release that requires a newer Kotlin than that.
+  Report held-back versions under "Capped" and values already above the cap under
+  "Above the cap".
 - Apply the edit. Do NOT commit; emit the report described in the skill.
 - Flag `local/` (Spine SDK) updates separately so the user can decide whether to bump in lockstep.
 - After the run, suggest the user review the diff and run `./gradlew build`

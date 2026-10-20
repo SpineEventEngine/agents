@@ -140,7 +140,7 @@ reference live in [`references/version-discovery.md`](references/version-discove
   Kotlin requirement fits. List the held-back newest release, with its `2.5.0`
   requirement, under **Capped**.
 
-## Scenario 16 — `local/` snapshot built with a Kotlin above the cap
+## Scenario 16 — `local/` snapshot built with a Kotlin version above the cap
 
 - **Trigger:** "See what's stale in `local`."
 - **State:** the cap is `2.4.10`. The `local/Compiler.kt` object is at
