@@ -3,10 +3,12 @@ name: dependency-audit
 description: >
   Audits changes to dependency declarations under
   `buildSrc/src/main/kotlin/io/spine/dependency/` — catches accidental
-  version downgrades, BOM mismatches, missing deprecation markers when
-  artifacts are renamed or removed, copyright drift, and convention drift.
-  Use whenever a diff touches that directory, or when asked to "audit
-  this dependency bump". Read-only; does not run builds.
+  version downgrades, BOM mismatches, versions above the Kotlin version cap
+  (Kotlin itself, or artifacts that require a newer Kotlin), missing
+  deprecation markers when artifacts are renamed or removed, copyright
+  drift, and convention drift. Use whenever a
+  diff touches that directory or `buildSrc/build.gradle.kts`, or when asked
+  to "audit this dependency bump". Read-only; does not run builds.
 ---
 
 # Dependency audit (repo-specific)
@@ -40,12 +42,18 @@ Each file declares a Kotlin `object` extending `Dependency` or `DependencyWithBo
 ## How to run an audit
 
 1. **Fetch the full diff once.** Default base is `origin/master`:
-   `git diff origin/master...HEAD -- 'buildSrc/src/main/kotlin/io/spine/dependency/**'`
+
+   ```bash
+   git diff origin/master...HEAD -- \
+       'buildSrc/src/main/kotlin/io/spine/dependency/**' buildSrc/build.gradle.kts
+   ```
+
    (use `--staged` if the user is mid-commit, or a different base only if
-   the user names one). The unified diff already contains the old and new
-   lines you need for version-sanity and BOM checks — do not call `--stat`
-   first and then re-read each file. If the diff is empty, ask the user
-   which files to audit.
+   the user names one). The build script matters only for Check F, because
+   it declares `kotlinEmbeddedVersion`. The unified diff already contains
+   the old and new lines you need for version-sanity and BOM checks — do
+   not call `--stat` first and then re-read each file. If the diff is empty,
+   ask the user which files to audit.
 
 2. **Lean on the diff; read files on demand.** Version, BOM, copyright, and
    deprecation deltas are all visible in the unified diff. Only read a
@@ -56,9 +64,9 @@ Each file declares a Kotlin `object` extending `Dependency` or `DependencyWithBo
    for cross-cutting questions.
 
 3. **Batch independent work into one turn.** Issue the version-sanity (A),
-   convention-drift (D), and cross-cutting (E) tool calls *in parallel*
-   within a single response. Collect every finding and emit the report
-   once — **do not stop at the first failure**.
+   convention-drift (D), cross-cutting (E), and Kotlin-cap (F) tool calls
+   *in parallel* within a single response. Collect every finding and emit
+   the report once — **do not stop at the first failure**.
 
 4. **Batch greps.** For deprecation/caller checks (C) and snapshot-pin
    checks (A), build one ripgrep over the union of symbols instead of one
@@ -75,7 +83,7 @@ Each file declares a Kotlin `object` extending `Dependency` or `DependencyWithBo
 
 5. **Fast path for pure version bumps.** If every hunk only modifies an
    existing `version` (or `bom`) string literal — no added/removed
-   `const val`, no new files, no renames — run only Checks A and D.
+   `const val`, no new files, no renames — run only Checks A, D, and F.
    Skip B, C, and E entirely. This is the dominant `dependency-update`
    shape; do not waste tool calls re-validating naming or deprecation
    discipline when nothing structural changed.
@@ -130,14 +138,90 @@ When an artifact is **renamed or removed**:
 - **No mixing Groovy and Kotlin DSL.** All Gradle code in `buildSrc/` must be
   `.kt` or `.gradle.kts`. Catch any `.gradle` file slipping in.
 
+### F. Kotlin version cap
+The SDK's Kotlin must never exceed the Kotlin embedded in the Gradle version of
+`config`'s wrapper. Our tools run on Gradle's embedded Kotlin, and an artifact
+that requires a newer one stops resolving in consumers. The rule, the cap
+table, and the metadata to read are in `.agents/guidelines/kotlin-version-cap.md`.
+Run this check on every audit, the fast path included.
+
+1. **Find the cap.** Read the Gradle version of `config`'s wrapper as the
+   guideline's "Computing the cap" says, then look it up in its table. In
+   `config` itself, read the root file. In a consumer repository, read the
+   copy on `config`'s `master`, falling back to the submodule's copy when
+   offline — and then say in the report that the cap may be stale:
+
+   ```bash
+   w=gradle/wrapper/gradle-wrapper.properties
+   if [ -d config ]; then  # a consumer repository
+     curl -fsS "https://raw.githubusercontent.com/SpineEventEngine/config/master/$w" \
+       || { echo 'offline: submodule copy, may be stale'; cat "config/$w"; }
+   else                    # `config` itself
+     cat "$w"
+   fi | grep -oE 'gradle-[0-9.]+-(bin|all)\.zip|^offline.*'
+   ```
+
+   This audit does not browse docs or run Gradle. When the table cannot
+   answer, list the `kotlin-stdlib-*.jar` in the unpacked distribution (the
+   guideline gives the path). If that is missing too, report "cap unknown —
+   refresh the table in the guideline" under **Should fix**, and skip the rest
+   of this check.
+2. **Kotlin family.** Two greps read every value:
+
+   ```bash
+   rg -n 'const val (runtimeVersion|embeddedVersion) =|^val kotlinEmbeddedVersion =' buildSrc/
+   rg -n 'org\.jetbrains\.kotlin:[a-z0-9-]+:[0-9]' buildSrc/
+   ```
+
+   A value above the cap that the diff introduces or raises is a **Must fix**.
+   A value that was already above the cap on the base, and that the diff leaves
+   alone, is a **Should fix** marked *pre-existing*. It still needs a rollback,
+   but it should not block an unrelated change.
+3. **Kotlin requirements.** Check the **Kotlin requirement** — the
+   `kotlin-stdlib` dependency and the imported `kotlin-bom` in the POM (the
+   `.module` file next to it carries the same) — of these versions:
+   - every new `version` value the diff introduces, in any scope;
+   - the current version of every object under `local/`, changed or not.
+     `rg -n 'version' buildSrc/src/main/kotlin/io/spine/dependency/local/`
+     lists them in one call. Read a file only when its version is computed
+     rather than a literal.
+
+   Use each object's first module, and resolve symbolic groups first
+   (`Spine.group` → `io.spine`, `Spine.toolsGroup` → `io.spine.tools`). For a
+   Kotlin Multiplatform library, use its `-jvm` artifact. Check them all in
+   one loop, which tries the Gradle cache, the Spine Artifact Registry, and
+   Maven Central, in that order:
+
+   ```bash
+   c=${GRADLE_USER_HOME:-$HOME/.gradle}/caches/modules-2/files-2.1
+   r=https://europe-maven.pkg.dev/spine-event-engine
+   m=https://repo1.maven.org/maven2
+   for gav in io.spine.tools:compiler-api:2.0.0-SNAPSHOT.079; do  # one per artifact
+     IFS=: read -r g a v <<< "$gav"
+     p="$(echo "$g" | tr . /)/$a/$v/$a-$v.pom"
+     echo "== $gav"
+     { cat "$c/$g/$a/$v"/*/*.pom || curl -fsS "$r/snapshots/$p" \
+         || curl -fsS "$r/releases/$p" || curl -fsS "$m/$p" || echo 'POM NOT FOUND'; } 2>/dev/null \
+       | grep -A1 -E '<artifactId>kotlin-(stdlib|bom)|POM NOT FOUND'
+   done
+   ```
+
+   No Kotlin lines under an artifact means no requirement (a Java library).
+   A requirement above the cap on a version the diff moves to is a **Must
+   fix**; on a `local/` version pinned before the diff, a **Should fix** marked
+   *pre-existing*. Name the requirement and the cap in both. `POM NOT FOUND` is
+   a **Should fix**: ask the author to verify the requirement.
+
 ## Output format
 
 Three sections, in this order:
 
 - **Must fix** — version downgrades, missing deprecation markers on removed
-  symbols, broken callers, BOM/version mismatches.
+  symbols, broken callers, BOM/version mismatches, Kotlin-cap violations the
+  diff introduces.
 - **Should fix** — convention drift, missing deprecation `ReplaceWith`,
-  missing copyright update, missing URL comment, naming oddities.
+  missing copyright update, missing URL comment, naming oddities,
+  pre-existing Kotlin-cap violations, an unknown or unverifiable cap.
 - **Nits** — formatting, ordering, doc-comment polish.
 
 For each finding, cite the file and line, quote the offending lines, and

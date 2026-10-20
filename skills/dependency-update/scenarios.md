@@ -111,3 +111,42 @@ reference live in [`references/version-discovery.md`](references/version-discove
   `33.4.8-jre`, even though the object pass did not run this invocation. Report
   under **Build script — updated** tagged `synced`. Do **not** withhold the edit
   merely because the catalogue was not refreshed in the same run.
+
+## Scenario 13 — newest Kotlin is above the cap
+
+- **Trigger:** default full scan.
+- **State:** `config`'s wrapper is Gradle `9.8.1`, so the cap is `2.4.10`.
+  `Kotlin.runtimeVersion`, `Kotlin.embeddedVersion`, and `kotlinEmbeddedVersion`
+  are `2.4.0`, and Kotlin `2.4.21` is the newest release.
+- **Expected:** move all three to `2.4.10`, the newest release within the cap.
+  Report them under **Updated** / **Build script — updated**, and list the
+  held-back `2.4.21` under **Capped**.
+
+## Scenario 14 — Kotlin is already above the cap
+
+- **Trigger:** default full scan.
+- **State:** the cap is `2.4.10`; `Kotlin.runtimeVersion` and
+  `kotlinEmbeddedVersion` are `2.4.21`.
+- **Expected:** do **not** downgrade. Leave both values and list them under
+  **Above the cap** with the rollback pointer to the guideline.
+
+## Scenario 15 — a library's newest release needs a newer Kotlin
+
+- **Trigger:** "Bump libraries."
+- **State:** the cap is `2.4.10`. A `kotlinx/` library's newest release declares
+  `kotlin-stdlib:2.5.0` in its POM. The release before it declares `2.4.0` and
+  is newer than the current version.
+- **Expected:** update to the older release, which is the newest one whose
+  Kotlin requirement fits. List the held-back newest release, with its `2.5.0`
+  requirement, under **Capped**.
+
+## Scenario 16 — `local/` snapshot built with a Kotlin above the cap
+
+- **Trigger:** "See what's stale in `local`."
+- **State:** the cap is `2.4.10`. The `local/Compiler.kt` object is at
+  `2.0.0-SNAPSHOT.069`. Snapshots `.072` to `.079` import `kotlin-bom:2.4.21`;
+  `.071` requires `2.4.10`.
+- **Expected:** move to `.071`, not `.079`. List `.079` and its `2.4.21`
+  requirement under **Capped**, and keep the usual **`local/` bumps to confirm**
+  entry. Had the object already been at `.079`, leave it and list it under
+  **Above the cap**.

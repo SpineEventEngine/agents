@@ -14,3 +14,6 @@ Follow the `bump-gradle` skill exactly:
   truth for the latest version. Do NOT rely on remembered Gradle versions.
 - If the user supplied a version: $ARGUMENTS, use it; otherwise read it from the release notes.
 - Commit the wrapper change and dependency report change in separate commits per the skill.
+- Report which Kotlin the new Gradle embeds and how the bump moves the Kotlin
+  version cap (`.agents/guidelines/kotlin-version-cap.md`). Never raise Kotlin in
+  the same change.

@@ -147,6 +147,22 @@ edit only on confirmation / `--include-majors`) to **independent** versions, the
 same way it applies to dependency objects. Synced versions follow their object,
 which the dependency-object pass already guarded.
 
+Then apply the **Kotlin cap** (step 5, "Apply the Kotlin cap", in `SKILL.md`)
+to the resolved target of an independent or synced version. Two kinds of
+version are affected here:
+
+- `kotlinEmbeddedVersion` is **Kotlin family**: never above the cap, whatever its
+  comment says. It carries no pin wording, so it would otherwise read as
+  independent and chase the newest Kotlin release. Raising it also raises the
+  forced `kotlin-stdlib`/`kotlin-reflect` and the `kotlin-bom` platform that
+  interpolate it.
+- Every other plugin or library version is a candidate for the
+  Kotlin-requirement check. `buildSrc` and the plugins it puts on the classpath
+  run on the Kotlin embedded in Gradle, the same as our tools.
+
+A pin below the cap still holds the version there, but no pin can lift a version
+above the cap.
+
 ## 4. Apply the edit
 
 - **`val`** → replace the literal on the `val …Version = "<old>"` line. Anchor on

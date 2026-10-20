@@ -30,7 +30,8 @@ Follow the `pre-pr` skill exactly:
     the build), or a `.kt`/`.kts`/`.java` diff that also touches comment
     lines. See the skill for the exact conditions.
   - `dependency-audit` when any file under
-    `buildSrc/src/main/kotlin/io/spine/dependency/` changed.
+    `buildSrc/src/main/kotlin/io/spine/dependency/` or
+    `buildSrc/build.gradle.kts` changed.
   - `check-links` when a Hugo site exists (a Hugo config under `docs/` or
     `site/`) and the diff touches files under the site directory or
     `lychee.toml`. Honor the `check-links.ok` sentinel short-circuit from

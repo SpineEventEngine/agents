@@ -4,7 +4,9 @@ description: >
   Updates the Gradle wrapper version used by this repository. Use when asked to
   upgrade Gradle, bump the Gradle wrapper, move the project to the latest
   Gradle release from the official release notes, run the Gradle build, and
-  commit Gradle wrapper and dependency report changes separately.
+  commit Gradle wrapper and dependency report changes separately. Reports how
+  the bump moves the Kotlin version cap (the Kotlin embedded in the Gradle
+  version of `config`'s wrapper, which the SDK's Kotlin must not exceed).
 ---
 
 # Bump Gradle
@@ -15,6 +17,28 @@ latest version and the wrapper update command:
 https://docs.gradle.org/current/release-notes.html#upgrade-instructions
 
 Always check that page at task time. Do not rely on remembered Gradle versions.
+
+## Gradle and the Kotlin version cap
+
+The Kotlin version of the whole SDK is capped at the Kotlin embedded in the
+Gradle version of `config`'s wrapper, because our tool projects run on Gradle's
+embedded Kotlin. The rule, the embedded-Kotlin table, and how to compute the cap
+are in `.agents/guidelines/kotlin-version-cap.md`. What a wrapper bump does to
+the cap depends on where it runs:
+
+- **In `config`** (the repository itself, which has no `config` submodule) —
+  the bump moves the cap for the whole SDK, since `config`'s `migrate` script
+  copies this wrapper into every repository. Treat it as a decision about which
+  Gradle versions our tools support: once Kotlin follows the new cap, the tools
+  may stop working on older Gradle versions. Do not raise Kotlin in the same
+  change. The wrapper lands first; Kotlin moves up to the new cap afterwards,
+  through the `dependency-update` skill. A new version that embeds a **lower**
+  Kotlin than `buildSrc` uses (usually an older Gradle) would leave Kotlin
+  above the cap: stop before committing, and report it.
+- **In any other repository** — the cap does not move. It follows `config`'s
+  wrapper, not this one. A wrapper ahead of `config`'s permits no newer Kotlin,
+  and one behind it means the repository is due for a `config` pull rather than
+  a hand-made bump. Report when the target differs from `config`'s version.
 
 ## Commit authorization
 
@@ -57,6 +81,10 @@ empty commits, and do not bundle unrelated changes into either commit.
 
 3. Run the wrapper update command.
 
+   Before running it, record the current Gradle version from
+   `gradle/wrapper/gradle-wrapper.properties` and the cap it implies (see
+   "Gradle and the Kotlin version cap" above): the command rewrites that file.
+
    Substitute the version from the release notes:
 
    ```bash
@@ -68,6 +96,15 @@ empty commits, and do not bundle unrelated changes into either commit.
    ```bash
    ./gradlew wrapper --gradle-version=9.5.1 && ./gradlew wrapper
    ```
+
+   Then record the Kotlin the new version embeds. `./gradlew --version` prints
+   it on its `Kotlin:` line. Compare it with the cap you recorded and with
+   `Kotlin.runtimeVersion` and `kotlinEmbeddedVersion` in `buildSrc`, then
+   follow "Gradle and the Kotlin version cap" above. In `config`, if the new
+   embedded Kotlin is lower than the `buildSrc` values, do not commit. In the
+   final response, state the old and new embedded Kotlin. In `config`, when the
+   cap rose, suggest running the `dependency-update` skill next. When the
+   guideline's table has no row for the new version, suggest adding one.
 
 4. Run the build.
 
