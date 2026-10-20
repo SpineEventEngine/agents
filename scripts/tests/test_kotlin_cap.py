@@ -544,6 +544,85 @@ class KotlinCapTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertEqual(lines, [f"{marker} requirement=2.5.0 verdict=above-cap"])
 
+    def platform(self, gav: str, constrained: str | None) -> None:
+        """Publishes a Gradle platform, optionally constraining `kotlin-stdlib`."""
+        constraint = ('{"group":"org.jetbrains.kotlin","module":"kotlin-stdlib",'
+                      f'"version":{{"requires":"{constrained}"}}}}') if constrained else ""
+        self.publish(gav, "pom", pom())
+        self.publish(gav, "module", '{"variants":[{"name":"apiElements",'
+                                    f'"dependencyConstraints":[{constraint}]}}]}}')
+
+    def platform_user(self, gav: str, stdlib: str | None, platform: str) -> None:
+        group, artifact, version = platform.split(":")
+        version_spec = f',"version":{{"requires":"{stdlib}"}}' if stdlib else ""
+        self.publish(gav, "pom", pom())
+        self.publish(gav, "module", (
+            '{"variants":[{"name":"runtimeElements","dependencies":['
+            f'{{"group":"org.jetbrains.kotlin","module":"kotlin-stdlib"{version_spec}}},'
+            f'{{"group":"{group}","module":"{artifact}",'
+            '"attributes":{"org.gradle.category":"platform"},'
+            f'"version":{{"requires":"{version}"}}}}]}}]}}'))
+
+    def test_a_platform_that_is_not_kotlins_can_raise_the_requirement(self) -> None:
+        self.platform("com.example:raising-platform:1.0", "2.4.21")
+        gav = "com.example:platform-user:1.0"
+        self.platform_user(gav, "2.4.0", "com.example:raising-platform:1.0")
+        lines, code = self.requirement("--cap", "2.4.10", gav)
+        self.assertEqual(code, 1)
+        self.assertEqual(lines, [f"{gav} requirement=2.4.21 verdict=above-cap"])
+
+    def test_a_platform_settles_a_versionless_dependency_only_if_it_constrains_it(self) -> None:
+        self.platform("com.example:settling-platform:1.0", "2.3.0")
+        gav = "com.example:settled:1.0"
+        self.platform_user(gav, None, "com.example:settling-platform:1.0")
+        self.assertEqual(self.requirement(gav)[0], [f"{gav} requirement=2.3.0"])
+        self.platform("com.example:silent-platform:1.0", None)
+        gav = "com.example:unsettled:1.0"
+        self.platform_user(gav, None, "com.example:silent-platform:1.0")
+        self.assertEqual(self.requirement(gav)[0], [f"{gav} requirement=unverifiable"
+                                                    " reason=unresolved-kotlin-stdlib-version"])
+
+    def test_an_imported_bom_counts_its_managed_kotlin_versions(self) -> None:
+        managed = ("<dependencyManagement><dependencies>"
+                   f"{kotlin_dependency('kotlin-stdlib', '2.4.21')}"
+                   "</dependencies></dependencyManagement>")
+        self.publish("com.example:other-bom:1.0", "pom", pom(managed))
+        gav = "com.example:bom-importer:1.0"
+        self.publish(gav, "pom", pom(
+            "<dependencyManagement><dependencies><dependency><groupId>com.example</groupId>"
+            "<artifactId>other-bom</artifactId><version>1.0</version><type>pom</type>"
+            "<scope>import</scope></dependency></dependencies></dependencyManagement>"))
+        lines, _ = self.requirement("--cap", "2.4.10", gav)
+        self.assertEqual(lines, [f"{gav} requirement=2.4.21 verdict=above-cap"])
+
+    def relocated(self, gav: str, to_artifact: str) -> None:
+        self.publish(gav, "pom", pom("<distributionManagement><relocation>"
+                                     f"<artifactId>{to_artifact}</artifactId>"
+                                     "</relocation></distributionManagement>"))
+
+    def test_a_relocated_pom_takes_its_targets_requirement(self) -> None:
+        self.relocated("com.example:old-lib:1.0", "new-lib")
+        lines, _ = self.requirement("--cap", "2.4.10", "com.example:old-lib:1.0")
+        self.assertEqual(lines, ["com.example:old-lib:1.0 requirement=unverifiable"
+                                 " verdict=unverifiable reason=new-lib:no-pom"])
+        self.publish("com.example:new-lib:1.0", "pom", pom(
+            f"<dependencies>{kotlin_dependency('kotlin-stdlib', '2.5.0')}</dependencies>"))
+        lines, code = self.requirement("--cap", "2.4.10", "com.example:old-lib:1.0")
+        self.assertEqual(code, 1)
+        self.assertEqual(lines, ["com.example:old-lib:1.0 requirement=2.5.0 verdict=above-cap"])
+
+    def test_an_unresolvable_relocation_is_unverifiable(self) -> None:
+        self.relocated("com.example:moved-somewhere:1.0", "${where}")
+        self.assertEqual(self.requirement("com.example:moved-somewhere:1.0")[0],
+                         ["com.example:moved-somewhere:1.0 requirement=unverifiable"
+                          " reason=unresolved-relocation"])
+
+    def test_a_relocation_cycle_ends(self) -> None:
+        self.relocated("com.example:ping:1.0", "pong")
+        self.relocated("com.example:pong:1.0", "ping")
+        self.assertEqual(self.requirement("com.example:ping:1.0")[0],
+                         ["com.example:ping:1.0 requirement=none"])
+
     def test_a_malformed_coordinate_is_a_usage_error(self) -> None:
         self.assertEqual(self.requirement("com.example:lib")[1], 2)
 

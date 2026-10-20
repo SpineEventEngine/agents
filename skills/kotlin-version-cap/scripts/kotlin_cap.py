@@ -74,6 +74,8 @@ KOTLIN_GROUP = "org.jetbrains.kotlin"
 NON_TRANSITIVE_SCOPES = ("test", "provided", "system")
 # Kotlin Multiplatform platforms a JVM consumer resolves; other variants are skipped.
 JVM_PLATFORMS = (None, "jvm", "androidJvm", "common")
+# Gradle Module Metadata categories of a platform dependency, whose constraints apply.
+PLATFORM_CATEGORIES = ("platform", "enforced-platform")
 TIMEOUT_SECONDS = 20
 MAX_PARENTS = 5
 
@@ -256,6 +258,13 @@ class Pom:
         coordinates = [self._text(parent, key) for key in ("groupId", "artifactId", "version")]
         return tuple(coordinates) if parent is not None and all(coordinates) else None
 
+    def relocation(self) -> tuple[str | None, str | None, str | None] | None:
+        """The coordinates a relocated POM points to; a missing one keeps the POM's own."""
+        relocation = self.root.find("distributionManagement/relocation")
+        if relocation is None:
+            return None
+        return tuple(self._text(relocation, key) for key in ("groupId", "artifactId", "version"))
+
     def properties(self) -> dict[str, str]:
         values = {}
         for field in ("groupId", "artifactId", "version"):
@@ -343,12 +352,19 @@ def resolve(value: str, properties: dict[str, str]) -> str | None:
     return None if "${" in value else value
 
 
-def pom_versions(text: str) -> tuple[list[str], list[str], list[tuple]]:
+def pom_versions(text: str, as_platform: bool = False, own: tuple[str, str, str] | None = None):
     """Reads a POM with its parents.
 
-    Returns the Kotlin versions it asks for, the problems met, and its other
-    dependencies that reach a consumer, as `(group, artifact, version)` tuples
-    whose version is `None` when it does not resolve.
+    Returns four things:
+    - the Kotlin versions it asks for;
+    - the problems met;
+    - its other dependencies that reach a consumer, as `(group, artifact, version)`
+      tuples whose version is `None` when it does not resolve;
+    - what to read next, as `(gav, as_platform)` pairs: a relocation target, and
+      each imported BOM that is not Kotlin's, read as a platform.
+
+    Read `as_platform`, the POM's managed Kotlin entries count too: a platform's
+    constraints raise the Kotlin its consumers get.
     """
     chain = [Pom(text)]
     problems = []
@@ -370,6 +386,28 @@ def pom_versions(text: str) -> tuple[list[str], list[str], list[tuple]]:
     for pom in reversed(chain):
         properties.update(pom.properties())
 
+    def concrete(version: str | None) -> str | None:
+        resolved = resolve(version, properties) if version else None
+        return resolved if resolved and is_concrete(resolved) else None
+
+    follow = []
+    relocation = chain[0].relocation()
+    if relocation is not None:
+        # A coordinate the relocation leaves out keeps the POM's own: the one the
+        # POM was fetched by, else what the POM itself declares.
+        fields = ("groupId", "artifactId", "version")
+        given = [concrete(value) if field == "version" else resolve(value, properties) if value
+                 else None for value, field in zip(relocation, fields)]
+        group, artifact, version = (
+            value or (own[index] if own else None) or properties.get(f"project.{field}")
+            for index, (value, field) in enumerate(zip(given, fields)))
+        if any(value and not resolved for value, resolved in zip(relocation, given)):
+            group = None  # a field given but unresolvable must not fall back to the POM's own
+        if group and artifact and version:
+            follow.append((f"{group}:{artifact}:{version}", as_platform))
+        else:
+            problems.append("unresolved-relocation")
+
     # Build the effective dependencies as Maven does — interpolate, inherit, then
     # apply `<dependencyManagement>` defaults for what a dependency leaves out —
     # and only then keep what a consumer receives: test, provided, system, and
@@ -386,9 +424,8 @@ def pom_versions(text: str) -> tuple[list[str], list[str], list[tuple]]:
             continue
         kotlin = kotlin_identity(entry)
         if kotlin is False:
-            version = resolve(entry["version"], properties) if entry.get("version") else None
             others.append((entry.get("groupId"), entry.get("artifactId"),
-                           version if version and is_concrete(version) else None))
+                           concrete(entry.get("version"))))
             continue
         if kotlin is None:
             coordinates = f"{entry.get('groupId')}:{entry.get('artifactId')}"
@@ -396,12 +433,20 @@ def pom_versions(text: str) -> tuple[list[str], list[str], list[tuple]]:
             continue
         declared.append((entry["artifactId"], entry.get("version")))
     for entry in managed:
-        if entry.get("scope") != "import" or kotlin_identity(entry) is False:
-            continue
-        if kotlin_identity(entry) is None:
-            problems.append(f"unresolved-bom:{entry.get('groupId')}:{entry.get('artifactId')}")
-        elif entry["artifactId"] == "kotlin-bom":
-            declared.append(("kotlin-bom", entry.get("version")))
+        kotlin = kotlin_identity(entry)
+        coordinates = f"{entry.get('groupId')}:{entry.get('artifactId')}"
+        if entry.get("scope") == "import":
+            if kotlin is None:
+                problems.append(f"unresolved-bom:{coordinates}")
+            elif kotlin:
+                if entry["artifactId"] == "kotlin-bom":
+                    declared.append(("kotlin-bom", entry.get("version")))
+            elif concrete(entry.get("version")):
+                follow.append((f"{coordinates}:{concrete(entry.get('version'))}", True))
+            else:
+                problems.append(f"unresolved-bom:{coordinates}")
+        elif as_platform and kotlin:
+            declared.append((entry["artifactId"], entry.get("version")))
     has_bom = any(artifact == "kotlin-bom" and version for artifact, version in declared)
     versions = []
     for artifact, version in declared:
@@ -414,32 +459,44 @@ def pom_versions(text: str) -> tuple[list[str], list[str], list[tuple]]:
             problems.append(f"unresolved-{artifact}-version:{version}")
         else:
             versions.append(resolved)
-    return versions, problems, others
+    return versions, problems, others, follow
 
 
-def module_versions(text: str) -> tuple[list[str], list[str], list[str]]:
+def module_versions(text: str):
     """Reads a Gradle Module Metadata file.
 
-    Returns the Kotlin versions it asks for, the problems met, and the
-    coordinates its JVM variants redirect to through `available-at`.
+    Returns four things:
+    - the Kotlin versions it asks for;
+    - the problems met;
+    - what to read next, as `(gav, as_platform)` pairs: the targets its JVM
+      variants redirect to through `available-at`, and its platforms that are
+      not Kotlin's;
+    - its versionless Kotlin dependencies that only such a platform can settle,
+      as `(module, platforms)` pairs.
     """
-    versions, problems, redirects = [], [], []
+    versions, problems, follow, pending = [], [], [], []
     for variant in json.loads(text).get("variants", []):
         if variant.get("attributes", {}).get("org.jetbrains.kotlin.platform.type") \
                 not in JVM_PLATFORMS:
             continue
         target = variant.get("available-at")
         if target:
-            redirects.append(f"{target['group']}:{target['module']}:{target['version']}")
+            follow.append((f"{target['group']}:{target['module']}:{target['version']}", False))
             continue
-        settled, versionless = set(), []
+        settled, versionless, platforms = set(), [], []
         for key in ("dependencies", "dependencyConstraints"):
             for dependency in variant.get(key, []):
-                module = dependency.get("module", "")
-                if dependency.get("group") != KOTLIN_GROUP or not is_kotlin_artifact(module):
-                    continue
+                group, module = dependency.get("group"), dependency.get("module", "")
                 spec = dependency.get("version") or {}
                 version = spec.get("strictly") or spec.get("requires") or spec.get("prefers")
+                if group != KOTLIN_GROUP or not is_kotlin_artifact(module):
+                    category = (dependency.get("attributes") or {}).get("org.gradle.category")
+                    if key == "dependencies" and category in PLATFORM_CATEGORIES:
+                        if version and is_concrete(version):
+                            platforms.append(f"{group}:{module}:{version}")
+                        else:
+                            problems.append(f"unresolved-platform:{group}:{module}")
+                    continue
                 if not version:
                     versionless.append(module)
                 elif is_concrete(version):
@@ -447,21 +504,29 @@ def module_versions(text: str) -> tuple[list[str], list[str], list[str]]:
                     settled.add(module)
                 else:
                     problems.append(f"unresolved-{module}-version:{version}")
-        # A versionless dependency takes its version from a constraint or a platform.
-        # A Kotlin BOM in the same variant settles every Kotlin module; anything
-        # else (another platform) is not read here, so the version stays unknown.
+        follow += [(platform, True) for platform in platforms]
+        # A versionless dependency takes its version from a constraint or a
+        # platform. A Kotlin BOM settles every Kotlin module; another platform
+        # settles it only if reading that platform yields a Kotlin version.
         for module in versionless:
-            if module not in settled and "kotlin-bom" not in settled:
+            if module in settled or "kotlin-bom" in settled:
+                continue
+            if platforms:
+                pending.append((module, platforms))
+            else:
                 problems.append(f"unresolved-{module}-version")
-    return versions, problems, redirects
+    return versions, problems, follow, pending
 
 
-def requirement(gav: str, seen: set[str] | None = None) -> tuple[str | None, list[str]]:
+def requirement(gav: str, seen: set[str] | None = None,
+                as_platform: bool = False) -> tuple[str | None, list[str]]:
     """Returns the module's Kotlin requirement (`None` if it has none) and problems.
 
-    Follows `available-at` redirects in the module's metadata, and the
-    implementation a Gradle plugin marker (`<id>:<id>.gradle.plugin`) points to;
-    `seen` guards against cycles.
+    Reads on into what the module points to: the targets of `available-at` and of
+    a POM relocation, the platforms it uses, and the implementation a Gradle
+    plugin marker (`<id>:<id>.gradle.plugin`) depends on. `seen` guards against
+    cycles. Read `as_platform`, the module's managed and constraint versions
+    count as requirements.
     """
     seen = set() if seen is None else seen
     seen.add(gav)
@@ -470,35 +535,42 @@ def requirement(gav: str, seen: set[str] | None = None) -> tuple[str | None, lis
     if status != "ok":
         return None, [f"{'no' if status == 'missing' else 'unreadable'}-pom"]
     try:
-        versions, problems, others = pom_versions(pom_text)
+        versions, problems, others, follow = pom_versions(pom_text, as_platform,
+                                                          (group, artifact, version))
     except ET.ParseError:
-        versions, problems, others = [], ["unparsable-pom"], []
-    redirects = []
+        versions, problems, others, follow = [], ["unparsable-pom"], [], []
     if artifact.endswith(".gradle.plugin"):
         for dependency_group, dependency_artifact, dependency_version in others:
             if dependency_version:
-                redirects.append(f"{dependency_group}:{dependency_artifact}:{dependency_version}")
+                follow.append((f"{dependency_group}:{dependency_artifact}:{dependency_version}",
+                               False))
             else:
                 problems.append(f"unresolved-implementation:{dependency_group}:"
                                 f"{dependency_artifact}")
+    pending = []
     status, module_text = fetch(group, artifact, version, "module")
     if status == "ok":
         try:
-            found, module_problems, module_redirects = module_versions(module_text)
+            found, module_problems, module_follow, pending = module_versions(module_text)
             versions += found
             problems += module_problems
-            redirects += module_redirects
+            follow += module_follow
         except (json.JSONDecodeError, AttributeError, KeyError, TypeError):
             problems.append("unparsable-module")
     elif status == "unreadable":
         problems.append("unreadable-module")
-    for target in redirects:
+    answered = set()  # targets that yielded a Kotlin version
+    for target, target_as_platform in follow:
         if target in seen:
             continue
-        found, target_problems = requirement(target, seen)
+        found, target_problems = requirement(target, seen, target_as_platform)
         if found:
             versions.append(found)
+            answered.add(target)
         problems += [f"{target.split(':')[1]}:{problem}" for problem in target_problems]
+    for module, platforms in pending:
+        if not answered.intersection(platforms):
+            problems.append(f"unresolved-{module}-version")
     return highest(versions), problems
 
 

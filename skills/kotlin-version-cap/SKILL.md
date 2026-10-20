@@ -102,9 +102,13 @@ mechanical work; this skill says how to read its output and what to do with it.
    repositories `config`'s builds use: the Spine Artifact Registry, Maven
    Central, and the Gradle Plugin Portal. It builds the effective POM as Gradle
    reads it — parents, `${…}` properties, `<dependencyManagement>` defaults, and
-   the profiles Gradle activates — and follows the `available-at` redirects of a
-   Kotlin Multiplatform root's JVM variants and the implementation a Gradle
-   plugin marker (`<id>:<id>.gradle.plugin`) points to.
+   the profiles Gradle activates — and reads on into what a module points to:
+   the platforms and imported BOMs whose constraints apply to it, a POM
+   relocation, the `available-at` redirects of a Kotlin Multiplatform root's JVM
+   variants, and the implementation a Gradle plugin marker
+   (`<id>:<id>.gradle.plugin`) points to. It does not walk the whole transitive
+   graph: each catalog dependency is checked as its own module, and the build
+   resolves the rest.
    - List **all** modules of a dependency object and take the highest: one may
      be plain Java while a sibling depends on Kotlin. A `local/` object's modules
      come from one build, so its first module that declares a requirement is
