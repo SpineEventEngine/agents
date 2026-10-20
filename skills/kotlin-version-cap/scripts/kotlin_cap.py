@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import http.client
 import json
 import os
 import re
@@ -128,8 +129,8 @@ def read_url(url: str) -> tuple[str, bytes | None]:
             return "ok", response.read()
     except urllib.error.HTTPError as error:
         return ("missing" if error.code == 404 else "failed"), None
-    except (urllib.error.URLError, OSError, ValueError):
-        return "failed", None
+    except (urllib.error.URLError, http.client.HTTPException, OSError, ValueError):
+        return "failed", None  # unreachable, refused, timed out, or cut short
 
 
 # --- cap -------------------------------------------------------------------------------
@@ -266,17 +267,34 @@ class Pom:
                 values[f"project.{field}"] = own or parent
         if "project.version" in values:
             values["version"] = values["project.version"]
-        section = self.root.find("properties")
-        for element in section if section is not None else []:
-            if isinstance(element.tag, str) and element.text:
-                values[element.tag] = element.text.strip()
+        sections = [self.root.find("properties")]
+        sections += [profile.find("properties") for profile in self.active_profiles()]
+        for section in sections:  # active profiles last, so they win
+            for element in section if section is not None else []:
+                if isinstance(element.tag, str) and element.text:
+                    values[element.tag] = element.text.strip()
         return values
 
+    def active_profiles(self) -> list[ET.Element]:
+        """The profiles Gradle activates: active by default, or by a property's absence."""
+        active = []
+        for profile in self.root.findall("profiles/profile"):
+            by_default = self._text(profile, "activation/activeByDefault") == "true"
+            by_absence = (self._text(profile, "activation/property/name") or "").startswith("!")
+            if by_default or by_absence:
+                active.append(profile)
+        return active
+
     def entries(self, path: str) -> list[dict[str, str | None]]:
-        """The dependency elements under `path`, field by field."""
+        """The dependency elements under `path`, field by field.
+
+        Active profiles come last, so that their entries override the POM's own.
+        """
         fields = ("groupId", "artifactId", "version", "scope", "optional", "type", "classifier")
-        return [{field: self._text(element, field) for field in fields}
-                for element in self.root.findall(path)]
+        elements = self.root.findall(path)
+        for profile in self.active_profiles():
+            elements += profile.findall(path)
+        return [{field: self._text(element, field) for field in fields} for element in elements]
 
 
 def identity(entry: dict[str, str | None]) -> tuple:
@@ -325,8 +343,13 @@ def resolve(value: str, properties: dict[str, str]) -> str | None:
     return None if "${" in value else value
 
 
-def pom_versions(text: str) -> tuple[list[str], list[str]]:
-    """Returns the Kotlin versions a POM asks for, and the problems met reading it."""
+def pom_versions(text: str) -> tuple[list[str], list[str], list[tuple]]:
+    """Reads a POM with its parents.
+
+    Returns the Kotlin versions it asks for, the problems met, and its other
+    dependencies that reach a consumer, as `(group, artifact, version)` tuples
+    whose version is `None` when it does not resolve.
+    """
     chain = [Pom(text)]
     problems = []
     while parent := chain[-1].parent():
@@ -353,15 +376,19 @@ def pom_versions(text: str) -> tuple[list[str], list[str]]:
     # optional dependencies stay with the library.
     managed = merge(chain, "dependencyManagement/dependencies/dependency", properties)
     defaults = {identity(entry): entry for entry in managed}
-    declared = []
+    declared, others = [], []
     for entry in merge(chain, "dependencies/dependency", properties):
         default = defaults.get(identity(entry), {})
         for field in ("version", "scope", "optional"):
             if entry.get(field) is None and default.get(field) is not None:
                 entry[field] = default[field]
+        if entry.get("scope") in NON_TRANSITIVE_SCOPES or entry.get("optional") == "true":
+            continue
         kotlin = kotlin_identity(entry)
-        if (kotlin is False or entry.get("scope") in NON_TRANSITIVE_SCOPES
-                or entry.get("optional") == "true"):
+        if kotlin is False:
+            version = resolve(entry["version"], properties) if entry.get("version") else None
+            others.append((entry.get("groupId"), entry.get("artifactId"),
+                           version if version and is_concrete(version) else None))
             continue
         if kotlin is None:
             coordinates = f"{entry.get('groupId')}:{entry.get('artifactId')}"
@@ -387,7 +414,7 @@ def pom_versions(text: str) -> tuple[list[str], list[str]]:
             problems.append(f"unresolved-{artifact}-version:{version}")
         else:
             versions.append(resolved)
-    return versions, problems
+    return versions, problems, others
 
 
 def module_versions(text: str) -> tuple[list[str], list[str], list[str]]:
@@ -432,8 +459,9 @@ def module_versions(text: str) -> tuple[list[str], list[str], list[str]]:
 def requirement(gav: str, seen: set[str] | None = None) -> tuple[str | None, list[str]]:
     """Returns the module's Kotlin requirement (`None` if it has none) and problems.
 
-    Follows `available-at` redirects in the module's metadata; `seen` guards
-    against cycles.
+    Follows `available-at` redirects in the module's metadata, and the
+    implementation a Gradle plugin marker (`<id>:<id>.gradle.plugin`) points to;
+    `seen` guards against cycles.
     """
     seen = set() if seen is None else seen
     seen.add(gav)
@@ -442,16 +470,24 @@ def requirement(gav: str, seen: set[str] | None = None) -> tuple[str | None, lis
     if status != "ok":
         return None, [f"{'no' if status == 'missing' else 'unreadable'}-pom"]
     try:
-        versions, problems = pom_versions(pom_text)
+        versions, problems, others = pom_versions(pom_text)
     except ET.ParseError:
-        versions, problems = [], ["unparsable-pom"]
-    status, module_text = fetch(group, artifact, version, "module")
+        versions, problems, others = [], ["unparsable-pom"], []
     redirects = []
+    if artifact.endswith(".gradle.plugin"):
+        for dependency_group, dependency_artifact, dependency_version in others:
+            if dependency_version:
+                redirects.append(f"{dependency_group}:{dependency_artifact}:{dependency_version}")
+            else:
+                problems.append(f"unresolved-implementation:{dependency_group}:"
+                                f"{dependency_artifact}")
+    status, module_text = fetch(group, artifact, version, "module")
     if status == "ok":
         try:
-            found, module_problems, redirects = module_versions(module_text)
+            found, module_problems, module_redirects = module_versions(module_text)
             versions += found
             problems += module_problems
+            redirects += module_redirects
         except (json.JSONDecodeError, AttributeError, KeyError, TypeError):
             problems.append("unparsable-module")
     elif status == "unreadable":

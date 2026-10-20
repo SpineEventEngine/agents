@@ -100,9 +100,11 @@ mechanical work; this skill says how to read its output and what to do with it.
    `kotlin-bom` that reaches its consumers, so test, provided, and optional
    dependencies do not count. The script reads the Gradle cache first, then the
    repositories `config`'s builds use: the Spine Artifact Registry, Maven
-   Central, and the Gradle Plugin Portal. It resolves `${…}` properties through
-   parent POMs, and follows the `available-at` redirects that a Kotlin
-   Multiplatform root uses for its JVM variants.
+   Central, and the Gradle Plugin Portal. It builds the effective POM as Gradle
+   reads it — parents, `${…}` properties, `<dependencyManagement>` defaults, and
+   the profiles Gradle activates — and follows the `available-at` redirects of a
+   Kotlin Multiplatform root's JVM variants and the implementation a Gradle
+   plugin marker (`<id>:<id>.gradle.plugin`) points to.
    - List **all** modules of a dependency object and take the highest: one may
      be plain Java while a sibling depends on Kotlin. A `local/` object's modules
      come from one build, so its first module that declares a requirement is

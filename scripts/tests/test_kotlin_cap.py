@@ -27,6 +27,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self) -> None:
         if self.path.startswith("/fail/"):
             self.send_error(500)
+        elif self.path.startswith("/truncated/"):
+            self.send_response(200)
+            self.send_header("Content-Length", "1000")
+            self.end_headers()
+            self.wfile.write(b"<project>")  # far short of the promised length
+            self.close_connection = True
         elif self.path.startswith("/moved/"):
             self.send_response(303)
             self.send_header("Location", self.path[len("/moved"):])
@@ -482,6 +488,61 @@ class KotlinCapTest(unittest.TestCase):
         self.managing_pom(gav, "<version>2.4.0</version><scope>test</scope>",
                           "<version>2.5.0</version><scope>compile</scope>")
         self.assertEqual(self.requirement(gav)[0], [f"{gav} requirement=2.5.0"])
+
+    def test_a_truncated_response_is_a_failed_fetch(self) -> None:
+        gav = "com.example:cut-short:1.0"
+        self.publish(gav, "pom", pom(f"<dependencies>{kotlin_dependency('kotlin-stdlib', '2.2.0')}"
+                                     "</dependencies>"))
+        self.publish(gav, "module", module("2.2.0"))  # a 404 here could not confirm absence
+        self.env["KOTLIN_CAP_REPOSITORIES"] = f"{self.url}/truncated/x {self.repo}"
+        self.assertEqual(self.requirement(gav)[0], [f"{gav} requirement=2.2.0"])
+        self.env["KOTLIN_CAP_REPOSITORIES"] = f"{self.url}/truncated/x"
+        self.assertEqual(self.requirement(gav)[0],
+                         [f"{gav} requirement=unverifiable reason=unreadable-pom"])
+
+    def test_a_truncated_config_wrapper_falls_back_to_the_submodule(self) -> None:
+        write(self.root / "config/gradle/wrapper/gradle-wrapper.properties", wrapper("9.6.1"))
+        self.env["KOTLIN_CAP_CONFIG_WRAPPER_URL"] = f"{self.url}/truncated/wrapper"
+        values, code = self.cap()
+        self.assertEqual(code, 0)
+        self.assertIn("may be stale", values["gradle_source"])
+
+    def test_profiles_gradle_activates_count(self) -> None:
+        def profile(activation: str, body: str) -> str:
+            return f"<profile><id>p</id><activation>{activation}</activation>{body}</profile>"
+        stdlib = f"<dependencies>{kotlin_dependency('kotlin-stdlib', '2.4.21')}</dependencies>"
+        cases = (
+            ("by-default", profile("<activeByDefault>true</activeByDefault>", stdlib), "2.4.21"),
+            ("by-absence", profile("<property><name>!skip</name></property>", stdlib), "2.4.21"),
+            ("by-jdk", profile("<jdk>21</jdk>", stdlib), "none"),
+            # A profile property feeds a dependency the POM declares outside it.
+            ("property", profile("<activeByDefault>true</activeByDefault>",
+                                 "<properties><kotlin.version>2.4.21</kotlin.version></properties>")
+             + "</profiles><dependencies>"
+             + kotlin_dependency("kotlin-stdlib", "${kotlin.version}")
+             + "</dependencies><profiles>",
+             "2.4.21"),
+        )
+        for name, profiles, expected in cases:
+            with self.subTest(name):
+                gav = f"com.example:profiled-{name}:1.0"
+                self.publish(gav, "pom", pom(f"<profiles>{profiles}</profiles>"))
+                self.assertEqual(self.requirement(gav)[0], [f"{gav} requirement={expected}"])
+
+    def test_a_plugin_marker_takes_its_implementation_requirement(self) -> None:
+        marker = "com.example.plug:com.example.plug.gradle.plugin:1.0"
+        implementation = ("<dependencies><dependency><groupId>com.example</groupId>"
+                          "<artifactId>plug-impl</artifactId><version>1.0</version>"
+                          "</dependency></dependencies>")
+        self.publish(marker, "pom", pom(implementation))
+        lines, _ = self.requirement("--cap", "2.4.10", marker)
+        self.assertEqual(lines, [f"{marker} requirement=unverifiable verdict=unverifiable"
+                                 " reason=plug-impl:no-pom"])
+        self.publish("com.example:plug-impl:1.0", "pom", pom(
+            f"<dependencies>{kotlin_dependency('kotlin-stdlib', '2.5.0')}</dependencies>"))
+        lines, code = self.requirement("--cap", "2.4.10", marker)
+        self.assertEqual(code, 1)
+        self.assertEqual(lines, [f"{marker} requirement=2.5.0 verdict=above-cap"])
 
     def test_a_malformed_coordinate_is_a_usage_error(self) -> None:
         self.assertEqual(self.requirement("com.example:lib")[1], 2)

@@ -155,17 +155,20 @@ included.
    base, and left alone by the diff, is a **Should fix** marked *pre-existing*:
    it still needs a rollback, but it should not block an unrelated change.
 3. **Kotlin requirements** — the skill's step 3, with `--cap`, for:
-   - every new `version` value the diff introduces, in any scope;
+   - every module whose coordinates the diff adds or changes, in any scope and
+     in `buildSrc/build.gradle.kts`: a new `version` value, and also a new or
+     renamed module, group, artifact, or BOM that keeps an existing version
+     constant;
    - the current version of every object under `local/`, changed or not.
      `rg -n 'version' buildSrc/src/main/kotlin/io/spine/dependency/local/`
      lists them in one call. Read a file only when its version is computed
      rather than a literal.
 
-   Pass all of them to one `requirement` call. `verdict=above-cap` on a version
-   the diff moves to is a **Must fix**; on a `local/` version pinned before the
-   diff, a **Should fix** marked *pre-existing*. Name the requirement and the cap
-   in both. `verdict=unverifiable` is a **Should fix**: quote the `reason` and ask
-   the author to verify it. Never count it as "no requirement".
+   Pass all of them to one `requirement` call. `verdict=above-cap` on a module
+   the diff adds or changes is a **Must fix**; on a `local/` version pinned
+   before the diff, a **Should fix** marked *pre-existing*. Name the requirement
+   and the cap in both. `verdict=unverifiable` is a **Should fix**: quote the
+   `reason` and ask the author to verify it. Never count it as "no requirement".
 
 ## Output format
 
