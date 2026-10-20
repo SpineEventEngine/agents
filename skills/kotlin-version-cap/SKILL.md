@@ -109,12 +109,13 @@ mechanical work; this skill says how to read its output and what to do with it.
    Central, and the Gradle Plugin Portal. It builds the effective POM as Gradle
    reads it — parents, `${…}` properties, `<dependencyManagement>` defaults, and
    the profiles Gradle activates — and reads on into what a module points to:
-   the platforms and imported BOMs whose constraints apply to it, a POM
-   relocation, the `available-at` redirects of a Kotlin Multiplatform root's JVM
-   variants, and the implementation a Gradle plugin marker
-   (`<id>:<id>.gradle.plugin`) points to. It does not walk the whole transitive
-   graph: each catalog dependency is checked as its own module, and the build
-   resolves the rest.
+   the platforms whose constraints apply to it, the BOMs its POM imports (which
+   only version the POM's own dependencies, unless it is read with
+   `--platform`), a POM relocation, the `available-at` redirects of a Kotlin
+   Multiplatform root's JVM variants, and the implementation a Gradle plugin
+   marker (`<id>:<id>.gradle.plugin`) points to. It does not walk the whole
+   transitive graph: each catalog dependency is checked as its own module, and
+   the build resolves the rest.
    - List **all** modules of a dependency object and take the highest: one may
      be plain Java while a sibling depends on Kotlin. A `local/` object's modules
      come from one build, so its first module that declares a requirement is

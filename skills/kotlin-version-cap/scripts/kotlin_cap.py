@@ -41,6 +41,7 @@ import sys
 import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass
 from pathlib import Path
 
 # The "Embedded Kotlin version" table of the Gradle compatibility matrix,
@@ -380,22 +381,32 @@ def resolve(value: str, properties: dict[str, str]) -> str | None:
     return None if "${" in value else value
 
 
-def pom_versions(text: bytes, as_platform: bool = False, own: tuple[str, str, str] | None = None):
+@dataclass
+class PomReading:
+    """What `pom_versions()` reads from a POM and its parents."""
+
+    versions: list[tuple[str, str]]  # the Kotlin versions it asks for, per module
+    problems: list[str]
+    # Its other dependencies that reach a consumer, as `(group, artifact, version)`;
+    # the version is `None` when it does not resolve.
+    others: list[tuple]
+    # What to read next, as `(gav, as_platform)` pairs: a relocation target, and
+    # each imported BOM that is not Kotlin's, read as a platform.
+    follow: list[tuple[str, bool]]
+    # Versionless Kotlin dependencies that only an imported BOM can settle.
+    pending: list[tuple[str, list[str]]]
+    aligns: bool  # whether it imports `kotlin-bom`, which aligns every Kotlin module
+    imports: list[str]  # the imported BOMs among `follow`
+    explicit: set[str]  # Kotlin modules it manages itself, which beat imported BOMs
+
+
+def pom_versions(text: bytes, as_platform: bool = False,
+                 own: tuple[str, str, str] | None = None) -> PomReading:
     """Reads a POM with its parents.
 
-    Returns five things:
-    - the Kotlin versions it asks for, as `(module, version)` pairs;
-    - the problems met;
-    - its other dependencies that reach a consumer, as `(group, artifact, version)`
-      tuples whose version is `None` when it does not resolve;
-    - what to read next, as `(gav, as_platform)` pairs: a relocation target, and
-      each imported BOM that is not Kotlin's, read as a platform;
-    - its versionless Kotlin dependencies that only such a BOM can settle, as
-      `(module, boms)` pairs;
-    - whether it imports `kotlin-bom`, which aligns every Kotlin module.
-
     Read `as_platform`, the POM's managed Kotlin entries count too: a platform's
-    constraints raise the Kotlin its consumers get.
+    constraints raise the Kotlin its consumers get. Read as a library, they only
+    supply versions for its own dependencies, and stay with it.
     """
     chain = [Pom(text)]
     problems = []
@@ -463,6 +474,7 @@ def pom_versions(text: bytes, as_platform: bool = False, own: tuple[str, str, st
             problems.append(f"unresolved-dependency:{coordinates}")
             continue
         declared.append((entry["artifactId"], entry.get("version")))
+    imports, explicit = [], set()
     for entry in managed:
         kotlin = kotlin_identity(entry)
         coordinates = f"{entry.get('groupId')}:{entry.get('artifactId')}"
@@ -474,10 +486,14 @@ def pom_versions(text: bytes, as_platform: bool = False, own: tuple[str, str, st
                     declared.append(("kotlin-bom", entry.get("version")))
             elif concrete(entry.get("version")):
                 follow.append((f"{coordinates}:{concrete(entry.get('version'))}", True))
+                imports.append(follow[-1][0])
             else:
                 problems.append(f"unresolved-bom:{coordinates}")
-        elif as_platform and kotlin:
-            declared.append((entry["artifactId"], entry.get("version")))
+        elif kotlin:
+            if entry.get("version"):
+                explicit.add(entry["artifactId"])
+            if as_platform:
+                declared.append((entry["artifactId"], entry.get("version")))
         elif as_platform and kotlin is None:
             problems.append(f"unresolved-managed:{coordinates}")  # may manage a Kotlin module
     has_bom = any(artifact == "kotlin-bom" and version for artifact, version in declared)
@@ -496,7 +512,7 @@ def pom_versions(text: bytes, as_platform: bool = False, own: tuple[str, str, st
             problems.append(f"unresolved-{artifact}-version:{version}")
         else:
             versions.append((artifact, resolved))
-    return versions, problems, others, follow, pending, has_bom
+    return PomReading(versions, problems, others, follow, pending, has_bom, imports, explicit)
 
 
 def module_versions(text: bytes):
@@ -601,11 +617,11 @@ def lookup(gav: str, as_platform: bool = False, path: frozenset = frozenset(),
         done[key] = ({}, [f"{'no' if status == 'missing' else 'unreadable'}-pom"], False)
         return done[key]
     try:
-        versions, problems, others, follow, pending, aligns = pom_versions(
-            pom_text, as_platform, (group, artifact, version))
+        pom = pom_versions(pom_text, as_platform, (group, artifact, version))
     except (ET.ParseError, ValueError, LookupError):  # malformed, or a bad encoding
-        versions, problems, others, follow, pending = [], ["unparsable-pom"], [], [], []
-        aligns = False
+        pom = PomReading([], ["unparsable-pom"], [], [], [], False, [], set())
+    versions, problems, others = pom.versions, pom.problems, pom.others
+    follow, pending, aligns = pom.follow, list(pom.pending), pom.aligns
     if artifact.endswith(".gradle.plugin"):
         for dependency_group, dependency_artifact, dependency_version in others:
             if dependency_version:
@@ -634,6 +650,8 @@ def lookup(gav: str, as_platform: bool = False, path: frozenset = frozenset(),
             continue  # a cycle: the module is already being read further up
         found, target_problems, target_aligns = lookup(target, target_as_platform, path, done)
         answers[target] = (found, target_aligns)
+        if target in pom.imports:
+            found = imported(found, target_aligns, target, pom, as_platform)
         versions += found.items()
         problems += [f"{target.split(':')[1]}:{problem}" for problem in target_problems]
         aligns = aligns or target_aligns  # what a module points to reaches its consumers
@@ -649,6 +667,27 @@ def lookup(gav: str, as_platform: bool = False, path: frozenset = frozenset(),
             modules[module] = found_version
     done[key] = (modules, problems, aligns)
     return done[key]
+
+
+def imported(found: dict[str, str], aligns: bool, bom: str, pom: PomReading,
+             as_platform: bool) -> dict[str, str]:
+    """What a BOM a POM imports adds to the POM's own Kotlin requirement.
+
+    Read as a platform, the POM passes the BOM's versions on, except for the
+    modules it manages itself, whose own entries win. Read as a library, the BOM
+    only supplies versions for the POM's own versionless dependencies — a module
+    the BOM resolves, or, if the BOM imports `kotlin-bom`, that BOM's version.
+    """
+    if as_platform:
+        return {module: version for module, version in found.items()
+                if module not in pom.explicit}
+    supplied = {}
+    for module, boms in pom.pending:
+        if bom in boms:
+            version = found.get(module) or (found.get("kotlin-bom") if aligns else None)
+            if version:
+                supplied[module] = version
+    return supplied
 
 
 def requirement(gav: str, as_platform: bool = False) -> tuple[str | None, list[str]]:

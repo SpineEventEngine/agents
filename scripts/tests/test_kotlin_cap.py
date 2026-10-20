@@ -589,18 +589,43 @@ class KotlinCapTest(unittest.TestCase):
         self.assertEqual(self.requirement(gav)[0], [f"{gav} requirement=unverifiable"
                                                     " reason=unresolved-kotlin-stdlib-version"])
 
-    def test_an_imported_bom_counts_its_managed_kotlin_versions(self) -> None:
+    def test_an_imported_bom_reaches_consumers_only_through_what_the_pom_uses(self) -> None:
         managed = ("<dependencyManagement><dependencies>"
                    f"{kotlin_dependency('kotlin-stdlib', '2.4.21')}"
                    "</dependencies></dependencyManagement>")
         self.publish("com.example:other-bom:1.0", "pom", pom(managed))
+        bom_import = ("<dependencyManagement><dependencies><dependency>"
+                      "<groupId>com.example</groupId><artifactId>other-bom</artifactId>"
+                      "<version>1.0</version><type>pom</type><scope>import</scope>"
+                      "</dependency></dependencies></dependencyManagement>")
+        # A library's dependency management only versions its own dependencies.
         gav = "com.example:bom-importer:1.0"
+        self.publish(gav, "pom", pom(bom_import))
+        self.assertEqual(self.requirement("--cap", "2.4.10", gav),
+                         ([f"{gav} requirement=none verdict=within-cap"], 0))
+        # Read as a platform, the imported constraints pass on to its consumers.
+        self.assertEqual(self.requirement("--cap", "2.4.10", "--platform", gav),
+                         ([f"{gav} requirement=2.4.21 verdict=above-cap"], 1))
+        # A library that depends on the module it manages takes the BOM's version.
+        gav = "com.example:bom-user:1.0"
         self.publish(gav, "pom", pom(
-            "<dependencyManagement><dependencies><dependency><groupId>com.example</groupId>"
-            "<artifactId>other-bom</artifactId><version>1.0</version><type>pom</type>"
-            "<scope>import</scope></dependency></dependencies></dependencyManagement>"))
-        lines, _ = self.requirement("--cap", "2.4.10", gav)
-        self.assertEqual(lines, [f"{gav} requirement=2.4.21 verdict=above-cap"])
+            bom_import + f"<dependencies>{kotlin_dependency('kotlin-stdlib')}</dependencies>"))
+        self.assertEqual(self.requirement("--cap", "2.4.10", gav),
+                         ([f"{gav} requirement=2.4.21 verdict=above-cap"], 1))
+
+    def test_a_poms_own_management_beats_an_imported_bom(self) -> None:
+        self.publish("com.example:newer-bom:1.0", "pom", pom(
+            "<dependencyManagement><dependencies>"
+            f"{kotlin_dependency('kotlin-stdlib', '2.5.0')}</dependencies></dependencyManagement>"))
+        gav = "com.example:overriding-bom:1.0"
+        self.publish(gav, "pom", pom(
+            "<dependencyManagement><dependencies>"
+            f"{kotlin_dependency('kotlin-stdlib', '2.4.0')}"
+            "<dependency><groupId>com.example</groupId><artifactId>newer-bom</artifactId>"
+            "<version>1.0</version><type>pom</type><scope>import</scope></dependency>"
+            "</dependencies></dependencyManagement>"))
+        self.assertEqual(self.requirement("--cap", "2.4.10", "--platform", gav),
+                         ([f"{gav} requirement=2.4.0 verdict=within-cap"], 0))
 
     def test_siblings_that_share_a_platform_each_read_it(self) -> None:
         self.platform("com.example:shared-platform:1.0", "2.4.0")
@@ -660,8 +685,15 @@ class KotlinCapTest(unittest.TestCase):
             "<dependency><groupId>com.example</groupId><artifactId>stdlib-only-bom</artifactId>"
             "<version>1.0</version><type>pom</type><scope>import</scope></dependency>"
             "</dependencies></dependencyManagement>"))
+        # The library depends on no Kotlin module the BOM resolves, so nothing it
+        # manages reaches consumers; the versionless `kotlin-bom` stays unresolved.
         lines, code = self.requirement("--cap", "2.4.10", gav)
         self.assertEqual(code, 1)
+        self.assertEqual(lines, [f"{gav} requirement=unverifiable verdict=unverifiable"
+                                 " reason=unresolved-kotlin-bom-version"])
+        # Read as a platform, the managed `kotlin-stdlib` passes on, but still
+        # settles nothing for `kotlin-bom`.
+        lines, _ = self.requirement("--cap", "2.4.10", "--platform", gav)
         self.assertEqual(lines, [f"{gav} requirement=2.4.0+ verdict=unverifiable"
                                  " reason=unresolved-kotlin-bom-version"])
 
