@@ -72,6 +72,19 @@ def module(*versions: str) -> str:
     return f'{{"variants":[{{"name":"runtimeElements","dependencies":[{dependencies}]}}]}}'
 
 
+def redirecting_module(*targets: tuple[str, str]) -> str:
+    """Module metadata whose variants live elsewhere: `(platform, gav)` pairs."""
+    variants = []
+    for platform, gav in targets:
+        group, artifact, version = gav.split(":")
+        variants.append(
+            f'{{"name":"{platform}RuntimeElements",'
+            f'"attributes":{{"org.jetbrains.kotlin.platform.type":"{platform}"}},'
+            f'"available-at":{{"url":"../x","group":"{group}","module":"{artifact}",'
+            f'"version":"{version}"}}}}')
+    return f'{{"variants":[{",".join(variants)}]}}'
+
+
 class KotlinCapTest(unittest.TestCase):
 
     @classmethod
@@ -287,6 +300,76 @@ class KotlinCapTest(unittest.TestCase):
         self.env["KOTLIN_CAP_REPOSITORIES"] = f"http://127.0.0.1:{closed_port()}"
         self.assertEqual(self.requirement("com.example:cached:1.0")[0],
                          ["com.example:cached:1.0 requirement=2.4.10"])
+
+    def test_dependencies_a_consumer_never_receives_do_not_count(self) -> None:
+        gav = "com.example:tested-with-kotlin:1.0"
+        deps = "".join(
+            f"<dependency><groupId>org.jetbrains.kotlin</groupId>"
+            f"<artifactId>kotlin-stdlib</artifactId><version>{version}</version>"
+            f"{extra}</dependency>"
+            for version, extra in (("2.5.0", "<scope>test</scope>"),
+                                   ("2.6.0", "<scope>provided</scope>"),
+                                   ("2.7.0", "<optional>true</optional>")))
+        self.publish(gav, "pom", pom(f"<dependencies>{deps}</dependencies>"))
+        lines, code = self.requirement("--cap", "2.4.10", gav)
+        self.assertEqual(code, 0)
+        self.assertEqual(lines, [f"{gav} requirement=none verdict=within-cap"])
+
+    def test_a_parent_chain_past_the_bound_is_unverifiable(self) -> None:
+        def parent(n: int) -> str:
+            return (f"<parent><groupId>com.example</groupId><artifactId>p{n}</artifactId>"
+                    "<version>1</version></parent>")
+        for n in range(1, 8):  # p1 → p2 → … → p7, deeper than the script reads
+            self.publish(f"com.example:p{n}:1", "pom", pom(parent=parent(n + 1) if n < 7 else ""))
+        gav = "com.example:deep:1.0"
+        self.publish(gav, "pom", pom(parent=parent(1)))
+        lines, code = self.requirement("--cap", "2.4.10", gav)
+        self.assertEqual(code, 1)
+        self.assertEqual(lines, [f"{gav} requirement=unverifiable verdict=unverifiable"
+                                 " reason=parent-chain-too-deep"])
+
+    def test_available_at_redirects_of_jvm_variants_are_followed(self) -> None:
+        root = "com.example:kmp:1.0"
+        self.publish(root, "pom", pom())
+        self.publish(root, "module", redirecting_module(("jvm", "com.example:kmp-jvm:1.0"),
+                                                        ("js", "com.example:kmp-js:1.0")))
+        self.publish("com.example:kmp-jvm:1.0", "pom", pom())
+        self.publish("com.example:kmp-jvm:1.0", "module", module("2.4.21"))
+        lines, code = self.requirement("--cap", "2.4.10", root)  # kmp-js is never fetched
+        self.assertEqual(code, 1)
+        self.assertEqual(lines, [f"{root} requirement=2.4.21 verdict=above-cap"])
+
+    def test_a_redirect_that_cannot_be_read_is_unverifiable(self) -> None:
+        root = "com.example:kmp-broken:1.0"
+        self.publish(root, "pom", pom())
+        self.publish(root, "module", redirecting_module(("jvm", "com.example:gone-jvm:1.0")))
+        lines, _ = self.requirement("--cap", "2.4.10", root)
+        self.assertEqual(lines, [f"{root} requirement=unverifiable verdict=unverifiable"
+                                 " reason=gone-jvm:no-pom"])
+
+    def test_a_redirect_cycle_ends(self) -> None:
+        root = "com.example:loop:1.0"
+        self.publish(root, "pom", pom())
+        self.publish(root, "module", redirecting_module(("jvm", root)))
+        self.assertEqual(self.requirement(root)[0], [f"{root} requirement=none"])
+
+    def test_a_version_range_is_unverifiable(self) -> None:
+        gav = "com.example:ranged:1.0"
+        self.publish(gav, "pom", pom())
+        self.publish(gav, "module", module("[2.4.21,)"))
+        lines, code = self.requirement("--cap", "2.4.10", gav)
+        self.assertEqual(code, 1)
+        self.assertEqual(lines, [f"{gav} requirement=unverifiable verdict=unverifiable"
+                                 " reason=unresolved-kotlin-stdlib-version:[2.4.21,)"])
+
+    def test_a_range_is_not_hidden_by_a_lower_literal(self) -> None:
+        gav = "com.example:mixed:1.0"
+        self.publish(gav, "pom", pom(f"<dependencies>{kotlin_dependency('kotlin-stdlib', '2.4.0')}"
+                                     "</dependencies>"))
+        self.publish(gav, "module", module("2.+"))
+        lines, code = self.requirement("--cap", "2.4.10", gav)
+        self.assertEqual(code, 1)
+        self.assertIn("requirement=2.4.0+ verdict=unverifiable", lines[0])
 
     def test_a_malformed_coordinate_is_a_usage_error(self) -> None:
         self.assertEqual(self.requirement("com.example:lib")[1], 2)

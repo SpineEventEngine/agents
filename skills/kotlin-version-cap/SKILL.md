@@ -97,9 +97,12 @@ mechanical work; this skill says how to read its output and what to do with it.
 
    A module's requirement is the highest Kotlin version that its POM **and** its
    Gradle Module Metadata ask for — a `kotlin-stdlib*` dependency or an imported
-   `kotlin-bom`. The script reads the Gradle cache first, then the repositories
-   `config`'s builds use: the Spine Artifact Registry, Maven Central, and the
-   Gradle Plugin Portal. It resolves `${…}` properties through parent POMs.
+   `kotlin-bom` that reaches its consumers, so test, provided, and optional
+   dependencies do not count. The script reads the Gradle cache first, then the
+   repositories `config`'s builds use: the Spine Artifact Registry, Maven
+   Central, and the Gradle Plugin Portal. It resolves `${…}` properties through
+   parent POMs, and follows the `available-at` redirects that a Kotlin
+   Multiplatform root uses for its JVM variants.
    - List **all** modules of a dependency object and take the highest: one may
      be plain Java while a sibling depends on Kotlin. A `local/` object's modules
      come from one build, so its first module that declares a requirement is
@@ -109,8 +112,11 @@ mechanical work; this skill says how to read its output and what to do with it.
    - `verdict=unverifiable` means something could not be read or resolved;
      `reason=` says what. `no-pom` means no repository has that version;
      `unreadable-*` means a fetch failed, so absence is not confirmed;
-     `unresolved-*` means a version the script could not settle. Resolve it by
-     hand if you can, or report it as unverifiable — never as "no requirement".
+     `unresolved-*` means a version the script could not settle, such as a
+     range or a dynamic version; `parent-chain-too-deep` means an ancestor POM
+     went unread. A reason prefixed with an artifact, as in `lib-jvm:no-pom`,
+     comes from a redirect target. Resolve it by hand if you can, or report it as
+     unverifiable — never as "no requirement".
      A trailing `+`, as in `requirement=2.2.0+`, is the highest version read
      before something failed.
 

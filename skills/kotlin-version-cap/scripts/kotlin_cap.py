@@ -69,6 +69,10 @@ REPOSITORIES = (
 )
 WRAPPER = Path("gradle/wrapper/gradle-wrapper.properties")
 KOTLIN_GROUP = "org.jetbrains.kotlin"
+# POM scopes that never reach a consumer; `<optional>` dependencies don't either.
+NON_TRANSITIVE_SCOPES = ("test", "provided", "system")
+# Kotlin Multiplatform platforms a JVM consumer resolves; other variants are skipped.
+JVM_PLATFORMS = (None, "jvm", "androidJvm", "common")
 TIMEOUT_SECONDS = 20
 MAX_PARENTS = 5
 
@@ -227,6 +231,11 @@ def is_kotlin_artifact(artifact: str) -> bool:
     return artifact == "kotlin-bom" or artifact.startswith("kotlin-stdlib")
 
 
+def is_concrete(version: str) -> bool:
+    """Tells a plain version from a range (`[2.4,)`) or a dynamic one (`2.+`)."""
+    return re.fullmatch(r"\d+(?:\.\d+)*(?:[-.][0-9A-Za-z]+)*", version) is not None
+
+
 class Pom:
     """The parts of a POM that carry a Kotlin requirement."""
 
@@ -261,10 +270,17 @@ class Pom:
         return values
 
     def kotlin_dependencies(self) -> list[tuple[str, str | None]]:
-        """`(artifactId, version)` of Kotlin dependencies and imported Kotlin BOMs."""
+        """`(artifactId, version)` of Kotlin dependencies and imported Kotlin BOMs.
+
+        Only dependencies a consumer receives count: test, provided, system, and
+        optional ones stay with the library.
+        """
         found = []
         for dependency in self.root.findall("dependencies/dependency"):
             artifact = self._text(dependency, "artifactId") or ""
+            if (self._text(dependency, "scope") in NON_TRANSITIVE_SCOPES
+                    or self._text(dependency, "optional") == "true"):
+                continue
             if self._text(dependency, "groupId") == KOTLIN_GROUP and is_kotlin_artifact(artifact):
                 found.append((artifact, self._text(dependency, "version")))
         for dependency in self.root.findall("dependencyManagement/dependencies/dependency"):
@@ -296,8 +312,11 @@ def pom_versions(text: str) -> tuple[list[str], list[str]]:
     """Returns the Kotlin versions a POM asks for, and the problems met reading it."""
     chain = [Pom(text)]
     problems = []
-    while chain[-1].parent() and len(chain) <= MAX_PARENTS:
-        group, artifact, version = chain[-1].parent()
+    while parent := chain[-1].parent():
+        if len(chain) > MAX_PARENTS:
+            problems.append("parent-chain-too-deep")  # an unread ancestor may declare Kotlin
+            break
+        group, artifact, version = parent
         status, parent_text = fetch(group, artifact, version, "pom")
         if status != "ok":
             problems.append(f"parent-{'missing' if status == 'missing' else 'unreadable'}")
@@ -322,30 +341,49 @@ def pom_versions(text: str) -> tuple[list[str], list[str]]:
                 problems.append(f"unresolved-{artifact}-version")
             continue
         resolved = resolve(version, properties)
-        if resolved is None or re.search(r"[\[\](),]", resolved):
+        if resolved is None or not is_concrete(resolved):
             problems.append(f"unresolved-{artifact}-version:{version}")
         else:
             versions.append(resolved)
     return versions, problems
 
 
-def module_versions(text: str) -> list[str]:
-    """Returns the Kotlin versions a Gradle Module Metadata file asks for."""
-    versions = []
+def module_versions(text: str) -> tuple[list[str], list[str], list[str]]:
+    """Reads a Gradle Module Metadata file.
+
+    Returns the Kotlin versions it asks for, the problems met, and the
+    coordinates its JVM variants redirect to through `available-at`.
+    """
+    versions, problems, redirects = [], [], []
     for variant in json.loads(text).get("variants", []):
+        if variant.get("attributes", {}).get("org.jetbrains.kotlin.platform.type") \
+                not in JVM_PLATFORMS:
+            continue
+        target = variant.get("available-at")
+        if target:
+            redirects.append(f"{target['group']}:{target['module']}:{target['version']}")
+            continue
         for key in ("dependencies", "dependencyConstraints"):
             for dependency in variant.get(key, []):
-                if (dependency.get("group") == KOTLIN_GROUP
-                        and is_kotlin_artifact(dependency.get("module", ""))):
+                module = dependency.get("module", "")
+                if dependency.get("group") == KOTLIN_GROUP and is_kotlin_artifact(module):
                     spec = dependency.get("version", {})
                     version = spec.get("strictly") or spec.get("requires") or spec.get("prefers")
-                    if version:
+                    if version and is_concrete(version):
                         versions.append(version)
-    return versions
+                    elif version:
+                        problems.append(f"unresolved-{module}-version:{version}")
+    return versions, problems, redirects
 
 
-def requirement(gav: str) -> tuple[str | None, list[str]]:
-    """Returns the module's Kotlin requirement (`None` if it has none) and problems."""
+def requirement(gav: str, seen: set[str] | None = None) -> tuple[str | None, list[str]]:
+    """Returns the module's Kotlin requirement (`None` if it has none) and problems.
+
+    Follows `available-at` redirects in the module's metadata; `seen` guards
+    against cycles.
+    """
+    seen = set() if seen is None else seen
+    seen.add(gav)
     group, artifact, version = gav.split(":")
     status, pom_text = fetch(group, artifact, version, "pom")
     if status != "ok":
@@ -355,13 +393,23 @@ def requirement(gav: str) -> tuple[str | None, list[str]]:
     except ET.ParseError:
         versions, problems = [], ["unparsable-pom"]
     status, module_text = fetch(group, artifact, version, "module")
+    redirects = []
     if status == "ok":
         try:
-            versions += module_versions(module_text)
-        except (json.JSONDecodeError, AttributeError):
+            found, module_problems, redirects = module_versions(module_text)
+            versions += found
+            problems += module_problems
+        except (json.JSONDecodeError, AttributeError, KeyError, TypeError):
             problems.append("unparsable-module")
     elif status == "unreadable":
         problems.append("unreadable-module")
+    for target in redirects:
+        if target in seen:
+            continue
+        found, target_problems = requirement(target, seen)
+        if found:
+            versions.append(found)
+        problems += [f"{target.split(':')[1]}:{problem}" for problem in target_problems]
     return highest(versions), problems
 
 
