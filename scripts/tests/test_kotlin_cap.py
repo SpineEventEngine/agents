@@ -430,6 +430,59 @@ class KotlinCapTest(unittest.TestCase):
                 self.assertEqual(lines, [f"{gav} requirement={shown} verdict=unverifiable"
                                          " reason=unresolved-kotlin-stdlib-version"])
 
+    def test_property_coordinates_are_interpolated_before_filtering(self) -> None:
+        props = ("<properties><kotlin.group>org.jetbrains.kotlin</kotlin.group>"
+                 "<stdlib>kotlin-stdlib</stdlib></properties>")
+        for name, group, artifact in (("prop-group", "${kotlin.group}", "kotlin-stdlib"),
+                                      ("prop-artifact", "org.jetbrains.kotlin", "${stdlib}")):
+            with self.subTest(name):
+                gav = f"com.example:{name}:1.0"
+                dependency = (f"<dependency><groupId>{group}</groupId>"
+                              f"<artifactId>{artifact}</artifactId>"
+                              "<version>2.4.21</version></dependency>")
+                self.publish(gav, "pom", pom(f"{props}<dependencies>{dependency}</dependencies>"))
+                lines, code = self.requirement("--cap", "2.4.10", gav)
+                self.assertEqual(code, 1)
+                self.assertEqual(lines, [f"{gav} requirement=2.4.21 verdict=above-cap"])
+
+    def test_an_unresolved_coordinate_is_unverifiable_only_if_it_could_be_kotlin(self) -> None:
+        def dependency(group: str, artifact: str) -> str:
+            return (f"<dependency><groupId>{group}</groupId><artifactId>{artifact}</artifactId>"
+                    "<version>1.0</version></dependency>")
+        gav = "com.example:open-group:1.0"
+        self.publish(gav, "pom", pom(
+            f"<dependencies>{dependency('${who}', 'kotlin-stdlib')}</dependencies>"))
+        lines, code = self.requirement("--cap", "2.4.10", gav)
+        self.assertEqual(code, 1)
+        self.assertEqual(lines, [f"{gav} requirement=unverifiable verdict=unverifiable"
+                                 " reason=unresolved-dependency:${who}:kotlin-stdlib"])
+        gav = "com.example:open-but-guava:1.0"
+        self.publish(gav, "pom", pom(
+            f"<dependencies>{dependency('${who}', 'guava')}</dependencies>"))
+        self.assertEqual(self.requirement(gav)[0], [f"{gav} requirement=none"])
+
+    def managing_pom(self, gav: str, managed: str, dependency: str) -> None:
+        self.publish(gav, "pom", pom(
+            "<dependencyManagement><dependencies><dependency>"
+            f"<groupId>org.jetbrains.kotlin</groupId><artifactId>kotlin-stdlib</artifactId>"
+            f"{managed}</dependency></dependencies></dependencyManagement>"
+            "<dependencies><dependency><groupId>org.jetbrains.kotlin</groupId>"
+            f"<artifactId>kotlin-stdlib</artifactId>{dependency}</dependency></dependencies>"))
+
+    def test_dependency_management_supplies_scope_and_version_defaults(self) -> None:
+        gav = "com.example:managed-test:1.0"
+        self.managing_pom(gav, "<version>2.5.0</version><scope>test</scope>", "")
+        self.assertEqual(self.requirement(gav)[0], [f"{gav} requirement=none"])
+        gav = "com.example:managed-version:1.0"
+        self.managing_pom(gav, "<version>2.4.0</version>", "")
+        self.assertEqual(self.requirement(gav)[0], [f"{gav} requirement=2.4.0"])
+
+    def test_an_explicit_dependency_field_beats_its_managed_default(self) -> None:
+        gav = "com.example:managed-overridden:1.0"
+        self.managing_pom(gav, "<version>2.4.0</version><scope>test</scope>",
+                          "<version>2.5.0</version><scope>compile</scope>")
+        self.assertEqual(self.requirement(gav)[0], [f"{gav} requirement=2.5.0"])
+
     def test_a_malformed_coordinate_is_a_usage_error(self) -> None:
         self.assertEqual(self.requirement("com.example:lib")[1], 2)
 

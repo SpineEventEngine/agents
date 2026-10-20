@@ -257,12 +257,15 @@ class Pom:
 
     def properties(self) -> dict[str, str]:
         values = {}
-        version = self._text(self.root, "version")
-        parent_version = self._text(self.root, "parent/version")
-        if version or parent_version:
-            values["project.version"] = values["version"] = version or parent_version
-        if parent_version:
-            values["project.parent.version"] = parent_version
+        for field in ("groupId", "artifactId", "version"):
+            own = self._text(self.root, field)
+            parent = self._text(self.root, f"parent/{field}")
+            if parent:
+                values[f"project.parent.{field}"] = parent
+            if own or (parent and field != "artifactId"):  # group and version inherit
+                values[f"project.{field}"] = own or parent
+        if "project.version" in values:
+            values["version"] = values["project.version"]
         section = self.root.find("properties")
         for element in section if section is not None else []:
             if isinstance(element.tag, str) and element.text:
@@ -276,20 +279,40 @@ class Pom:
                 for element in self.root.findall(path)]
 
 
-def merge(chain: list[Pom], path: str) -> list[dict[str, str | None]]:
+def identity(entry: dict[str, str | None]) -> tuple:
+    """A dependency's Maven identity: group, artifact, type, and classifier."""
+    return (entry.get("groupId"), entry.get("artifactId"), entry.get("type") or "jar",
+            entry.get("classifier"))
+
+
+def merge(chain: list[Pom], path: str, properties: dict[str, str]) -> list[dict[str, str | None]]:
     """Merges the dependency entries of a POM and its ancestors, as Maven does.
 
-    Entries are keyed by group, artifact, type, and classifier. A child's fields
-    override its parent's, and the fields it leaves out are inherited.
+    Every field but the version is interpolated first, so that `${…}` coordinates
+    key and match like literal ones; a field that cannot be resolved keeps its
+    `${…}` text. Entries are keyed by `identity()`. A child's fields override its
+    parent's, and the fields it leaves out are inherited.
     """
     merged: dict[tuple, dict[str, str | None]] = {}
     for pom in reversed(chain):  # the farthest ancestor first
         for entry in pom.entries(path):
-            key = (entry["groupId"], entry["artifactId"], entry["type"] or "jar",
-                   entry["classifier"])
-            given = {field: value for field, value in entry.items() if value is not None}
+            given = {field: value if field == "version" else resolve(value, properties) or value
+                     for field, value in entry.items() if value is not None}
+            key = identity(given)
             merged[key] = {**merged.get(key, {}), **given}
     return list(merged.values())
+
+
+def kotlin_identity(entry: dict[str, str | None]) -> bool | None:
+    """Tells whether a dependency is a Kotlin one; `None` when an unresolved
+    coordinate leaves it open."""
+    group, artifact = entry.get("groupId") or "", entry.get("artifactId") or ""
+    group_known, artifact_known = "${" not in group, "${" not in artifact
+    if group_known and group != KOTLIN_GROUP:
+        return False
+    if artifact_known and not is_kotlin_artifact(artifact):
+        return False
+    return True if group_known and artifact_known else None
 
 
 def resolve(value: str, properties: dict[str, str]) -> str | None:
@@ -324,28 +347,37 @@ def pom_versions(text: str) -> tuple[list[str], list[str]]:
     for pom in reversed(chain):
         properties.update(pom.properties())
 
-    # Only what a consumer receives counts: test, provided, system, and optional
-    # dependencies stay with the library. Filter after merging, so that a child
-    # can override an inherited dependency's scope or `optional` flag.
-    def is_kotlin(entry: dict[str, str | None]) -> bool:
-        return (entry.get("groupId") == KOTLIN_GROUP
-                and is_kotlin_artifact(entry.get("artifactId") or ""))
-
-    managed = [entry for entry in merge(chain, "dependencyManagement/dependencies/dependency")
-               if is_kotlin(entry)]
-    declared = [(entry["artifactId"], entry.get("version"))
-                for entry in merge(chain, "dependencies/dependency")
-                if is_kotlin(entry) and entry.get("scope") not in NON_TRANSITIVE_SCOPES
-                and entry.get("optional") != "true"]
-    declared += [("kotlin-bom", entry.get("version")) for entry in managed
-                 if entry["artifactId"] == "kotlin-bom" and entry.get("scope") == "import"]
+    # Build the effective dependencies as Maven does — interpolate, inherit, then
+    # apply `<dependencyManagement>` defaults for what a dependency leaves out —
+    # and only then keep what a consumer receives: test, provided, system, and
+    # optional dependencies stay with the library.
+    managed = merge(chain, "dependencyManagement/dependencies/dependency", properties)
+    defaults = {identity(entry): entry for entry in managed}
+    declared = []
+    for entry in merge(chain, "dependencies/dependency", properties):
+        default = defaults.get(identity(entry), {})
+        for field in ("version", "scope", "optional"):
+            if entry.get(field) is None and default.get(field) is not None:
+                entry[field] = default[field]
+        kotlin = kotlin_identity(entry)
+        if (kotlin is False or entry.get("scope") in NON_TRANSITIVE_SCOPES
+                or entry.get("optional") == "true"):
+            continue
+        if kotlin is None:
+            coordinates = f"{entry.get('groupId')}:{entry.get('artifactId')}"
+            problems.append(f"unresolved-dependency:{coordinates}")
+            continue
+        declared.append((entry["artifactId"], entry.get("version")))
+    for entry in managed:
+        if entry.get("scope") != "import" or kotlin_identity(entry) is False:
+            continue
+        if kotlin_identity(entry) is None:
+            problems.append(f"unresolved-bom:{entry.get('groupId')}:{entry.get('artifactId')}")
+        elif entry["artifactId"] == "kotlin-bom":
+            declared.append(("kotlin-bom", entry.get("version")))
     has_bom = any(artifact == "kotlin-bom" and version for artifact, version in declared)
     versions = []
     for artifact, version in declared:
-        if version is None:
-            version = next((entry.get("version") for entry in managed
-                            if entry["artifactId"] == artifact and entry.get("scope") != "import"),
-                           None)
         if version is None:
             if not has_bom:
                 problems.append(f"unresolved-{artifact}-version")
