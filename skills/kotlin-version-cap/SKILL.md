@@ -95,6 +95,12 @@ mechanical work; this skill says how to read its output and what to do with it.
        --cap 2.4.10 io.spine.tools:compiler-api:2.0.0-SNAPSHOT.079 …
    ```
 
+   Check a BOM's or platform's own coordinates — the `bom` of a
+   `DependencyWithBom` object, for one — in a separate call with `--platform`:
+   the versions it manages and constrains reach its consumers, so they count.
+   Never pass `--platform` for an ordinary library, whose managed entries stay
+   with it.
+
    A module's requirement is the highest Kotlin version that its POM **and** its
    Gradle Module Metadata ask for — a `kotlin-stdlib*` dependency or an imported
    `kotlin-bom` that reaches its consumers, so test, provided, and optional

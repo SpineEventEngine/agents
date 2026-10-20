@@ -7,7 +7,10 @@ dependency requires may exceed it. See the `kotlin-version-cap` skill.
 
 Usage:
   kotlin_cap.py cap [--gradle VERSION] [--root DIR]
-  kotlin_cap.py requirement [--cap VERSION] GROUP:ARTIFACT:VERSION...
+  kotlin_cap.py requirement [--cap VERSION] [--platform] GROUP:ARTIFACT:VERSION...
+
+`--platform` reads the modules as platforms (BOMs), whose managed versions and
+constraints reach their consumers; pass it for a BOM's own coordinates only.
 
 `cap` prints `key=value` lines: `gradle`, `gradle_source`, `cap`, `cap_source`,
 and a `hint` when the cap is unknown. `requirement` prints one line per module:
@@ -355,13 +358,15 @@ def resolve(value: str, properties: dict[str, str]) -> str | None:
 def pom_versions(text: str, as_platform: bool = False, own: tuple[str, str, str] | None = None):
     """Reads a POM with its parents.
 
-    Returns four things:
-    - the Kotlin versions it asks for;
+    Returns five things:
+    - the Kotlin versions it asks for, as `(module, version)` pairs;
     - the problems met;
     - its other dependencies that reach a consumer, as `(group, artifact, version)`
       tuples whose version is `None` when it does not resolve;
     - what to read next, as `(gav, as_platform)` pairs: a relocation target, and
-      each imported BOM that is not Kotlin's, read as a platform.
+      each imported BOM that is not Kotlin's, read as a platform;
+    - its versionless Kotlin dependencies that only such a BOM can settle, as
+      `(module, boms)` pairs.
 
     Read `as_platform`, the POM's managed Kotlin entries count too: a platform's
     constraints raise the Kotlin its consumers get.
@@ -462,7 +467,7 @@ def pom_versions(text: str, as_platform: bool = False, own: tuple[str, str, str]
         if resolved is None or not is_concrete(resolved):
             problems.append(f"unresolved-{artifact}-version:{version}")
         else:
-            versions.append(resolved)
+            versions.append((artifact, resolved))
     return versions, problems, others, follow, pending
 
 
@@ -470,7 +475,7 @@ def module_versions(text: str):
     """Reads a Gradle Module Metadata file.
 
     Returns four things:
-    - the Kotlin versions it asks for;
+    - the Kotlin versions it asks for, as `(module, version)` pairs;
     - the problems met;
     - what to read next, as `(gav, as_platform)` pairs: the targets its JVM
       variants redirect to through `available-at`, and its platforms that are
@@ -504,7 +509,7 @@ def module_versions(text: str):
                 if not version:
                     versionless.append(module)
                 elif is_concrete(version):
-                    versions.append(version)
+                    versions.append((module, version))
                     settled.add(module)
                 else:
                     problems.append(f"unresolved-{module}-version:{version}")
@@ -522,15 +527,16 @@ def module_versions(text: str):
     return versions, problems, follow, pending
 
 
-def requirement(gav: str, as_platform: bool = False, path: frozenset = frozenset(),
-                done: dict | None = None) -> tuple[str | None, list[str]]:
-    """Returns the module's Kotlin requirement (`None` if it has none) and problems.
+def lookup(gav: str, as_platform: bool = False, path: frozenset = frozenset(),
+           done: dict | None = None) -> tuple[dict[str, str], list[str]]:
+    """Reads a module's Kotlin requirement, module by module.
 
-    Reads on into what the module points to: the targets of `available-at` and of
-    a POM relocation, the platforms and BOMs it uses, and the implementation a
-    Gradle plugin marker (`<id>:<id>.gradle.plugin`) depends on. Read
-    `as_platform`, the module's managed and constraint versions count as
-    requirements.
+    Returns the highest version found for each Kotlin module (`kotlin-stdlib`,
+    `kotlin-bom`, …) and the problems met. Reads on into what the module points
+    to: the targets of `available-at` and of a POM relocation, the platforms and
+    BOMs it uses, and the implementation a Gradle plugin marker
+    (`<id>:<id>.gradle.plugin`) depends on. Read `as_platform`, the module's
+    managed and constraint versions count as requirements.
 
     `path` holds the modules being read above this one, so that a cycle ends; it
     is per branch, so siblings that share a target each read it. `done` keeps
@@ -544,7 +550,7 @@ def requirement(gav: str, as_platform: bool = False, path: frozenset = frozenset
     group, artifact, version = gav.split(":")
     status, pom_text = fetch(group, artifact, version, "pom")
     if status != "ok":
-        done[key] = (None, [f"{'no' if status == 'missing' else 'unreadable'}-pom"])
+        done[key] = ({}, [f"{'no' if status == 'missing' else 'unreadable'}-pom"])
         return done[key]
     try:
         versions, problems, others, follow, pending = pom_versions(
@@ -571,20 +577,32 @@ def requirement(gav: str, as_platform: bool = False, path: frozenset = frozenset
             problems.append("unparsable-module")
     elif status == "unreadable":
         problems.append("unreadable-module")
-    answered = set()  # targets that yielded a Kotlin version
+    answers: dict[str, dict[str, str]] = {}  # each target's Kotlin modules and versions
     for target, target_as_platform in follow:
         if target in path:
             continue  # a cycle: the module is already being read further up
-        found, target_problems = requirement(target, target_as_platform, path, done)
-        if found:
-            versions.append(found)
-            answered.add(target)
+        found, target_problems = lookup(target, target_as_platform, path, done)
+        answers[target] = found
+        versions += found.items()
         problems += [f"{target.split(':')[1]}:{problem}" for problem in target_problems]
+    # A pending versionless dependency is settled only by a platform that resolves
+    # that very module — or `kotlin-bom`, which aligns every Kotlin module.
     for module, platforms in pending:
-        if not answered.intersection(platforms):
+        if not any(module in answers.get(platform, {}) or "kotlin-bom" in answers.get(platform, {})
+                   for platform in platforms):
             problems.append(f"unresolved-{module}-version")
-    done[key] = (highest(versions), problems)
+    modules: dict[str, str] = {}
+    for module, found_version in versions:
+        if module not in modules or compare(found_version, modules[module]) > 0:
+            modules[module] = found_version
+    done[key] = (modules, problems)
     return done[key]
+
+
+def requirement(gav: str, as_platform: bool = False) -> tuple[str | None, list[str]]:
+    """Returns the module's Kotlin requirement (`None` if it has none) and problems."""
+    modules, problems = lookup(gav, as_platform)
+    return highest(list(modules.values())), problems
 
 
 def run_requirement(args: argparse.Namespace) -> int:
@@ -594,7 +612,7 @@ def run_requirement(args: argparse.Namespace) -> int:
             return 2
     failed = False
     for gav in args.gav:
-        found, problems = requirement(gav)
+        found, problems = requirement(gav, args.platform)
         if problems and not found:
             shown = "unverifiable"
         elif problems:
@@ -625,6 +643,9 @@ def main(argv: list[str]) -> int:
     cap.add_argument("--root", default=".", help="the repository root (default: .)")
     check = commands.add_parser("requirement", help="read modules' Kotlin requirements")
     check.add_argument("--cap", help="judge each requirement against this cap")
+    check.add_argument("--platform", action="store_true",
+                       help="read the modules as platforms (BOMs): their managed versions and"
+                            " constraints count; never use it for an ordinary library")
     check.add_argument("gav", nargs="+", help="GROUP:ARTIFACT:VERSION of each module")
     args = parser.parse_args(argv)
     return run_cap(args) if args.command == "cap" else run_requirement(args)

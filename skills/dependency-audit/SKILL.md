@@ -164,11 +164,13 @@ included.
      lists them in one call. Read a file only when its version is computed
      rather than a literal.
 
-   Pass all of them to one `requirement` call. `verdict=above-cap` on a module
-   the diff adds or changes is a **Must fix**; on a `local/` version pinned
-   before the diff, a **Should fix** marked *pre-existing*. Name the requirement
-   and the cap in both. `verdict=unverifiable` is a **Should fix**: quote the
-   `reason` and ask the author to verify it. Never count it as "no requirement".
+   Pass all of them to one `requirement` call, and any BOM among them to a
+   second call with `--platform` (the skill's step 3). `verdict=above-cap` on a
+   module the diff adds or changes is a **Must fix**; on a `local/` version
+   pinned before the diff, a **Should fix** marked *pre-existing*. Name the
+   requirement and the cap in both. `verdict=unverifiable` is a **Should fix**:
+   quote the `reason` and ask the author to verify it. Never count it as "no
+   requirement".
 
 ## Output format
 

@@ -120,9 +120,10 @@ it, whether or not a newer version exists.
 - **Any other artifact, `local/` included** — read the candidate's **Kotlin
   requirement** with the `kotlin-version-cap` skill's step 3: pass every module
   the object declares to `kotlin_cap.py requirement --cap <cap>` and take the
-  highest (for `local/`, the first module that declares one). When
-  the requirement exceeds the cap, walk down the accepted versions, newest first,
-  and take the first one whose requirement fits. Take the version list from
+  highest (for `local/`, the first module that declares one). Check a
+  `DependencyWithBom` object's `bom` too, in a separate call with `--platform`.
+  When the requirement exceeds the cap, walk down the accepted versions, newest
+  first, and take the first one whose requirement fits. Take the version list from
   `maven-metadata.xml` —
   `https://repo1.maven.org/maven2/<groupPath>/<artifact>/maven-metadata.xml`,
   its `https://plugins.gradle.org/m2/…` equivalent for a Gradle plugin
