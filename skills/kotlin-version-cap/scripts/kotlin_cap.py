@@ -452,6 +452,8 @@ def pom_versions(text: str, as_platform: bool = False, own: tuple[str, str, str]
                 problems.append(f"unresolved-bom:{coordinates}")
         elif as_platform and kotlin:
             declared.append((entry["artifactId"], entry.get("version")))
+        elif as_platform and kotlin is None:
+            problems.append(f"unresolved-managed:{coordinates}")  # may manage a Kotlin module
     has_bom = any(artifact == "kotlin-bom" and version for artifact, version in declared)
     boms = [target for target, platform in follow if platform]  # imported, not Kotlin's
     versions, pending = [], []

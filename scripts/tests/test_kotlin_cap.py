@@ -683,6 +683,18 @@ class KotlinCapTest(unittest.TestCase):
         self.assertEqual(self.requirement("--cap", "2.4.10", "--platform", gav),
                          ([f"{gav} requirement=2.5.0 verdict=above-cap"], 1))
 
+    def test_a_platform_with_an_unresolved_managed_kotlin_coordinate_is_unverifiable(self) -> None:
+        gav = "com.example:open-bom:1.0"
+        self.publish(gav, "pom", pom(
+            "<dependencyManagement><dependencies><dependency><groupId>${who}</groupId>"
+            "<artifactId>kotlin-stdlib</artifactId><version>2.4.21</version></dependency>"
+            "</dependencies></dependencyManagement>"))
+        self.assertEqual(self.requirement("--cap", "2.4.10", "--platform", gav),
+                         ([f"{gav} requirement=unverifiable verdict=unverifiable"
+                           " reason=unresolved-managed:${who}:kotlin-stdlib"], 1))
+        # Read as a library, its managed entries stay with it.
+        self.assertEqual(self.requirement(gav)[0], [f"{gav} requirement=none"])
+
     def relocated(self, gav: str, to_artifact: str) -> None:
         self.publish(gav, "pom", pom("<distributionManagement><relocation>"
                                      f"<artifactId>{to_artifact}</artifactId>"
