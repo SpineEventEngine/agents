@@ -17,28 +17,17 @@ wrapper, which `config` distributes to every repository.
 
 ## Why
 
-Tool code does not run on the Kotlin it was compiled with; it runs on Gradle's.
+Tool code runs on the Kotlin embedded in Gradle, not on the one it was compiled
+with.
 
-- Gradle's Kotlin DSL pins the embedded Kotlin on every `.gradle.kts` buildscript
-  classpath with `strictly` constraints ("Pinned to the embedded Kotlin"):
-  `kotlin-stdlib` and `kotlin-reflect` at the embedded version, and
-  `org.jetbrains:annotations` at `13.0`.
-- A tool artifact built with a newer Kotlin carries that Kotlin in its metadata.
-  Its POM imports `kotlin-bom:<newer>` and depends on `kotlin-stdlib:<newer>`, and
-  its Gradle Module Metadata adds the BOM as a platform with
-  `endorseStrictVersions: true`. Applying such a plugin through `plugins {}` then
-  fails resolution with "Component is the target of multiple version constraints
-  with conflicting requirements" and "Cannot find a version of
-  'org.jetbrains:annotations' that satisfies the version constraints".
-- Forcing Kotlin in the consumer's `buildscript` only satisfies resolution. Build
-  scripts and plugins still load the distribution's own
-  `lib/kotlin-stdlib-<embedded>.jar`, so tool code compiled against a newer stdlib
-  risks `NoSuchMethodError` at run time. Only the compiler for project sources
-  follows the `kotlin("jvm")` plugin version.
+- Gradle pins its embedded Kotlin libraries with `strictly` constraints on every
+  `.gradle.kts` buildscript classpath. A tool artifact whose metadata asks for a
+  newer `kotlin-stdlib` or `kotlin-bom` then fails to resolve.
+- Forcing the newer Kotlin in the consumer only gets past resolution: scripts
+  still load Gradle's own stdlib, so the tool risks `NoSuchMethodError`.
 
-Seen in October 2026: `config` moved to Kotlin `2.4.21` while its wrapper was
-Gradle `9.8.1` (embedded Kotlin `2.4.10`). Spine Compiler builds made with `2.4.21`
-stopped resolving in consumers, while the builds made with `2.4.10` kept working.
+In October 2026, Kotlin `2.4.21` under the Gradle `9.8.1` wrapper, which embeds
+`2.4.10`, made Spine Compiler builds unresolvable in consumers.
 
 ## Computing the cap
 
