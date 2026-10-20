@@ -269,33 +269,27 @@ class Pom:
                 values[element.tag] = element.text.strip()
         return values
 
-    def kotlin_dependencies(self) -> list[tuple[str, str | None]]:
-        """`(artifactId, version)` of Kotlin dependencies and imported Kotlin BOMs.
+    def entries(self, path: str) -> list[dict[str, str | None]]:
+        """The dependency elements under `path`, field by field."""
+        fields = ("groupId", "artifactId", "version", "scope", "optional", "type", "classifier")
+        return [{field: self._text(element, field) for field in fields}
+                for element in self.root.findall(path)]
 
-        Only dependencies a consumer receives count: test, provided, system, and
-        optional ones stay with the library.
-        """
-        found = []
-        for dependency in self.root.findall("dependencies/dependency"):
-            artifact = self._text(dependency, "artifactId") or ""
-            if (self._text(dependency, "scope") in NON_TRANSITIVE_SCOPES
-                    or self._text(dependency, "optional") == "true"):
-                continue
-            if self._text(dependency, "groupId") == KOTLIN_GROUP and is_kotlin_artifact(artifact):
-                found.append((artifact, self._text(dependency, "version")))
-        for dependency in self.root.findall("dependencyManagement/dependencies/dependency"):
-            if (self._text(dependency, "groupId") == KOTLIN_GROUP
-                    and self._text(dependency, "artifactId") == "kotlin-bom"
-                    and self._text(dependency, "scope") == "import"):
-                found.append(("kotlin-bom", self._text(dependency, "version")))
-        return found
 
-    def managed_version(self, artifact: str) -> str | None:
-        for dependency in self.root.findall("dependencyManagement/dependencies/dependency"):
-            if (self._text(dependency, "groupId") == KOTLIN_GROUP
-                    and self._text(dependency, "artifactId") == artifact):
-                return self._text(dependency, "version")
-        return None
+def merge(chain: list[Pom], path: str) -> list[dict[str, str | None]]:
+    """Merges the dependency entries of a POM and its ancestors, as Maven does.
+
+    Entries are keyed by group, artifact, type, and classifier. A child's fields
+    override its parent's, and the fields it leaves out are inherited.
+    """
+    merged: dict[tuple, dict[str, str | None]] = {}
+    for pom in reversed(chain):  # the farthest ancestor first
+        for entry in pom.entries(path):
+            key = (entry["groupId"], entry["artifactId"], entry["type"] or "jar",
+                   entry["classifier"])
+            given = {field: value for field, value in entry.items() if value is not None}
+            merged[key] = {**merged.get(key, {}), **given}
+    return list(merged.values())
 
 
 def resolve(value: str, properties: dict[str, str]) -> str | None:
@@ -330,12 +324,28 @@ def pom_versions(text: str) -> tuple[list[str], list[str]]:
     for pom in reversed(chain):
         properties.update(pom.properties())
 
-    declared = [dependency for pom in chain for dependency in pom.kotlin_dependencies()]
+    # Only what a consumer receives counts: test, provided, system, and optional
+    # dependencies stay with the library. Filter after merging, so that a child
+    # can override an inherited dependency's scope or `optional` flag.
+    def is_kotlin(entry: dict[str, str | None]) -> bool:
+        return (entry.get("groupId") == KOTLIN_GROUP
+                and is_kotlin_artifact(entry.get("artifactId") or ""))
+
+    managed = [entry for entry in merge(chain, "dependencyManagement/dependencies/dependency")
+               if is_kotlin(entry)]
+    declared = [(entry["artifactId"], entry.get("version"))
+                for entry in merge(chain, "dependencies/dependency")
+                if is_kotlin(entry) and entry.get("scope") not in NON_TRANSITIVE_SCOPES
+                and entry.get("optional") != "true"]
+    declared += [("kotlin-bom", entry.get("version")) for entry in managed
+                 if entry["artifactId"] == "kotlin-bom" and entry.get("scope") == "import"]
     has_bom = any(artifact == "kotlin-bom" and version for artifact, version in declared)
     versions = []
     for artifact, version in declared:
         if version is None:
-            version = next((v for v in (p.managed_version(artifact) for p in chain) if v), None)
+            version = next((entry.get("version") for entry in managed
+                            if entry["artifactId"] == artifact and entry.get("scope") != "import"),
+                           None)
         if version is None:
             if not has_bom:
                 problems.append(f"unresolved-{artifact}-version")
@@ -363,16 +373,27 @@ def module_versions(text: str) -> tuple[list[str], list[str], list[str]]:
         if target:
             redirects.append(f"{target['group']}:{target['module']}:{target['version']}")
             continue
+        settled, versionless = set(), []
         for key in ("dependencies", "dependencyConstraints"):
             for dependency in variant.get(key, []):
                 module = dependency.get("module", "")
-                if dependency.get("group") == KOTLIN_GROUP and is_kotlin_artifact(module):
-                    spec = dependency.get("version", {})
-                    version = spec.get("strictly") or spec.get("requires") or spec.get("prefers")
-                    if version and is_concrete(version):
-                        versions.append(version)
-                    elif version:
-                        problems.append(f"unresolved-{module}-version:{version}")
+                if dependency.get("group") != KOTLIN_GROUP or not is_kotlin_artifact(module):
+                    continue
+                spec = dependency.get("version") or {}
+                version = spec.get("strictly") or spec.get("requires") or spec.get("prefers")
+                if not version:
+                    versionless.append(module)
+                elif is_concrete(version):
+                    versions.append(version)
+                    settled.add(module)
+                else:
+                    problems.append(f"unresolved-{module}-version:{version}")
+        # A versionless dependency takes its version from a constraint or a platform.
+        # A Kotlin BOM in the same variant settles every Kotlin module; anything
+        # else (another platform) is not read here, so the version stays unknown.
+        for module in versionless:
+            if module not in settled and "kotlin-bom" not in settled:
+                problems.append(f"unresolved-{module}-version")
     return versions, problems, redirects
 
 

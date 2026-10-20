@@ -371,6 +371,65 @@ class KotlinCapTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("requirement=2.4.0+ verdict=unverifiable", lines[0])
 
+    def child_of_parent_with_stdlib(self, name: str, child_dependency: str) -> str:
+        """Publishes a parent declaring `kotlin-stdlib:2.5.0` and a child of it."""
+        self.publish("com.example:kotlin-parent:1", "pom", pom(
+            f"<dependencies>{kotlin_dependency('kotlin-stdlib', '2.5.0')}</dependencies>"))
+        gav = f"com.example:{name}:1.0"
+        parent = ("<parent><groupId>com.example</groupId><artifactId>kotlin-parent</artifactId>"
+                  "<version>1</version></parent>")
+        body = f"<dependencies>{child_dependency}</dependencies>" if child_dependency else ""
+        self.publish(gav, "pom", pom(body, parent))
+        return gav
+
+    def test_an_inherited_dependency_counts(self) -> None:
+        gav = self.child_of_parent_with_stdlib("heir", "")
+        self.assertEqual(self.requirement(gav)[0], [f"{gav} requirement=2.5.0"])
+
+    def test_a_child_overrides_an_inherited_version(self) -> None:
+        gav = self.child_of_parent_with_stdlib(
+            "lowered", kotlin_dependency("kotlin-stdlib", "2.4.0"))
+        lines, code = self.requirement("--cap", "2.4.10", gav)
+        self.assertEqual(code, 0)
+        self.assertEqual(lines, [f"{gav} requirement=2.4.0 verdict=within-cap"])
+
+    def test_a_child_overrides_an_inherited_scope_or_optional_flag(self) -> None:
+        for name, extra in (("test-only", "<scope>test</scope>"),
+                            ("optional", "<optional>true</optional>")):
+            with self.subTest(name):
+                dependency = ("<dependency><groupId>org.jetbrains.kotlin</groupId>"
+                              f"<artifactId>kotlin-stdlib</artifactId>{extra}</dependency>")
+                gav = self.child_of_parent_with_stdlib(name, dependency)
+                self.assertEqual(self.requirement(gav)[0], [f"{gav} requirement=none"])
+
+    def versionless_module(self, platform_version: str | None) -> str:
+        bom = (',{"group":"org.jetbrains.kotlin","module":"kotlin-bom",'
+               '"attributes":{"org.gradle.category":"platform"},'
+               f'"version":{{"requires":"{platform_version}"}}}}') if platform_version else ""
+        return ('{"variants":[{"name":"runtimeElements","dependencies":['
+                f'{{"group":"org.jetbrains.kotlin","module":"kotlin-stdlib"}}{bom}]}}]}}')
+
+    def test_a_versionless_dependency_takes_its_kotlin_bom_platform_version(self) -> None:
+        gav = "com.example:platformed:1.0"
+        self.publish(gav, "pom", pom())
+        self.publish(gav, "module", self.versionless_module("2.4.21"))
+        lines, _ = self.requirement("--cap", "2.4.10", gav)
+        self.assertEqual(lines, [f"{gav} requirement=2.4.21 verdict=above-cap"])
+
+    def test_a_versionless_dependency_with_nothing_to_settle_it_is_unverifiable(self) -> None:
+        for name, body, shown in (("bare", "", "unverifiable"),
+                                  ("pom-lower", "<dependencies>"
+                                   f"{kotlin_dependency('kotlin-stdlib', '2.4.0')}</dependencies>",
+                                   "2.4.0+")):
+            with self.subTest(name):
+                gav = f"com.example:{name}:1.0"
+                self.publish(gav, "pom", pom(body))
+                self.publish(gav, "module", self.versionless_module(None))
+                lines, code = self.requirement("--cap", "2.4.10", gav)
+                self.assertEqual(code, 1)
+                self.assertEqual(lines, [f"{gav} requirement={shown} verdict=unverifiable"
+                                         " reason=unresolved-kotlin-stdlib-version"])
+
     def test_a_malformed_coordinate_is_a_usage_error(self) -> None:
         self.assertEqual(self.requirement("com.example:lib")[1], 2)
 
