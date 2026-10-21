@@ -10,8 +10,11 @@ description: >
   respecting their pin rationale and "keep in sync with
   `io.spine.dependency.*`" comments. External dependency scopes accept only
   released versions; the `local` scope also accepts snapshots and pre-releases
-  published from sibling Spine repos. Use when asked to refresh dependency
-  versions, bump libraries, run a dependency audit, or "see what's stale".
+  published from sibling Spine repos. Every scope stays within the Kotlin
+  version cap: Kotlin itself never moves above the Kotlin embedded in the
+  Gradle version of `config`'s wrapper, and neither does any release that
+  requires a newer Kotlin. Use when asked to refresh dependency versions, bump
+  libraries, run a dependency audit, or "see what's stale".
 ---
 
 # Update dependencies
@@ -27,6 +30,13 @@ are **excluded**.
 `local/` is the deliberate exception. It holds Spine SDK dependencies published
 from sibling Spine repositories, and it may move to newer snapshots or
 pre-releases such as `2.0.0-SNAPSHOT.388` or `2.1.0-RC1`.
+
+Every scope, `local/` included, is also bound by the **Kotlin version cap**,
+which the `kotlin-version-cap` skill defines and computes. Our tool projects run on
+the Kotlin embedded in Gradle, so the Kotlin family never moves above the Kotlin
+embedded in the Gradle version of `config`'s wrapper. No artifact moves to a
+version whose own Kotlin requirement exceeds that cap either. "Latest accepted"
+below always means "within the cap".
 
 Beyond that catalogue, also refresh the **build script's own** dependencies —
 the Gradle plugins and `buildSrc` libraries declared in
@@ -68,6 +78,13 @@ a hint.
 3. Note the current branch — every change this skill makes is a candidate for
    a single `chore(deps): refresh external versions` commit at the end; the
    skill itself does NOT commit. The user decides.
+4. Compute the **Kotlin cap** with the `kotlin-version-cap` skill's step 1
+   (`python3 .agents/skills/kotlin-version-cap/scripts/kotlin_cap.py cap`), and
+   record its output for the report. If the cap stays unknown, **freeze** as
+   that skill says: make no edit to the Kotlin family or to any artifact that
+   has a Kotlin requirement, and update only artifacts with none. Do not use the
+   current `Kotlin.runtimeVersion` as a stand-in ceiling — it may itself be
+   above the real cap.
 
 ## Per-file workflow
 
@@ -86,9 +103,47 @@ For each `*.kt` file in scope, apply the deterministic mechanics in
    / `.Alpha` / `.Beta` suffixes. `local/` keeps them as candidates.
 4. **Compare versions** by semver; only update when `latest > current`.
 
-Then apply the edit and handle `local/` artifacts:
+Then apply the Kotlin cap and the edit, and handle `local/` artifacts:
 
-### 5. Apply the edit
+### 5. Apply the Kotlin cap
+
+The cap may lower the target below `latest`, or cancel the update. The rule and
+the checks come from the `kotlin-version-cap` skill. The first two bullets apply
+to the candidates that step 4 kept; the third applies to every value listed in
+it, whether or not a newer version exists.
+
+- **Kotlin family** — `Kotlin.runtimeVersion`, `Kotlin.embeddedVersion`, and any
+  other hard-coded `org.jetbrains.kotlin:*` version. The target is the cap
+  itself (Gradle embeds only released Kotlin versions), or `latest` when that is
+  lower. Update only when the target is newer than the current value. List any
+  newer release held back under **Capped**.
+- **Any other artifact, `local/` included** — read the candidate's **Kotlin
+  requirement** with the `kotlin-version-cap` skill's step 3: pass every module
+  the object declares to `kotlin_cap.py requirement --cap <cap>` and take the
+  highest (for `local/`, the first module that declares one). Check a
+  `DependencyWithBom` object's `bom` too, in a separate call with `--platform`.
+  When the requirement exceeds the cap, walk down the accepted versions, newest
+  first, and take the first one whose requirement fits. Take the version list from
+  `maven-metadata.xml` —
+  `https://repo1.maven.org/maven2/<groupPath>/<artifact>/maven-metadata.xml`,
+  its `https://plugins.gradle.org/m2/…` equivalent for a Gradle plugin
+  published only to the Plugin Portal, or the `releases` and `snapshots`
+  equivalents in the Spine Artifact Registry for `local/` — regardless of the
+  URL the file hints at: a GitHub `/releases/latest` page names only the newest
+  release. Requirements rarely drop between releases, so the walk is short. That
+  version becomes the target if it is still newer than the current one;
+  otherwise make no edit. List the held-back newest version and its requirement
+  under **Capped**. Treat an unverifiable requirement as above the cap: hold the
+  version back and say why.
+- **Already above the cap** — check every Kotlin-family value, and the
+  requirement of the current version of **every** object in scope, in all
+  scopes, build-script libraries and plugins included. Current versions are
+  usually in the local Gradle cache, so the script reads them without network
+  calls. Never downgrade: leave each one that exceeds the cap and list it under
+  **Above the cap**. Rolling back is a deliberate change (see "Moving the cap"
+  in the `kotlin-version-cap` skill), not something this skill does.
+
+### 6. Apply the edit
 
 - Replace the `version` literal with the new value. Use a precise replacement
   anchored on the full line (`const val version = "<old>"` →
@@ -105,7 +160,7 @@ Then apply the edit and handle `local/` artifacts:
   separate edit is needed. If the BOM version is hard-coded, update it too.
 - Preserve indentation, comment style, and surrounding blank lines exactly.
 
-### 6. Watch for `local/` artifacts
+### 7. Watch for `local/` artifacts
 
 `local/` holds Spine SDK dependencies (Base, CoreJvm, ModelCompiler, …) that
 are published from sibling Spine repos. This scope accepts snapshots and
@@ -156,12 +211,19 @@ the policy is:
    rewrite those.
 
 The major-bump guard in **Safety** applies to **independent** build-script
-versions just as it does to dependency objects.
+versions just as it does to dependency objects. So does the Kotlin cap, for
+pinned, synced, and independent versions alike. `kotlinEmbeddedVersion` belongs
+to the Kotlin family even though no pin comment says so. Other Gradle plugins
+(Dokka, Detekt, Kover, …) get the Kotlin-requirement check too, since `buildSrc`
+also runs on Gradle's embedded Kotlin.
 
 ## Report
 
 When the run completes, emit a Markdown report with these sections:
 
+- **Kotlin cap** — one line: the Gradle version of `config`'s wrapper, the cap it
+  implies, and the sources the script reported (`gradle_source`, `cap_source`).
+  Say so plainly if the cap stayed unknown or may be stale.
 - **Updated** — table of `file | objectName | old → new | source URL`.
 - **Already current** — file/object pairs whose version was already the
   newest accepted version.
@@ -170,6 +232,14 @@ When the run completes, emit a Markdown report with these sections:
   `synced` version whose `io.spine.dependency.*` object could not be located.
 - **Filtered pre-releases** — newer versions found but rejected because they
   were RC/SNAPSHOT/alpha/etc. Applies only outside `local/`.
+- **Capped** — newer versions held back by the Kotlin cap, as a table of
+  `file | objectName | current → applied (or unchanged) | held back`
+  plus a `Kotlin requirement` column. Includes Kotlin-family releases
+  above the cap.
+- **Above the cap** — values that already exceed the cap and were left as they
+  are: Kotlin-family versions, and artifacts in any scope whose current version
+  requires a newer Kotlin. Each needs a deliberate rollback; see "Moving the
+  cap" in the `kotlin-version-cap` skill.
 - **`local/` bumps to confirm** — every `local/` change called out separately,
   including snapshot and pre-release targets.
 - **Build script — updated** — `buildSrc/build.gradle.kts` versions changed,
@@ -205,6 +275,10 @@ End with the suggested next steps:
   authority.
 - Never edit `version.gradle.kts` — that's the `bump-version` skill's
   responsibility.
+- Never move a version above the Kotlin cap, not even when the user asks to
+  "update everything" or passes `--include-majors`. Never downgrade a value that
+  already exceeds the cap either; report it under **Above the cap**. Raising the
+  cap means bumping `config`'s Gradle wrapper first (the `bump-gradle` skill).
 - In `buildSrc/build.gradle.kts`, never bump a **pinned** version past its stated
   ceiling, and never silently drop or edit a pin rationale or a "keep in sync"
   comment. When a synced version's referenced `io.spine.dependency.*` object

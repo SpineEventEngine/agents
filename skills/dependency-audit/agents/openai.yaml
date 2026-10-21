@@ -3,4 +3,5 @@ interface:
   short_description: "Review dependency declaration diffs"
   default_prompt: >-
     Use $dependency-audit to review dependency declaration changes for version
-    sanity, BOM consistency, deprecations, and convention drift.
+    sanity, BOM consistency, the Kotlin version cap, deprecations, and
+    convention drift.

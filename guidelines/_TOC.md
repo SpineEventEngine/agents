@@ -39,3 +39,5 @@
 33. [Raise test coverage](../skills/raise-coverage/SKILL.md)
 34. [Kotlin JVM tester](../skills/kotlin-jvm-tester/SKILL.md) — how to write JVM tests
     in Kotlin for Spine: naming, structure, helpers, and Java coexistence
+35. [Kotlin version cap](../skills/kotlin-version-cap/SKILL.md) — the SDK's Kotlin never
+    exceeds the Kotlin embedded in the Gradle version of `config`'s wrapper

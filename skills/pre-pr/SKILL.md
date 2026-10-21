@@ -88,7 +88,9 @@ Pre-PR progress:
     `*.tsx`, `*.js`, `*.jsx`, `*.mjs`, `*.cjs`, or `*.go` file. These trigger
     no Gradle build and no code reviewer; `review-docs` reviews their prose
     (step 4)
-  - **deps** — any file under `buildSrc/src/main/kotlin/io/spine/dependency/` changed
+  - **deps** — any file under `buildSrc/src/main/kotlin/io/spine/dependency/` changed,
+    or `buildSrc/build.gradle.kts` changed (it declares `kotlinEmbeddedVersion`,
+    which the Kotlin version cap covers)
   - **site** — a Hugo site exists and any file under `docs/**` or `lychee.toml`
     changed (triggers Hugo link check; pure `README.md` or KDoc-only changes do
     *not* count). If `lychee.toml` changes but no Hugo site exists, keep

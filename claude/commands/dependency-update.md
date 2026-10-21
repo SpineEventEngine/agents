@@ -5,7 +5,8 @@ description: >
 argument-hint: "[--dry-run] [paths...]"
 allowed-tools: >-
   Read, Edit, Write, Grep, Glob, WebFetch, Bash(git status:*),
-  Bash(git diff:*), Bash(./gradlew build:*), Bash(./gradlew clean build:*)
+  Bash(git diff:*), Bash(./gradlew build:*), Bash(./gradlew clean build:*),
+  Bash(python3 .agents/skills/kotlin-version-cap/scripts/kotlin_cap.py:*)
 model: sonnet
 ---
 
@@ -18,6 +19,11 @@ Follow the `dependency-update` skill exactly:
   `// https://...` or KDoc `@see`). If no URL, fall back to Maven Central
   AND back-fill the URL comment.
 - Filter out snapshots, RCs, alphas, betas, milestones, EAPs, and `-dev` builds.
+- Apply the Kotlin version cap (the `kotlin-version-cap` skill): never
+  raise Kotlin above the Kotlin embedded in the Gradle version of `config`'s
+  wrapper, and never adopt a release that requires a newer Kotlin than that.
+  Report held-back versions under "Capped" and values already above the cap under
+  "Above the cap".
 - Apply the edit. Do NOT commit; emit the report described in the skill.
 - Flag `local/` (Spine SDK) updates separately so the user can decide whether to bump in lockstep.
 - After the run, suggest the user review the diff and run `./gradlew build`
