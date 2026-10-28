@@ -1,8 +1,9 @@
 # Documentation & comments
 
 Language-specific API-documentation conventions live on dedicated pages:
-[Javadoc](javadoc.md) and [KDoc](kdoc.md). English grammar, punctuation,
-and spelling rules — for every language — are catalogued in [English style](english-style.md).
+[Javadoc](javadoc.md), [KDoc](kdoc.md), and [Protobuf](protobuf.md#api-documentation).
+English grammar, punctuation, and spelling rules — for every language — are
+catalogued in [English style](english-style.md).
 
 ## Commenting guidelines
 - Avoid inline comments in production code unless necessary.
@@ -66,10 +67,59 @@ above):
 /** `KoverConfig` feeds the file into Kover. */
 ```
 
-## Protobuf file headers
-- In `.proto` files, a multi-paragraph documentation header must end with a
-  trailing empty comment line (`//`).
-- Single-paragraph headers do not require the trailing empty comment line.
+## Protobuf doc comments
+
+These rules cover every doc comment in a `.proto` file, whatever it
+documents: the file as a whole, a message, a field, a `oneof`, an enum or enum
+value, a service, or an RPC.
+
+- A doc comment of **one paragraph** ends with its last line of text. Do
+  **not** add a trailing empty comment line (`//`) after it.
+- A doc comment of **two or more paragraphs** ends with a trailing empty
+  comment line (`//`) after its last paragraph.
+
+The copyright notice is not a doc comment and keeps its own layout.
+
+Right — no `//` after one paragraph, a `//` after two:
+
+```proto
+// The catch-up has been started.
+message CatchUpStarted {
+
+    CatchUpId id = 1;
+}
+
+// The catch-up has moved to the `FINALIZING` status.
+//
+// The catch-up emits this event for itself.
+//
+message FinalizationStarted {
+
+    CatchUpId id = 1;
+}
+```
+
+Wrong — a `//` after one paragraph, none after two:
+
+```proto
+// The catch-up has been started.
+//
+message CatchUpStarted {
+
+    CatchUpId id = 1;
+}
+
+// The catch-up has moved to the `FINALIZING` status.
+//
+// The catch-up emits this event for itself.
+message FinalizationStarted {
+
+    CatchUpId id = 1;
+}
+```
+
+[Protobuf code style](protobuf.md#api-documentation) states the same rule and
+shows it on messages and fields.
 
 ## Capitalisation in headers
 

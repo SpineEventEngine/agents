@@ -24,8 +24,8 @@ The authoritative standards live in `.agents/`:
   diagram at `.agents/guidelines/widow-runt-orphan.jpg`).
 - `.agents/guidelines/english-style.md` — the English grammar, punctuation,
   and spelling catalog, with per-language "Never edit" protections (Check E).
-- `.agents/guidelines/protobuf.md` — Protobuf doc-comment paragraph and
-  blank-line structure (Check A's Protobuf rule).
+- `.agents/guidelines/protobuf.md` — Protobuf doc-comment paragraphs and
+  the trailing empty comment line (Check A's Protobuf rule).
 - `.agents/guidelines/documentation-tasks.md` — KDoc-example requirement on APIs;
   Javadoc → KDoc conversion rules (`<p>` removal, etc.).
 - `.agents/skills/writer/SKILL.md` — Markdown conventions (footnote-style
@@ -40,9 +40,9 @@ The authoritative standards live in `.agents/`:
    `git diff <base>...HEAD` depending on what the user describes. Restrict
    to files matching:
    - `**/*.kt`, `**/*.kts`, `**/*.java` — KDoc/Javadoc inside sources
-   - `**/*.proto` — Protobuf doc comments: type, field, enum, and service
-     docs as well as the file header (a primary API surface, not only the
-     header)
+   - `**/*.proto` — Protobuf doc comments, whatever they document: the file
+     as a whole, a message, a field, a `oneof`, an enum or enum value, a
+     service, or an RPC (a primary API surface)
    - `**/*.ts`, `**/*.tsx`, `**/*.js`, `**/*.jsx`, `**/*.mjs`, `**/*.cjs` —
      TSDoc/JSDoc and other comments, in repos that have them
    - `**/*.go` — Go doc comments and other comments, in repos that have them
@@ -118,10 +118,15 @@ those languages review the prose (C/D/E) and leave their structure alone.
   unit and resolves fine — do not flag it. Fix: demote to a code span
   (`` `KoverConfig` ``). See the "No doc links to `buildSrc` / `config` types"
   section of `.agents/guidelines/documentation.md`.
-- **Multi-paragraph Protobuf doc comments end with an empty comment line.**
-  Per `.agents/guidelines/protobuf.md` § API documentation, any `.proto` file
-  header, message, or field doc comment spanning two or more paragraphs must
-  end with a trailing empty comment line (`//`).
+- **A Protobuf doc comment ends with `//` if, and only if, it has two or
+  more paragraphs.** Per `.agents/guidelines/protobuf.md` § API
+  documentation, this holds for every `.proto` doc comment, whatever it
+  documents: the file as a whole, a message, a field, a `oneof`, an enum or
+  enum value, a service, or an RPC. A doc comment of two or more
+  paragraphs must end with a trailing empty comment line (`//`); a
+  one-paragraph doc comment must not. Either mistake is a Should-fix: a
+  trailing `//` after a single paragraph, or none after the last of several.
+  The copyright notice is not a doc comment; leave its layout alone.
 - **Line length.** KDoc / Javadoc body lines wrap at the limit from
   `.agents/guidelines/coding.md` frontmatter (`max-line-length`), applied to
   changed lines only. Long body lines are **Should fix**; code lines around
@@ -206,6 +211,7 @@ Three sections, in this order:
   (`<p>` tags) left in Kotlin KDoc, broken Markdown links, and
   meaning-distorting English errors (Check E).
 - **Should fix** — TODO format, inline-comment overuse in production,
+  an unwanted or missing trailing `//` in a Protobuf doc comment (Check A),
   inline external links that should be footnote-style, missing typographic
   quotes (or unwanted ones), widow/runt/orphan/river paragraphs,
   fenced-vs-indented code blocks, KDoc/Javadoc body or Markdown lines
