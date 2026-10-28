@@ -49,8 +49,11 @@ Spine-related imports should follow after an empty line break.
 
 The English in doc comments follows the rules in [English style](english-style.md).
 
-If documentation of a type or a field fits into one paragraph, do NOT add an empty line after
-the paragraph.
+The two rules below hold for every doc comment in a `.proto` file, whatever it documents:
+the file as a whole, a message, a field, a `oneof`, an enum or enum value, a service, or an RPC.
+The copyright notice in the file header is not a doc comment and keeps its own layout.
+
+If a doc comment is a single paragraph, do NOT add an empty comment line (`//`) after it.
 
 ```proto
 // This is how to document a proto type description of which
@@ -62,7 +65,7 @@ message OneParaExample {
 }
 ```
 
-If a field or a message requires two or more paragraphs, the text should end with an empty line.
+If a doc comment has two or more paragraphs, it must end with an empty comment line (`//`).
 
 ```proto
 // Demonstrates how to document API with larger pieces of text.
