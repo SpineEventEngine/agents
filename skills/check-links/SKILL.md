@@ -29,15 +29,19 @@ skill.
 ### Pinned versions
 
 `.github/workflows/check-links.yml` is the **single source of truth** for the
-Hugo and Lychee pins. This file does not duplicate the current values
-because duplicates inevitably drift; see the workflow's `env:` block for
-the canonical `HUGO_VERSION` and `LYCHEE_VERSION_TAG`. The auto-download
-step (§2) reads `LYCHEE_VERSION_TAG` out of the workflow at runtime, so a
-workflow bump propagates automatically. Hugo is not auto-installed; the
-skill uses whichever `hugo` is on `$PATH` and only warns (does not block)
-if the installed version is older than the workflow's `HUGO_VERSION` —
-Hugo's HTML output is stable enough across minor versions that a small
-skew does not invalidate link-check results.
+Hugo, Lychee, and Dart Sass pins. This file does not duplicate the current
+values because duplicates inevitably drift; see the workflow's `env:` block
+for the canonical `HUGO_VERSION`, `LYCHEE_VERSION_TAG`, and
+`DART_SASS_VERSION`. The auto-download step (§2) reads `LYCHEE_VERSION_TAG`
+out of the workflow at runtime, so a workflow bump propagates automatically.
+Hugo is not auto-installed; the skill uses whichever `hugo` is on `$PATH` and
+only warns (does not block) if the installed version is older than the
+workflow's `HUGO_VERSION` — Hugo's HTML output is stable enough across minor
+versions that a small skew does not invalidate link-check results.
+The workflow's `DART_SASS_VERSION` pins only the `sass` that CI installs: the
+skill neither installs Dart Sass nor checks its version, and uses whichever
+`sass` is on `$PATH`. A Sass version skew can change the compiled CSS, but not
+the links in the HTML that Lychee checks.
 
 The authoritative shared config is `lychee.toml` at the repo root. Do not
 fork its exclude list — fix the source link or, if the failing URL is a known
@@ -61,14 +65,21 @@ Do not write a `FAIL` sentinel for this not-applicable case.
 
 ## Tooling
 
-The skill needs four binaries:
+The skill needs five binaries:
 
-| Tool   | Purpose                                  | Install hint                  |
-|--------|------------------------------------------|-------------------------------|
-| Hugo   | Build and serve the site                 | `brew install hugo` (extended)|
-| Node   | Hugo theme dependencies (`npm ci`)       | `brew install node`           |
-| npm    | Same                                     | bundled with Node             |
-| Lychee | Link checker                             | `brew install lychee`         |
+| Tool      | Purpose                                  | Install hint                  |
+|-----------|------------------------------------------|-------------------------------|
+| Hugo      | Build and serve the site                 | `brew install hugo` (extended)|
+| Dart Sass | Compile the theme's SCSS                 | `brew install sass/sass/sass` |
+| Node      | Hugo theme dependencies (`npm ci`)       | `brew install node`           |
+| npm       | Same                                     | bundled with Node             |
+| Lychee    | Link checker                             | `brew install lychee`         |
+
+Hugo does not bundle **Dart Sass**: it runs the `sass` binary it finds on
+`$PATH`. Hugo deprecated LibSass in v0.153.0 and will remove it, so the Spine
+theme is switching its SCSS to Dart Sass. A site on a theme version that
+compiles with Dart Sass fails to build without `sass`; a site still on LibSass
+builds fine without it.
 
 For **Lychee**, prefer a pre-installed binary on `$PATH`. If none is found,
 download the pinned release (see `LYCHEE_VERSION_TAG` in
@@ -132,6 +143,14 @@ explicitly ask, decline and exit cleanly.
   older than the workflow's `HUGO_VERSION` (parse with
   `grep -E '^[[:space:]]+HUGO_VERSION:' .github/workflows/check-links.yml | sed -E 's/.*: *"?([^"]+)"?$/\1/'`), warn but
   continue.
+- `hugo env | grep -q 'github.com/sass/dart-sass'` → checks that Hugo finds
+  Dart Sass. Hugo lists `github.com/sass/dart-sass/…` entries in its `env`
+  output only when `sass` is on `$PATH`. On a miss, warn but continue: "Dart
+  Sass not found on `$PATH`. A site whose theme compiles SCSS with Dart Sass —
+  as the Spine theme does once it moves off LibSass — fails to build without
+  it. Install it with `brew install sass/sass/sass`." Do not stop here: a site
+  still on LibSass builds without `sass`, and step 4's build tells the two
+  cases apart.
 - `node -v` and `npm -v` → must succeed. If missing, stop with Must-fix:
   "Install Node (`brew install node`) at the major version pinned by
   `node-version:` in `.github/workflows/check-links.yml`."
@@ -197,6 +216,11 @@ what CI uses in `check-links.yml` so the two builds render identical HTML.
 (The helper `${SITE_DIR}/_script/hugo-build` exists for interactive use but
 defaults to `production`; we invoke `hugo` directly to keep the env in
 lock-step with CI.)
+
+If the build fails with a `TOCSS-DART` error saying "You need to install
+Dart Sass", a template compiles SCSS with Dart Sass, and Hugo found no
+`sass` on `$PATH` (step 2 warned about it). Stop with Must-fix: "Install
+Dart Sass (`brew install sass/sass/sass`)."
 
 ### 5. Start the Hugo server in the background
 
