@@ -75,7 +75,8 @@ Pre-PR progress:
     explicitly asked to migrate away from Gradle Build Tools versioning.
 - Hugo site: detect a site only when `docs/` or `site/` contains one of
   `hugo.toml`, `hugo.yaml`, `config/hugo.toml`, `config/hugo.yaml`,
-  `config/_default/hugo.toml`, or `config/_default/hugo.yaml`.
+  `config/_default/hugo.toml`, or `config/_default/hugo.yaml`, either
+  directly or in its `_preview/` sub-tree (e.g. `docs/_preview/hugo.toml`).
 - Classify changes:
   - **proto** — any `*.proto` changed
   - **code** — any `*.kt`, `*.kts`, or `*.java` changed
