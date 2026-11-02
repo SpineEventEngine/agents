@@ -98,14 +98,19 @@ sentinel (step 8), and report the failure with the next action.
 ### 0. Detect site root and work directory
 
 Before any other step, determine `SITE_DIR` (the Hugo site root) and `WORK_DIR`
-(the directory where `npm ci` / `hugo` commands run — mirrors `.github/workflows/check-links.yml`):
+(the directory where `npm ci` / `hugo` commands run — mirrors `.github/workflows/check-links.yml`).
+A site may keep its only Hugo config in the `_preview/` sub-tree
+(e.g. `docs/_preview/hugo.toml`), so the same config paths count there too:
 
 ```bash
 SITE_DIR=""
 for dir in docs site; do
   for cfg in hugo.toml hugo.yaml \
              config/hugo.toml config/hugo.yaml \
-             config/_default/hugo.toml config/_default/hugo.yaml; do
+             config/_default/hugo.toml config/_default/hugo.yaml \
+             _preview/hugo.toml _preview/hugo.yaml \
+             _preview/config/hugo.toml _preview/config/hugo.yaml \
+             _preview/config/_default/hugo.toml _preview/config/_default/hugo.yaml; do
     if [ -f "$dir/$cfg" ]; then
       SITE_DIR="$dir"
       break 2
