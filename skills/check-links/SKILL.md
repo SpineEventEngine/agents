@@ -100,7 +100,10 @@ sentinel (step 8), and report the failure with the next action.
 Before any other step, determine `SITE_DIR` (the Hugo site root) and `WORK_DIR`
 (the directory where `npm ci` / `hugo` commands run — mirrors `.github/workflows/check-links.yml`).
 A site may keep its only Hugo config in the `_preview/` sub-tree
-(e.g. `docs/_preview/hugo.toml`), so the same config paths count there too:
+(e.g. `docs/_preview/hugo.toml`), so the same config paths count there too.
+Hugo finds such a config only when it runs in `_preview/`, so it needs
+`_preview/package-lock.json`: the `$SITE_DIR` fallback is for site-root
+configs only.
 
 ```bash
 SITE_DIR=""
@@ -113,6 +116,7 @@ for dir in docs site; do
              _preview/config/_default/hugo.toml _preview/config/_default/hugo.yaml; do
     if [ -f "$dir/$cfg" ]; then
       SITE_DIR="$dir"
+      SITE_CFG="$cfg"
       break 2
     fi
   done
@@ -124,10 +128,10 @@ fi
 
 if [ -f "${SITE_DIR}/_preview/package-lock.json" ]; then
   WORK_DIR="${SITE_DIR}/_preview"
-elif [ -f "${SITE_DIR}/package-lock.json" ]; then
+elif [ -f "${SITE_DIR}/package-lock.json" ] && [[ $SITE_CFG != _preview/* ]]; then
   WORK_DIR="${SITE_DIR}"
 else
-  echo "ERROR: No package-lock.json found under ${SITE_DIR}/_preview/ or ${SITE_DIR}/." >&2
+  echo "ERROR: Found ${SITE_DIR}/${SITE_CFG} but no package-lock.json to build it with." >&2
   exit 1
 fi
 ```
