@@ -189,18 +189,19 @@ class KotlinCapTest(unittest.TestCase):
     def test_a_version_between_rows_takes_the_row_below_it(self) -> None:
         self.assertEqual(self.cap("--gradle", "9.1.0")[0]["cap"], "2.2.0")
         self.assertEqual(self.cap("--gradle", "9.8.2")[0]["cap"], "2.4.10")
+        self.assertEqual(self.cap("--gradle", "9.9.1")[0]["cap"], "2.4.21")
 
     def test_a_version_past_the_table_is_unknown_without_its_distribution(self) -> None:
-        values, code = self.cap("--gradle", "9.8.3")
+        values, code = self.cap("--gradle", "9.9.2")
         self.assertEqual(code, 3)
         self.assertEqual(values["cap"], "unknown")
-        self.assertIn("docs.gradle.org/9.8.3", values["hint"])
+        self.assertIn("docs.gradle.org/9.9.2", values["hint"])
 
     def test_a_version_past_the_table_reads_its_unpacked_distribution(self) -> None:
-        lib = self.home / "wrapper/dists/gradle-9.9.0-bin/abc123/gradle-9.9.0/lib"
+        lib = self.home / "wrapper/dists/gradle-9.10.0-bin/abc123/gradle-9.10.0/lib"
         write(lib / "kotlin-stdlib-2.5.0.jar", "")
         write(lib / "kotlin-stdlib-common-2.5.0.jar", "")
-        values, code = self.cap("--gradle", "9.9.0")
+        values, code = self.cap("--gradle", "9.10.0")
         self.assertEqual(code, 0)
         self.assertEqual(values["cap"], "2.5.0")
         self.assertIn("distribution", values["cap_source"])
