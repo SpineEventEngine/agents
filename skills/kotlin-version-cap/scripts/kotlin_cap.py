@@ -59,8 +59,9 @@ EMBEDDED_KOTLIN = [
     ("9.6.0", "2.3.21"),
     ("9.7.0", "2.4.0"),
     ("9.8.0", "2.4.10"),
+    ("9.9.0", "2.4.21"),
 ]
-TABLE_AS_OF = "9.8.2"
+TABLE_AS_OF = "9.9.1"
 
 CONFIG_WRAPPER_URL = (
     "https://raw.githubusercontent.com/SpineEventEngine/config/master/"
